@@ -56,10 +56,31 @@ we are feeding in. In these cases we will need to return "change" back to
 ourselves.
 
 Since all currency must be transferred in the form of discrete outputs, our
-change will simply form another output of the transaction.
+change will simply form another output of the transaction. Thus a transaction
+will often take the form of 1 input -> 2 outputs, where 1 of the outputs
+is going to the other party's address and the other output goes back to
+our own address in the form of "change"
 
+It's important that change appears as another output within the same
+transaction (as opposed to a separate transaction). This allows
+a single input to be split into multiple outputs at once, and also
+guarantees that our change and transfer outputs can't be separated from
+one another.
 
 ## Blocks
+
+Blocks form the "entries" into the shared, public ledger that our
+currency depends on. Or perhaps more accurately, blocks form "pages"
+in the ledger, with transactions making up the individual entries.
+
+This is because a block is basically a collection of transactions
+that get committed to the ledger (aka the blockchain). This process
+is a bit involved but it provides the fundamental assurances on which
+the whole system is based, so it's very important.
+
+### Block Ingredients
+
+### Block Headers & Hashing
 
 * Contain multiple transactions
 
