@@ -80,9 +80,53 @@ the whole system is based, so it's very important.
 
 ### Block Ingredients
 
+There are a few pieces that go into a block
+
+1. A list of transactions (up to some maximum limit)
+2. The overall length of the block (so other nodes know how much
+data will be received as part of the block)
+3. A hash of the previous (parent) block's hash, linking this
+block to the previous one
+4. A timestamp
+5. A "nonce"
+6. The difficulty target against which the block was mined
+7. The Block hash, representing an un-changeable fingerprint of all of the
+included block data
+
 ### Block Headers & Hashing
 
-* Contain multiple transactions
+One of the main purposes of Blocks is to embed transactions in the shared
+public ledger in such a way that it's very difficult to tamper with them.
+The system accomplishes this largely through the frequent use of Cryptographic
+Hashing functions.
+
+You can read up on [hashing basics](https://en.wikipedia.org/wiki/Cryptographic_hash_function),
+but as a brief summary, you can think of a hash as a special digital fingerprint
+of some body of data. Significantly the hash is:
+
+1. Unique for all data input (change even 1 bit of the input data and you'll get a totally new hash)
+2. Unpredictable -- there's no way to predict what hash value will be generated
+by a given input
+3. Non-reversible -- given a hash, there's no way to guess the input value
+that generated it (beyond simply brute-forcing all of the possible inputs)
+
+This is tremendously useful for working with blocks, because we can use hashes
+to fingerprint all of the ingredients of each block. If anyone makes even 1 small
+change to the block, the fingerprint will be invalidated, and other nodes will be
+able to identify that something fishy is going on.
+
+### Parent Blocks and the Block Chain
+
+What's even better is that we can extend this tamper-proofing to the chain as a whole.
+We noted above that each block includes the block hash of the previous block (its parent)
+as part of its data. If that parent block were to be modified, it would generate a totally
+new hash. And since that parent hash is included as part of the current block's hash,
+it would cause that block's hash to be re-generated as well.
+
+Thus even a minor change to a block causes not just the invalidation of that block but also
+the invalidation of any blocks following it in the chain.
+
+## Mining Blocks
 
 ## Node Communication
 
