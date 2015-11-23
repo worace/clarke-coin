@@ -60,9 +60,5 @@ I assess interest we'll figure out if some sort of selection system is needed.
 * **Iteration 5** - Validating Incoming Transactions and Blocks
 * **Iteration 6** - Extended Networking: Discovering Additional Peers and Forwarding Valid Blocks and Transactions
 * **Iteration 7** - Mining: Aggregating Transactions and Solving Blocks
-
-### Possible Extensions / Additional Considerations
-
-* CUDA GPU Mining
-* Implementing Bitcoin-style Base58-Check wallet addresses
-* Implement multi-address wallets for change collection
+* **Iterations 8+** - Advanced Topics - Mining optimizations, Base58-Check encoding, multi-address wallets,
+Wallet GUI, Node DNS Server, etc.
