@@ -1,6 +1,6 @@
-## Iteration 0 - Creating Wallets, Creating Transactions, and Signing/Serializing Transactions
+# Iteration 0 - Creating Wallets, Creating Transactions, and Signing/Serializing Transactions
 
-### Wallets
+## Wallets
 
 Many cryptocurrencies include a component called a "Wallet" which
 provides a handful of tools to let users interact with their money.
@@ -12,7 +12,7 @@ In this iteration, the main functions we'll be interested in are:
 4. Serializing transactions so that they can be distributed
 over the network
 
-#### 1 - Generating and Storing a Public/Private Key Pair
+### 1 - Generating and Storing a Public/Private Key Pair
 
 Fortunately this process is fairly straightforward for us since
 there are plenty of tools out there that implement the underlying
@@ -35,7 +35,7 @@ the public key (in general, we want to avoid printing a private key).
 If the program doesn't find this file, it should create it by first generating
 a keypair and then writing them to the wallet file.
 
-#### Generating a Keypair
+### Generating a Keypair
 
 To generate keys, we'll want to use a library that implements ECDSA.
 In Ruby, [this gem](https://github.com/DavidEGrayson/ruby_ecdsa) is a great
@@ -46,26 +46,32 @@ this algorithm as well.
 
 __A Note on Curves:__ One trick with ECDSA is that we need to agree on which
 "curve" we're going to use for exchanging keys. Bitcoin uses a curve
-called "secp256k1", and we'll follow this convention as well.
+called "secp256k1", and we'll follow this convention as well. When
+you're generating keypairs with ECDSA make sure you specify this curve.
 
-#### 2 - Generating a Transaction
+### 2 - Generating a Transaction
 
-#### 3 - Signing a Transaction
+A "transaction" represents the standard unit of exchange within our currency.
+It's how coins get transferred from one wallet address (public key) to
+another. As we'll see, we use our private key to _sign_ this transfer,
+mathematically proving that we are authorized to transfer this money.
 
+Fundamental to creating a Transaction is the idea of individual chunks
+of currency referred to as "Transaction Outputs." When we "spend" coins
+in Bitcoin, we are actually transferring Transaction Outputs. This
+transfer will in turn generate new Transaction Outputs that could
+later be spent by the new owner as an input to a different transaction.
 
-* Generates private/public key/address pairs
-* Stores key pairs on filesystem so that they can be re-used
-on subsequent sessions
-* Can generate a new transaction to send money to a specified address
-by signing the *from* address with the associated private key
-* *optional:* using fresh keypairs for new transactions
-* Serializing keys: When sending over the network, we'll
-use simple hexadecimal encoding
+Thus we can think of a transaction as a collection of inputs on
+one side and outputs on the other.
 
-### Transactions
+Where do the original outputs come from? Ultimately we'll be generating
+them through the mining process. However for now (since we're starting
+at the "bottom" with just wallets and transactions), we'll want
+to figure out some way to mock that part out.
 
-* Signed authorization to transfer coins from one address to
-another
+#### Transaction Contents
+
 * Consists of transaction Input(s) and Output(s)
 * Inputs represent allotments of currency that were assigned to
 a given address using that address as a public key
@@ -76,7 +82,17 @@ to another address
 send, and frequently an additional 1 output to send "change" back
 to the spending address
 
-#### Verifying transactions
+### 3 - Signing a Transaction
+
+* Can generate a new transaction to send money to a specified address
+by signing the *from* address with the associated private key
+* *optional:* using fresh keypairs for new transactions
+* Serializing keys: When sending over the network, we'll
+use simple hexadecimal encoding
+
+### Transactions
+
+### Verifying transactions
 
 As transactions get propagated to the network, clients will need to verify
 several things about the transaction:
