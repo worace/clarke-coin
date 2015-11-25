@@ -51,14 +51,13 @@ you're generating keypairs with ECDSA make sure you specify this curve.
 
 ### 2 - Generating a Transaction
 
-A "transaction" represents the standard unit of exchange within our currency.
-It's how coins get transferred from one wallet address (public key) to
-another. As we'll see, we use our private key to _sign_ this transfer,
+A "transaction" represents a transfer of currency from one address to another.
+As we'll see, we use our private key to _sign_ this transfer,
 mathematically proving that we are authorized to transfer this money.
 
-Fundamental to creating a Transaction is the idea of individual chunks
-of currency referred to as "Transaction Outputs." When we "spend" coins
-in Bitcoin, we are actually transferring Transaction Outputs. This
+Fundamental to creating a Transaction is the idea of "Transaction Outputs" --
+individual chunks of currency that are available to be transferred.
+When we "spend" coins in Bitcoin, we are actually transferring Transaction Outputs. This
 transfer will in turn generate new Transaction Outputs that could
 later be spent by the new owner as an input to a different transaction.
 
@@ -70,7 +69,45 @@ them through the mining process. However for now (since we're starting
 at the "bottom" with just wallets and transactions), we'll want
 to figure out some way to mock that part out.
 
-#### Transaction Contents
+#### Transaction Structure
+
+We'll use a modified version of Bitcoin's format for structuring a transaction.
+The important pieces of information to include here are the individual transaction
+inputs followed by the individual transaction outputs. However since we want
+to be able to send a transaction around as an easily-interpreted series
+of bits, we'll also need to encode in the message how many inputs and
+outputs are included (that way a receiver) knows how many bytes to read for
+the transaction.
+
+This breaks the transaction down based on the following sequence:
+
+1. `4 bytes` - **Input Counter** - How many inputs are included
+2. `Variable` - **Inputs** - One or more transaction inputs
+3. `4 bytes` **Output Counter** - How many outputs are included
+4. `Variable` **Outputs** - One or more transaction outputs
+
+#### Transaction Output Structure
+
+When encoding a transaction output into a transaction, we'll use
+the following format:
+
+1. `8 bytes` - **Amount** - Value of the output
+2. `65 bytes` - **Receiving Address** - ECDSA Public Key to
+which the transaction is being assigned. In order to spend
+the output as an input to a subsequent transaction, the owner
+will have to produce a valid signature for this transaction.
+
+#### Transaction Input Strucutre
+
+1. `32 bytes` - **Transaction Hash** - SHA256 hash of the transaction
+that contains the trnasaction Output beign spent in this input
+2. `4 bytes` - **Transaction Output Index** - The numeric index of
+the specific output within the identified transaction which is being
+spent
+3. `70 bytes` - **Output Signature** - ECDSA Signature of the Public Key
+(address) to which the original output was assigned. Other users can verify
+this signature thus proving that the signing user has the authority to spend
+the specified output.
 
 * Consists of transaction Input(s) and Output(s)
 * Inputs represent allotments of currency that were assigned to
