@@ -86,6 +86,16 @@ This breaks the transaction down based on the following sequence:
 3. `4 bytes` **Output Counter** - How many outputs are included
 4. `Variable` **Outputs** - One or more transaction outputs
 
+__Looking up Transaction Outputs__
+
+One thing to note about this structure is that within a transaction,
+we simply stack the outputs (and inputs) back to back in an array.
+
+Thus if we want to refer back to a specific output in a subsequent
+transaction, we'll need to first identify which transaction it is
+contained in, and then identify the _index_ of that output within
+the sequence of that transaction's outputs.
+
 #### Transaction Output Structure
 
 When encoding a transaction output into a transaction, we'll use
