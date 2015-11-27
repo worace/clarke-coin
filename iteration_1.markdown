@@ -109,6 +109,12 @@ will have to produce a valid signature for this transaction.
 
 #### Transaction Input Strucutre
 
+When we want to "spend" a chunk of bitcoin that was transferred
+to us in a previous transaction, we'll use it as an "input"
+to a new transaction. When doing this, we'll talk about transaction
+"inputs", but it's important to remember that transaction inputs
+are really just outputs generated in previous transactions.
+
 1. `32 bytes` - **Transaction Hash** - SHA256 hash of the transaction
 that contains the trnasaction Output beign spent in this input
 2. `4 bytes` - **Transaction Output Index** - The numeric index of
@@ -119,25 +125,12 @@ spent
 this signature thus proving that the signing user has the authority to spend
 the specified output.
 
-* Consists of transaction Input(s) and Output(s)
-* Inputs represent allotments of currency that were assigned to
-a given address using that address as a public key
-* As the owner of the addres, you can use the associated
-key to "unlock" the specified allotment of coins and thus send these
-to another address
-* Generally there will be 1 output for the amount you are trying to
-send, and frequently an additional 1 output to send "change" back
-to the spending address
+### Transaction Example
 
-### 3 - Signing a Transaction
+__TODO__ - Include detailed walkthrough of an example transaction
 
-* Can generate a new transaction to send money to a specified address
-by signing the *from* address with the associated private key
-* *optional:* using fresh keypairs for new transactions
-* Serializing keys: When sending over the network, we'll
-use simple hexadecimal encoding
-
-### Transactions
+[Reference](http://bitcoin.stackexchange.com/questions/3374/how-to-redeem-a-basic-tx)
+[Ruby Reference](https://gist.github.com/Sjors/5574485)
 
 ### Verifying transactions
 
@@ -148,16 +141,6 @@ several things about the transaction:
 that the sender has authority to use those inputs
 2. All outputs must be assigned to valid addresses
 3. All inputs must still be available for spending
-
-### Transaction Outputs
-
-The system is designed around transferring currency in discrete chunks
-or allotments, called "outputs". To spend currency, a user really spends
-"outputs" of previous transactions by transferring them to a new address.
-
-We will sometimes use the term "input" to refer to the outputs that are
-going into a transaction, but remember that every transaction input is ultimately
-just an output of a previous transaction.
 
 #### Change
 
