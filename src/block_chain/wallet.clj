@@ -10,6 +10,9 @@
     (java.security.spec
      PKCS8EncodedKeySpec)))
 
+;; Thanks to http://nakkaya.com/2012/10/28/public-key-cryptography/
+;; for most of these snippets
+
 (java.security.Security/addProvider
  (org.bouncycastle.jce.provider.BouncyCastleProvider.))
 
