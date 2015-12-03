@@ -1,5 +1,6 @@
 (ns block-chain.wallet
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [clojure.string :refer [join split]])
   (:import
     (org.bouncycastle.openpgp
      PGPUtil)
@@ -27,21 +28,46 @@
       (PEMParser.)
       (.readObject)))
 
-(defn read-pem-private-key [filepath]
-  (let [kd (keydata (io/reader filepath))]
+(defn pem-string->private-key [string]
+  (let [kd (keydata (io/reader (.getBytes string)))]
     (.getKeyPair (org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter.) kd)))
 
-(defn read-pem-public-key [filepath]
-  (let [kd (keydata (io/reader filepath))
-        kf (KeyFactory/getInstance "RSA")
-        spec (java.security.spec.X509EncodedKeySpec. (.getEncoded kd))]
-    (.generatePublic kf spec)))
-
-(defn read-pem-public-key-from-string [string]
+(defn pem-string->pub-key [string]
   (let [kd (keydata (io/reader (.getBytes string)))
         kf (KeyFactory/getInstance "RSA")
         spec (java.security.spec.X509EncodedKeySpec. (.getEncoded kd))]
     (.generatePublic kf spec)))
+
+(defn pem-file->public-key [filepath]
+  (pem-string->pub-key (slurp filepath)))
+
+(defn pem-file->private-key [filepath]
+  (pem-string->private-key (slurp filepath)))
+
+(defn format-pem-string [encoded key-type]
+  (let [formatted (join "\n"
+                        (map #(apply str %)
+                             (partition 64 64 [] encoded)))]
+    (str "-----BEGIN "
+         key-type
+         "-----\n"
+         formatted
+         "\n-----END "
+         key-type
+         "-----\n")))
+
+(defn private-key->pem-string [key]
+  (format-pem-string
+   (encode64
+    (.getEncoded
+     (.toASN1Primitive
+      (.parsePrivateKey
+       (org.bouncycastle.asn1.pkcs.PrivateKeyInfo/getInstance (.getEncoded key))))))
+   "RSA PRIVATE KEY"))
+
+(defn public-key->pem-string [key]
+  (format-pem-string (encode64 (.getEncoded key))
+                     "PUBLIC KEY"))
 
 (defn kp-generator []
   (doto (java.security.KeyPairGenerator/getInstance "RSA" "BC")
@@ -80,18 +106,18 @@
 (let [encrypted (encrypt (.getBytes "Pizza") public-key)]
   (println "decryted: " (map char (decrypt encrypted (.getPrivate private-key)))))
 
-(def message "jFd5MRjGs3S19XIblzdkVkEwUc7A7WRPdWtj6JPXuqU6k/ue1sLRLRhc0inu\nNUglbx3TJTcq6i2FvIA1wb7LnMfw9MiFVs/wbxhtQFmx9VYKHLQq7pqKiYkZ\n6Mqtr1SiUT5e6OFc+6WEIj6GzaF6LRU9osGmUQs40iPQr5016XafRCDeIval\nNo8na5C2WZu4m4ZYadnOwDkAbuk4Vhd7xxR+F433Qitncux8oKHhVOpR9yYV\n7JzNVPzC5o+fX8PNns39Pcb91m3Z243GOl8xlfBFPYa0Wytd9DJB13MYAiWQ\n6gAGUa3kYJJIqMQU3Yyz0DCvRtoJiFXacrJoAvQ5zg==")
+(def keypair (pem-file->private-key "./test/sample_private_key.pem"))
 
-(def sample-pub-key-string
-  "-----BEGIN PUBLIC KEY-----
-MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDGU3lYomZqoluRGcM76VPYALvY
-Asel+CUivvKK6A6NUf9bWrqU3GsNi2biHzn7JrIaTxeEu0vw7MFi1dd5nxzuI/ow
-f0vyp+SSDGQ/EuSgrFwIZowHD/9QFMMiFZbqCxPzvxKYljPE5BsCLI7sWwotseQ1
-iUxRHiIhvSo/3md7XwIDAQAB
------END PUBLIC KEY-----
-")
+#_(encode64 (.getEncoded (.toASN1Primitive (.parsePrivateKey (org.bouncycastle.asn1.pkcs.PrivateKeyInfo/getInstance (.getEncoded (.getPrivate keypair)))))))
 
-(let [pubkey (read-pem-public-key-from-string sample-pub-key-string)
-      encrypted (encrypt (.getBytes "Hi Josh!") pubkey)]
-  (println "Encrypted 'Hi Josh!':")
-  (println (encode64 encrypted)))
+(let [k (.getPrivate (generate-keypair))
+      w (java.io.StringWriter.)
+      po (org.bouncycastle.openssl.jcajce.JcaMiscPEMGenerator.
+          k)
+      pem (org.bouncycastle.util.io.pem.PemWriter. w)]
+  (.writeObject pem po)
+  (.flush w)
+  (.close w)
+  (.toString w))
+
+#_(.writeObject (org.bouncycastle.openssl.jcajce.JcaPEMWriter. (java.io.StringWriter.)) (.getPrivate (pem-file->private-key "./test/sample_private_key.pem")))
