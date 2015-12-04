@@ -28,7 +28,7 @@
       (PEMParser.)
       (.readObject)))
 
-(defn pem-string->private-key [string]
+(defn pem-string->key-pair [string]
   (let [kd (keydata (io/reader (.getBytes string)))]
     (.getKeyPair (org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter.) kd)))
 
@@ -41,7 +41,7 @@
 (defn pem-file->public-key [filepath]
   (pem-string->pub-key (slurp filepath)))
 
-(defn pem-file->private-key [filepath]
+(defn pem-file->key-pair [filepath]
   (pem-string->private-key (slurp filepath)))
 
 (defn format-pem-string [encoded key-type]
@@ -76,16 +76,18 @@
 (defn generate-keypair []
   (.generateKeyPair (kp-generator)))
 
-(defn encrypt [bytes public-key]
-  (let [cipher (doto (javax.crypto.Cipher/getInstance "RSA/ECB/PKCS1Padding" "BC")
-                 (.init javax.crypto.Cipher/ENCRYPT_MODE public-key))]
-    (.doFinal cipher bytes)))
+(defn encrypt [message public-key]
+  (encode64
+   (let [cipher (doto (javax.crypto.Cipher/getInstance "RSA/ECB/PKCS1Padding" "BC")
+                  (.init javax.crypto.Cipher/ENCRYPT_MODE public-key))]
+     (.doFinal cipher (.getBytes message)))))
 
 
-(defn decrypt [bytes private-key]
-  (let [cipher (doto (javax.crypto.Cipher/getInstance "RSA/ECB/PKCS1Padding" "BC")
-                 (.init javax.crypto.Cipher/DECRYPT_MODE private-key))]
-    (.doFinal cipher bytes)))
+(defn decrypt [message private-key]
+  (apply str
+         (map char (let [cipher (doto (javax.crypto.Cipher/getInstance "RSA/ECB/PKCS1Padding" "BC")
+                                  (.init javax.crypto.Cipher/DECRYPT_MODE private-key))]
+                     (.doFinal cipher (decode64 message))))))
 
 (defn sign [data private-key]
   (let [sig (doto (java.security.Signature/getInstance "SHA1withRSA" "BC")
@@ -99,18 +101,18 @@
               (.update data))]
     (.verify sig signature)))
 
-(def keypair (generate-keypair))
-(def private-key (read-pem-private-key "/Users/worace/Desktop/keys/private_key.pem"))
-(def public-key (read-pem-public-key "/Users/worace/Desktop/keys/public_key.pem"))
+;; (def keypair (generate-keypair))
+;; (def private-key (read-pem-private-key "/Users/worace/Desktop/keys/private_key.pem"))
+;; (def public-key (read-pem-public-key "/Users/worace/Desktop/keys/public_key.pem"))
 
-(let [encrypted (encrypt (.getBytes "Pizza") public-key)]
-  (println "decryted: " (map char (decrypt encrypted (.getPrivate private-key)))))
+#_(let [encrypted (encrypt "Pizza" public-key)]
+  (println "decryted: " (decrypt encrypted (.getPrivate private-key))))
 
-(def keypair (pem-file->private-key "./test/sample_private_key.pem"))
+#_(def keypair (pem-file->private-key "./test/sample_private_key.pem"))
 
 #_(encode64 (.getEncoded (.toASN1Primitive (.parsePrivateKey (org.bouncycastle.asn1.pkcs.PrivateKeyInfo/getInstance (.getEncoded (.getPrivate keypair)))))))
 
-(let [k (.getPrivate (generate-keypair))
+#_(let [k (.getPrivate (generate-keypair))
       w (java.io.StringWriter.)
       po (org.bouncycastle.openssl.jcajce.JcaMiscPEMGenerator.
           k)
@@ -121,3 +123,13 @@
   (.toString w))
 
 #_(.writeObject (org.bouncycastle.openssl.jcajce.JcaPEMWriter. (java.io.StringWriter.)) (.getPrivate (pem-file->private-key "./test/sample_private_key.pem")))
+
+
+#_(let [priv (pem-file->private-key "./test/sample_private_key.pem")
+      pub (pem-file->public-key "./test/sample_public_key.pem")
+      enc (encrypt "pizza" pub)]
+  (println enc)
+  (println (decrypt enc (.getPrivate
+                         priv))))
+
+;;http://stackoverflow.com/questions/7611383/generating-rsa-keys-in-pkcs1-format-in-java

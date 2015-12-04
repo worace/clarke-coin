@@ -25,11 +25,31 @@
     (is (= pub-key-pem (key->pem-string (pem-string->pub-key pub-key-pem) "PUBLIC KEY")))
     (is (= java.security.KeyPair
            (type (pem-file->private-key "./test/sample_private_key.pem"))))
-    (println priv-key-pem)
-    (println (private-key->pem-string
-              (.getPrivate (pem-file->private-key "./test/sample_private_key.pem"))
-              ))
-    #_(is (= priv-key-pem
-           (key->pem-string (.getPrivate (pem-file->private-key "./test/sample_private_key.pem")))))))
+    (is (= priv-key-pem
+           (private-key->pem-string (.getPrivate (pem-file->key-pair "./test/sample_private_key.pem")))))))
+
+(deftest test-encrypt-and-decrypt-with-fresh-keys
+  (let [kp (generate-keypair)
+        pub (.getPublic kp)
+        priv (.getPrivate kp)
+        ]
+    (is (= "pizza"
+           (decrypt (encrypt "pizza" pub)
+                    priv)))))
+
+(deftest test-encrypt-and-decrypt-with-deserialized-keys
+  (let [priv (.getPrivate (pem-file->private-key "./test/sample_private_key.pem"))
+        pub (pem-file->public-key "./test/sample_public_key.pem")]
+    (is (= "pizza"
+           (decrypt (encrypt "pizza" pub)
+                    priv)))))
+
+(deftest test-serialize-and-deserialize-new-key
+  (let [kp (generate-keypair)
+        encrypted (encrypt "pizza" (.getPublic kp))
+        pem-str (private-key->pem-string (.getPrivate kp))]
+    (is (= "pizza"
+           (decrypt encrypted
+                    (.getPrivate (pem-string->key-pair pem-str)))))))
 
 (run-tests)
