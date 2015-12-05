@@ -9,4 +9,5 @@
                  [cheshire "5.5.0"]
                  [aleph "0.4.1-beta2"]
                  [manifold "0.1.1"]
-                 [mvxcvi/clj-pgp "0.8.2"]])
+                 [mvxcvi/clj-pgp "0.8.2"]
+                 [pandect "0.5.4"]])
