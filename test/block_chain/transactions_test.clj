@@ -39,7 +39,18 @@
   (is (= "7fc7ff0e187867a8820ae3e6561c9dd84bcf97e9c6b9c54a64a232546693d894"
          (txn-hash sample-transaction))))
 
+(def unsigned-txn
+  ;; txn containing outputs and input sources, but no signatures for inputs
+  [[["9ed1515819dec61fd361d5fdabb57f41ecce1a5fe1fe263b98c0d6943b9b232e" 0]]
+   [[5 "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxpaKTGz1LlgVihe0dGlE\nPsn/cJk+Zo7uePr8hhjCAj+R0cxjE4Q8xKmVAA3YAxenoo6DShn8CSvR8AvNDgMm\nAdHvKjnZXsyPBBD+BNw5vIrEgQiuuBl7e0P8BfctGq2HHlBJ5i+1zitbmFe/Mnyr\nVRimxM7q7YGGOtqQ5ZEZRL1NcvS2sR+YxTL5YbCBXUW3FzLUjkmtSEH1bwWADCWj\nhz6IXWqYU0F5pRECVI+ybkdmirTbpZtQPyrND+iclsjnUUSONDLYm27dQnDvtiFc\nIn3PZ3Qxlk9JZ6F77+7OSEJMH3sB6/JcPZ0xd426U84SyYXLhggrBJMXCwUnzLN6\nuwIDAQAB\n-----END PUBLIC KEY-----\n"]]
+  ])
+
 (deftest test-signs-transaction-inputs
-  )
+  ;; first txn input contains source hash and index (2 items)
+  (is (= 2 (count (get-in unsigned-txn [0 0]))))
+  ;; signing inputs adds new signature element
+  (is (= 3 (count (get-in (sign-inputs unsigned-txn) [0 0]))))
+
+  (sign-inputs unsigned-txn))
 
 (run-tests)
