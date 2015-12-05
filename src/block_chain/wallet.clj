@@ -1,6 +1,7 @@
 (ns block-chain.wallet
   (:require [clojure.java.io :as io]
             [clojure.string :refer [join split]]
+            [block-chain.pem :as pem]
             [block-chain.encoding :refer :all]))
 
 ;; Thanks to http://nakkaya.com/2012/10/28/public-key-cryptography/
@@ -54,5 +55,23 @@
               (.update msg-data))]
     (.verify sig signature)))
 
+
+(def wallet-path (str (System/getProperty "user.home") "/.wallet.pem"))
+
+(defn wallet-exists? [] (.exists (io/as-file wallet-path)))
+
+(defn load-or-generate-keys!
+  "Looks for wallet keypair to exist at ~/.wallet.pem. If found, loads
+   that keypair to use as our wallet. If not, generates a new keypair and
+   saves it in that location for future use."
+  []
+  (if (wallet-exists?)
+    (pem/pem-file->key-pair wallet-path)
+    (let [kp (generate-keypair)]
+      (spit wallet-path
+            (pem/private-key->pem-string (.getPrivate kp)))
+      kp)))
+
+(def keypair (load-or-generate-keys!))
 
 (defn sign-txn [txn])
