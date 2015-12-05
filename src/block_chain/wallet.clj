@@ -1,7 +1,7 @@
 (ns block-chain.wallet
   (:require [clojure.java.io :as io]
             [clojure.string :refer [join split]]
-            [block-chain.base64 :refer :all]))
+            [block-chain.encoding :refer :all]))
 
 ;; Thanks to http://nakkaya.com/2012/10/28/public-key-cryptography/
 ;; for many of these snippets

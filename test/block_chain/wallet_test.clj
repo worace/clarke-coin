@@ -8,7 +8,7 @@
             [clojure.tools.namespace.repl :refer [refresh]]))
 
 (deftest test-encrypt-and-decrypt-with-fresh-keys
-  (let [kp (generate-keypair)
+  (let [kp (generate-keypair 128)
         pub (.getPublic kp)
         priv (.getPrivate kp)
         ]
@@ -24,7 +24,7 @@
                     priv)))))
 
 (deftest test-serialize-and-deserialize-new-key
-  (let [kp (generate-keypair)
+  (let [kp (generate-keypair 128)
         encrypted (encrypt "pizza" (.getPublic kp))
         pem-str (private-key->pem-string (.getPrivate kp))
         deserialized (pem-string->key-pair pem-str)]

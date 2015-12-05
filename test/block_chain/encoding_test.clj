@@ -1,6 +1,6 @@
 (ns block-chain.encoding-test
   (:require [clojure.test :refer :all]
-            [block-chain.base64 :refer :all]))
+            [block-chain.encoding :refer :all]))
 
 (deftest test-base-64
   (let [b (.getBytes "pizza")
