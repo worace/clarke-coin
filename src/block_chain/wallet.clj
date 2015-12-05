@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :refer [join split]]
             [block-chain.pem :as pem]
+            [block-chain.transactions :as transactions]
             [block-chain.encoding :refer :all]))
 
 ;; Thanks to http://nakkaya.com/2012/10/28/public-key-cryptography/
@@ -35,15 +36,6 @@
                                   (.init javax.crypto.Cipher/DECRYPT_MODE private-key))]
                      (.doFinal cipher (decode64 message))))))
 
-(defn sign [message private-key]
-  "RSA private key signing of a message. Takes message as string"
-  (encode64
-   (let [msg-data (.getBytes message)
-         sig (doto (java.security.Signature/getInstance "SHA256withRSA" "BC")
-               (.initSign private-key (java.security.SecureRandom.))
-               (.update msg-data))]
-     (.sign sig))))
-
 (defn verify [encoded-sig message public-key]
   "RSA public key verification of a signature. Takes signature as base64-encoded string
    of signature data and message as a string. Returns true/false if signature
@@ -54,7 +46,6 @@
               (.initVerify public-key)
               (.update msg-data))]
     (.verify sig signature)))
-
 
 (def wallet-path (str (System/getProperty "user.home") "/.wallet.pem"))
 
@@ -74,4 +65,36 @@
 
 (def keypair (load-or-generate-keys!))
 
-(defn sign-txn [txn])
+(defn sign
+  "RSA private key signing of a message. Takes message as string"
+  ([message] (sign message (.getPrivate keypair)))
+  ([message private-key]
+   (encode64
+    (let [msg-data (.getBytes message)
+          sig (doto (java.security.Signature/getInstance "SHA256withRSA" "BC")
+                (.initSign private-key (java.security.SecureRandom.))
+                (.update msg-data))]
+      (.sign sig)))))
+
+
+(defn sign-txn
+  "Takes a transaction map consisting of :inputs and :outputs, where each input contains
+   a Source TXN Hash and Source Output Index. Signs each input by adding :signature
+   which contains an RSA-SHA256 signature of the JSON representation of all the outputs in the transaction."
+  [txn]
+  (let [output-string (transactions/serialize-outputs txn)]
+    (assoc txn
+           :inputs
+           (map (fn [i] (assoc i :signature (sign output-string)))
+                (:inputs txn)))))
+
+
+#_(defn sign-inputs
+  "Transaction inputs must be signed by including an RSA/SHA256 signature
+   of all outputs in the transaction. The signature must match the Public Key
+   to which the source output for each input was assigned."
+  [[inputs outputs]]
+  (let [sig (wallet/sign-txn (serialize outputs))]
+    [(map #(conj % sig) inputs)
+     outputs]))
+
