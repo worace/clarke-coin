@@ -87,14 +87,3 @@
            :inputs
            (map (fn [i] (assoc i :signature (sign output-string)))
                 (:inputs txn)))))
-
-
-#_(defn sign-inputs
-  "Transaction inputs must be signed by including an RSA/SHA256 signature
-   of all outputs in the transaction. The signature must match the Public Key
-   to which the source output for each input was assigned."
-  [[inputs outputs]]
-  (let [sig (wallet/sign-txn (serialize outputs))]
-    [(map #(conj % sig) inputs)
-     outputs]))
-
