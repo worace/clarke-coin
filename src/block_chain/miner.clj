@@ -1,20 +1,8 @@
 (ns block-chain.miner
   (:require [clojure.math.numeric-tower :as math]
             [pandect.algo.sha256 :refer [sha256]]
-            [block-chain.transactions :as txn]))
-
-;; Block Contents
-
-;; 1. **Previous Block Hash** - Hash of the header of the previous block (this links this block
-;; to the previous one)
-;; 2. **Transactions Hash** - Hash of all the transactions contained in this block
-;; 3. **Block Timestamp** - Time the block was created, in seconds since Unix epoch
-;; 4. **Difficulty Target** - The hashing difficulty against which this block was mined (more
-;; on how this target gets set later)
-;; 5. **Nonce** - A special value used to "complete" the block by causing it to generate a hash
-;; value lower than the required difficulty target. This value will start at 0 and be incremented
-;; by miners until they find an appropriate hash value
-;; 6. **Block Hash** - A SHA256 hash of the other contents in this block's header
+            [block-chain.transactions :as txn]
+            [block-chain.wallet :as wallet]))
 
 (defn current-time-seconds [] (int (/ (System/currentTimeMillis) 1000.0)))
 
@@ -25,20 +13,6 @@
   (reduce (fn [values key] (conj values (get map key)))
           []
           ks))
-
-(def sample-block
-  {:header {:parent-hash "0000000000000000000000000000000000000000000000000000000000000000"
-            :transactions-hash "9ed1515819dec61fd361d5fdabb57f41ecce1a5fe1fe263b98c0d6943b9b232e"
-            :timestamp 1449422864
-            ;; 2 ^ 245
-            :target "0020000000000000000000000000000000000000000000000000000000000000"
-            :nonce 0
-            :hash "9ed1515819dec61fd361d5fdabb57f41ecce1a5fe1fe263b98c0d6943b9b232e"}
-   :transactions [{:inputs [{:source-txn "original txn hash"
-                             :source-output-index 0
-                             :signature "pizza"}]
-                   :outputs [{:amount 5
-                              :address "(PUBLIC KEY)"}]}]})
 
 (defn transactions-hash [{:keys [transactions]}]
   (sha256 (apply str (map txn/txn-hash transactions))))
@@ -57,10 +31,15 @@
   []
   (hex-string 0))
 
+(defn next-target
+  []
+  (hex-string (math/expt 2 238)))
+
 (defn generate-block
   [transactions]
   {:header {:parent-hash (latest-block-hash)
             :transactions-hash (transactions-hash transactions)
+            :target (next-target)
             :timestamp (current-time-seconds)
             :nonce 0}
    :transactions transactions})
@@ -82,6 +61,16 @@
       attempt
       (recur (update-in block [:header :nonce] inc)))))
 
+(defn coinbase []
+  {:inputs [] :outputs [:amount 10 :address wallet/public-pem]})
 
-#_(let [unhashed ]
-    (assoc-in unhashed [:header :hash] (block-hash unhashed)))
+(defn gather-transactions
+  "Gather pending transactions from the network and add our own coinbase
+   reward. (Currently just injecting the coinbase since we don't have other
+   txns available yet)"
+  []
+  [(coinbase)])
+
+(defn find-next-block
+  []
+  (mine (generate-block (gather-transactions))))

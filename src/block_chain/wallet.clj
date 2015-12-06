@@ -65,6 +65,7 @@
 
 
 (def keypair (load-or-generate-keys!))
+(def public-pem (pem/public-key->pem-string (.getPublic keypair)))
 
 (defn sign
   "RSA private key signing of a message. Takes message as string"
