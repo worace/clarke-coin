@@ -59,21 +59,29 @@
 
 (defn generate-block
   [transactions]
-  (let [unhashed {:header {:parent-hash (latest-block-hash)
-                           :transactions-hash (transactions-hash transactions)
-                           :timestamp (current-time-seconds)
-                           :nonce 0}
-                  :transactions transactions}]
-    (assoc-in unhashed [:header :hash] (block-hash unhashed))))
+  {:header {:parent-hash (latest-block-hash)
+            :transactions-hash (transactions-hash transactions)
+            :timestamp (current-time-seconds)
+            :nonce 0}
+   :transactions transactions})
 
 (defn hex->int
-  "Read long hex string and convert it to big integer."
+  "Read hex string and convert it to big integer."
   [hex-string]
   (bigint (java.math.BigInteger. hex-string 16)))
 
 (defn meets-target? [{{target :target hash :hash} :header}]
  (< (hex->int hash) (hex->int target)))
 
+(defn hashed [block]
+  (assoc-in block [:header :hash] (block-hash block)))
 
 (defn mine [block]
-  (let [attemtp]))
+  (let [attempt (hashed block)]
+    (if (meets-target? attempt)
+      attempt
+      (recur (update-in block [:header :nonce] inc)))))
+
+
+#_(let [unhashed ]
+    (assoc-in unhashed [:header :hash] (block-hash unhashed)))
