@@ -27,18 +27,18 @@
           ks))
 
 (def sample-block
-  {:header {:parent-hash "0"
-            :transactions-hash "some-hash"
+  {:header {:parent-hash "0000000000000000000000000000000000000000000000000000000000000000"
+            :transactions-hash "9ed1515819dec61fd361d5fdabb57f41ecce1a5fe1fe263b98c0d6943b9b232e"
             :timestamp 1449422864
             ;; 2 ^ 245
             :target "0020000000000000000000000000000000000000000000000000000000000000"
             :nonce 0
-            :block-hash "some-hash"}
+            :hash "9ed1515819dec61fd361d5fdabb57f41ecce1a5fe1fe263b98c0d6943b9b232e"}
    :transactions [{:inputs [{:source-txn "original txn hash"
                              :source-output-index 0
                              :signature "pizza"}]
                    :outputs [{:amount 5
-                              :receiving-address "(PUBLIC KEY)"}]}]})
+                              :address "(PUBLIC KEY)"}]}]})
 
 (defn transactions-hash [{:keys [transactions]}]
   (sha256 (apply str (map txn/txn-hash transactions))))
@@ -51,6 +51,29 @@
                                      :target
                                      :nonce]))))
 
+(defn latest-block-hash
+  "Look up the hash of the latest block in the chain.
+   Useful for getting parent hash for new blocks."
+  []
+  (hex-string 0))
+
 (defn generate-block
-  [transactions])
-(defn mine [block])
+  [transactions]
+  (let [unhashed {:header {:parent-hash (latest-block-hash)
+                           :transactions-hash (transactions-hash transactions)
+                           :timestamp (current-time-seconds)
+                           :nonce 0}
+                  :transactions transactions}]
+    (assoc-in unhashed [:header :hash] (block-hash unhashed))))
+
+(defn hex->int
+  "Read long hex string and convert it to big integer."
+  [hex-string]
+  (bigint (java.math.BigInteger. hex-string 16)))
+
+(defn meets-target? [{{target :target hash :hash} :header}]
+ (< (hex->int hash) (hex->int target)))
+
+
+(defn mine [block]
+  (let [attemtp]))
