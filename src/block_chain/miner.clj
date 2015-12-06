@@ -27,11 +27,16 @@
 
 (defn latest-block-hash
   "Look up the hash of the latest block in the chain.
-   Useful for getting parent hash for new blocks."
+   Useful for getting parent hash for new blocks. Eventually
+   this will need to grab the latest one off the chain but for now
+   we'll just zero it out."
   []
   (hex-string 0))
 
 (defn next-target
+  "Calculate the appropriate next target based on the time frequency
+   of recent blocks. Currently just setting a static (easy) target
+   until we have more blocks in place to pull frequency data from."
   []
   (hex-string (math/expt 2 238)))
 
