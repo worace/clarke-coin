@@ -7,7 +7,7 @@
              :source-output-index 0
              :signature "pizza"}]
    :outputs [{:amount 5
-              :receiving-address "some addr"}]}
+              :receiving-address "(PUBLIC KEY)"}]}
 
 (defn output-vec [{:keys [amount receiving-address]}]
   [amount receiving-address])

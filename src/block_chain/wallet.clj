@@ -63,6 +63,7 @@
             (pem/private-key->pem-string (.getPrivate kp)))
       kp)))
 
+
 (def keypair (load-or-generate-keys!))
 
 (defn sign
@@ -75,7 +76,6 @@
                 (.initSign private-key (java.security.SecureRandom.))
                 (.update msg-data))]
       (.sign sig)))))
-
 
 (defn sign-txn
   "Takes a transaction map consisting of :inputs and :outputs, where each input contains

@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.bouncycastle/bcpg-jdk15on "1.53"]
                  [org.bouncycastle/bcpkix-jdk15on "1.53"]
+                 [org.clojure/math.numeric-tower "0.0.4"]
                  [cheshire "5.5.0"]
                  [aleph "0.4.1-beta2"]
                  [manifold "0.1.1"]
