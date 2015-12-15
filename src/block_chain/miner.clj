@@ -79,3 +79,28 @@
 (defn find-next-block
   []
   (mine (generate-block (gather-transactions))))
+
+;; saving mined blocks
+;; need to store them somewhere -- block-chain ns?
+;; block-chain functions
+;; -- add block
+;; -- find block by hash
+;; -- find block by height
+;; -- 
+
+;; wallet -- using blockchain to find
+;; balance / transaction outputs
+;; wallet:
+;; -- (available-utxos pub-key)
+;; -- (available-balance pub-key)
+;; wallet: 
+;; (pay-to-address pub-key amount)
+;; -- find utxo totaling this amount
+;; -- generate new transaction transferring to that address
+
+
+;; transactions-pool
+;; -- keeping track of currently available / pending transactions
+;; -- pull from these when generating new block
+;; 
+
