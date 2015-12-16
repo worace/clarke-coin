@@ -1,29 +1,22 @@
 (ns block-chain.miner
   (:require [clojure.math.numeric-tower :as math]
             [pandect.algo.sha256 :refer [sha256]]
+            [block-chain.utils :refer :all]
             [block-chain.transactions :as txn]
             [block-chain.wallet :as wallet]))
-
-(defn current-time-seconds [] (int (/ (System/currentTimeMillis) 1000.0)))
-
-(defn hex-string [num] (format "%064x"
-                               (biginteger num)))
-
-(defn select-values [map ks]
-  (reduce (fn [values key] (conj values (get map key)))
-          []
-          ks))
 
 (defn transactions-hash [{:keys [transactions]}]
   (sha256 (apply str (map txn/txn-hash transactions))))
 
+(def block-hashable
+  (partial cat-keys [:parent-hash
+                     :transactions-hash
+                     :timestamp
+                     :target
+                     :nonce]))
+
 (defn block-hash [{:keys [header]}]
-  (sha256 (apply str (select-values header
-                                    [:parent-hash
-                                     :transactions-hash
-                                     :timestamp
-                                     :target
-                                     :nonce]))))
+  (sha256 (block-hashable header)))
 
 (defn latest-block-hash
   "Look up the hash of the latest block in the chain.
@@ -48,11 +41,6 @@
             :timestamp (current-time-seconds)
             :nonce 0}
    :transactions transactions})
-
-(defn hex->int
-  "Read hex string and convert it to big integer."
-  [hex-string]
-  (bigint (java.math.BigInteger. hex-string 16)))
 
 (defn meets-target? [{{target :target hash :hash} :header}]
  (< (hex->int hash) (hex->int target)))

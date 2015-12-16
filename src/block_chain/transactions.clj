@@ -1,5 +1,6 @@
 (ns block-chain.transactions
   (:require [pandect.algo.sha256 :refer [sha256]]
+            [block-chain.utils :refer :all]
             [cheshire.core :as json]))
 
 ;; sample txn format:
@@ -9,11 +10,6 @@
    :outputs [{:amount 5
               :address "(PUBLIC KEY)"}]}
 
-(defn cat-keys
-  "take a map and a vector of keys and create a concatenated
-   string of the value for each key"
-  [keys m]
-  (apply str (map (partial get m) keys)))
 
 (def input-signable (partial cat-keys [:source-hash :source-index]))
 (def input-hashable (partial cat-keys [:source-hash :source-index :signature]))
@@ -28,11 +24,11 @@
   (apply str (concat (map input-hashable (:inputs txn))
                      (map output-hashable (:outputs txn)))))
 
-(defn txn-hash [txn]
-  (sha256 (txn-hashable txn)))
-
 (defn serialize-txn [txn]
   (json/generate-string txn))
 
 (defn read-txn [txn-json]
   (json/parse-string txn-json true))
+
+(defn txn-hash [txn]
+  (sha256 (txn-hashable txn)))
