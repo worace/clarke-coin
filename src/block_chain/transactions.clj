@@ -25,10 +25,10 @@
                      (map output-hashable (:outputs txn)))))
 
 (defn serialize-txn [txn]
-  (json/generate-string txn))
+  (write-json txn))
 
 (defn read-txn [txn-json]
-  (json/parse-string txn-json true))
+  (read-json txn-json))
 
 (defn txn-hash [txn]
   (sha256 (txn-hashable txn)))
