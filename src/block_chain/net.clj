@@ -7,11 +7,15 @@
 (defn echo-handler [s info]
   (s/connect s s))
 
-#_(def server (tcp/start-server echo-handler {:port 10001}))
-(def client @(tcp/client {:host "localhost" :port 10001}))
+(defn server [port]
+  (tcp/start-server echo-handler {:port 10001}))
 
-#_(async/go
-  (loop [resp @(s/take! client)]
-    (println "got resp: " (apply str (map char resp)))
-    (recur @(s/take! client)))
-  (println "stopping listen loop"))
+(defn client [host port]
+  @(tcp/client {:host host :port port}))
+
+(defn listen [client handler]
+  (async/go
+    (loop [resp @(s/take! client)]
+      (println "got resp: " (apply handler resp))
+      (recur @(s/take! client)))
+    (println "stopping listen loop")))
