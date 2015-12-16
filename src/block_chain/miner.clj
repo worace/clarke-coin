@@ -68,14 +68,6 @@
   []
   (mine (generate-block (gather-transactions))))
 
-;; saving mined blocks
-;; need to store them somewhere -- block-chain ns?
-;; block-chain functions
-;; -- add block
-;; -- find block by hash
-;; -- find block by height
-;; -- 
-
 ;; wallet -- using blockchain to find
 ;; balance / transaction outputs
 ;; wallet:
@@ -90,5 +82,4 @@
 ;; transactions-pool
 ;; -- keeping track of currently available / pending transactions
 ;; -- pull from these when generating new block
-;; 
 
