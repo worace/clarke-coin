@@ -3,28 +3,36 @@
             [cheshire.core :as json]))
 
 ;; sample txn format:
-#_{:inputs [{:source-txn "original txn hash"
-             :source-output-index 0
+#_{:inputs [{:source-hash "original txn hash"
+             :source-index 0
              :signature "pizza"}]
    :outputs [{:amount 5
               :address "(PUBLIC KEY)"}]}
 
-(defn output-vec [{:keys [amount address]}]
-  [amount address])
+(defn cat-keys
+  "take a map and a vector of keys and create a concatenated
+   string of the value for each key"
+  [keys m]
+  (apply str (map (partial get m) keys)))
 
-(defn input-vec [{:keys [source-txn source-output-index signature]}]
-  [source-txn source-output-index signature])
+(def input-signable (partial cat-keys [:source-hash :source-index]))
+(def input-hashable (partial cat-keys [:source-hash :source-index :signature]))
+(def output-signable (partial cat-keys [:amount :address]))
+(def output-hashable output-signable)
 
-(defn serialize [{:keys [inputs outputs]}]
-  (json/generate-string [(map input-vec inputs)
-                         (map output-vec outputs)]))
+(defn txn-signable [txn]
+  (apply str (concat (map input-signable (:inputs txn))
+                     (map output-signable (:outputs txn)))))
 
-(defn serialize-outputs
-  [txn]
-  (->> (:outputs txn)
-       (map output-vec)
-       (json/generate-string)))
+(defn txn-hashable [txn]
+  (apply str (concat (map input-hashable (:inputs txn))
+                     (map output-hashable (:outputs txn)))))
 
 (defn txn-hash [txn]
-  (sha256 (serialize txn)))
+  (sha256 (txn-hashable txn)))
 
+(defn serialize-txn [txn]
+  (json/generate-string txn))
+
+(defn read-txn [txn-json]
+  (json/parse-string txn-json true))
