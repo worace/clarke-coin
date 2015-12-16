@@ -22,11 +22,11 @@
 
 (defn latest-block-hash
   "Look up the hash of the latest block in the chain.
-   Useful for getting parent hash for new blocks. Eventually
-   this will need to grab the latest one off the chain but for now
-   we'll just zero it out."
+   Useful for getting parent hash for new blocks."
   []
-  (hex-string 0))
+  (if-let [parent (last @bc/block-chain)]
+    (get-in parent [:header :hash])
+    (hex-string 0)))
 
 (defn next-target
   "Calculate the appropriate next target based on the time frequency
@@ -57,7 +57,7 @@
       (recur (update-in block [:header :nonce] inc)))))
 
 (defn coinbase []
-  {:inputs [] :outputs [:amount 10 :address wallet/public-pem]})
+  {:inputs [] :outputs [:amount 25 :address wallet/public-pem]})
 
 (defn gather-transactions
   "Gather pending transactions from the network and add our own coinbase
@@ -66,25 +66,26 @@
   []
   [(coinbase)])
 
-(defn find-next-block
-  []
-  (mine (generate-block (gather-transactions))))
+(defn find-next-block [] (mine (generate-block (gather-transactions))))
 
 (def mine? (atom true))
+(defn stop-miner! [] (reset! mine? false))
 (defn run-miner! []
   (reset! mine? true)
   (async/go
     (while @mine?
-      (bc/add-block! (find-next-block)))))
-
-(defn stop-miner! [] (reset! mine? false))
+      (let [b (find-next-block)]
+        (println "****** Found a Block ******")
+        (println b)
+        (println "***************************")
+        (bc/add-block! b)))))
 
 ;; wallet -- using blockchain to find
 ;; balance / transaction outputs
 ;; wallet:
 ;; -- (available-utxos pub-key)
 ;; -- (available-balance pub-key)
-;; wallet: 
+;; wallet:
 ;; (pay-to-address pub-key amount)
 ;; -- find utxo totaling this amount
 ;; -- generate new transaction transferring to that address
