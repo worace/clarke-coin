@@ -2,6 +2,8 @@
   (:require [clojure.math.numeric-tower :as math]
             [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]
+            [block-chain.chain :as bc]
+            [clojure.core.async :as async]
             [block-chain.transactions :as txn]
             [block-chain.wallet :as wallet]))
 
@@ -67,6 +69,15 @@
 (defn find-next-block
   []
   (mine (generate-block (gather-transactions))))
+
+(def mine? (atom true))
+(defn run-miner! []
+  (reset! mine? true)
+  (async/go
+    (while @mine?
+      (bc/add-block! (find-next-block)))))
+
+(defn stop-miner! [] (reset! mine? false))
 
 ;; wallet -- using blockchain to find
 ;; balance / transaction outputs

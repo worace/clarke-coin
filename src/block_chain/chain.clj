@@ -25,5 +25,4 @@
 
 (defn block-by-hash
   ([hash] (block-by-hash hash @block-chain))
-  ([hash c]
-   (first (filter #(= hash (:hash %)) c))))
+  ([hash c] (first (filter #(= hash (:hash %)) c))))
