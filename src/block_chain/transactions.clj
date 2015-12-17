@@ -35,3 +35,6 @@
 
 (defn txn-hash [txn]
   (sha256 (txn-hashable txn)))
+
+(defn hash-txn [txn]
+  (assoc txn :hash (txn-hash txn)))

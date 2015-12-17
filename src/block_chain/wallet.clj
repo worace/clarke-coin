@@ -83,8 +83,8 @@
    a Source TXN Hash and Source Output Index. Signs each input by adding :signature
    which contains an RSA-SHA256 signature of the JSON representation of all the outputs in the transaction."
   [txn]
-  (let [output-string (transactions/txn-signable txn)]
+  (let [signable (transactions/txn-signable txn)]
     (assoc txn
            :inputs
-           (map (fn [i] (assoc i :signature (sign output-string)))
+           (map (fn [i] (assoc i :signature (sign signable)))
                 (:inputs txn)))))
