@@ -17,6 +17,7 @@
 
 (defn current-time-seconds [] (int (/ (System/currentTimeMillis) 1000.0)))
 
+(defn current-time-millis [] (System/currentTimeMillis))
 
 (defn read-json [s]
   (json/parse-string s (fn [k] (keyword (.replace (name k) "_" "-")))))
@@ -26,3 +27,5 @@
    m
    {:key-fn (fn [k] (.replace (name k) "-" "_"))}))
 
+(defn avg [things]
+  (/ (reduce + things) (count things)))

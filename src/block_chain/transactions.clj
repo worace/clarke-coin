@@ -8,7 +8,8 @@
              :source-index 0
              :signature "pizza"}]
    :outputs [{:amount 5
-              :address "(PUBLIC KEY)"}]}
+              :address "(PUBLIC KEY)"}]
+   :timestamp (current-time-millis)}
 
 
 (def input-signable (partial cat-keys [:source-hash :source-index]))
@@ -18,11 +19,13 @@
 
 (defn txn-signable [txn]
   (apply str (concat (map input-signable (:inputs txn))
-                     (map output-signable (:outputs txn)))))
+                     (map output-signable (:outputs txn))
+                     )))
 
 (defn txn-hashable [txn]
   (apply str (concat (map input-hashable (:inputs txn))
-                     (map output-hashable (:outputs txn)))))
+                     (map output-hashable (:outputs txn))
+                     [(:timestamp txn)])))
 
 (defn serialize-txn [txn]
   (write-json txn))
