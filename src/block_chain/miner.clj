@@ -41,8 +41,17 @@
 (defn adjusted-target [blocks frequency]
   (let [times (map #(get-in % [:header :timestamp]) blocks)
         latest-target (get-in (last blocks) [:header :target])
-        ratio (/ frequency (avg-spacing times))]
-    (hex-string (bigint (* ratio
+        ratio (/ (avg-spacing times) frequency)]
+    (println "times: " times)
+    (println "latest t: " latest-target)
+    (println "avg spacing: " (avg-spacing times))
+    (println "ratio: " ratio)
+    (if (> ratio 1)
+      (hex-string (bigint (* 1.1
+                             (hex->int latest-target))))
+      (hex-string (bigint (* 0.9
+                           (hex->int latest-target)))))
+    #_(hex-string (bigint (* ratio
                            (hex->int latest-target))))))
 
 (defn next-target
@@ -52,8 +61,8 @@
   []
   (let [recent-blocks (take-last 10 @bc/block-chain)]
     (if (and recent-blocks (> (count recent-blocks) 5))
-      (adjusted-target recent-blocks 30)
-      (hex-string (math/expt 2 234)))))
+      (adjusted-target recent-blocks 15)
+      (hex-string (math/expt 2 237)))))
 
 (defn generate-block
   [transactions]
@@ -74,10 +83,15 @@
   ([block] (mine block (atom true)))
   ([block switch]
    (let [attempt (hashed block)]
+     (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000))
+       (println "got to nonce: " (get-in attempt [:header :nonce])))
      (if (meets-target? attempt)
        attempt
-       (recur (update-in block [:header :nonce] inc)
-              switch)))))
+       (if (not @switch)
+         (do (println "exiting")
+             nil)
+         (recur (update-in block [:header :nonce] inc)
+              switch))))))
 
 (defn coinbase []
   {:inputs []
@@ -92,16 +106,17 @@
   (into []
         (map txn/hash-txn [(coinbase)])))
 
-(def mine? (atom true))
+(defonce mine? (atom true))
 (defn stop-miner! [] (reset! mine? false))
 
 (defn mine-block
   ([] (mine-block (generate-block (gather-transactions))))
   ([pending]
    (println "****** Will Mine Block: ******\n" pending "\n***************************")
-   (let [b (mine pending mine?)]
-     (println "****** Successfully Mined Block: ******\n" b "\n***************************")
-     (bc/add-block! b))))
+   (if-let [b (mine pending mine?)]
+     (do (println "****** Successfully Mined Block: ******\n" b "\n***************************")
+         (bc/add-block! b))
+     (println "didn't find coin, exiting"))))
 
 (defn run-miner! []
   (reset! mine? true)
