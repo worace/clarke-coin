@@ -3,6 +3,7 @@
             [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
+            [block-chain.target :as target]
             [clojure.core.async :as async]
             [block-chain.transactions :as txn]
             [block-chain.wallet :as wallet]))
@@ -28,31 +29,7 @@
     (get-in parent [:header :hash])
     (hex-string 0)))
 
-(defn avg-spacing
-  "Finds average time spacing in seconds of a series of times"
-  [times]
-  (->> times
-       (partition 2 1)
-       (map reverse)
-       (map #(apply - %))
-       (avg)
-       (float)))
-
-(defn adjusted-target [blocks frequency]
-  (let [times (map #(get-in % [:header :timestamp]) blocks)
-        latest-target (get-in (last blocks) [:header :target])
-        ratio (/ (avg-spacing times) frequency)]
-    (println "times: " times)
-    (println "latest t: " latest-target)
-    (println "avg spacing: " (avg-spacing times))
-    (println "ratio: " ratio)
-    (if (> ratio 1)
-      (hex-string (bigint (* 1.1
-                             (hex->int latest-target))))
-      (hex-string (bigint (* 0.9
-                           (hex->int latest-target)))))
-    #_(hex-string (bigint (* ratio
-                           (hex->int latest-target))))))
+(def default-target (hex-string (math/expt 2 236)))
 
 (defn next-target
   "Calculate the appropriate next target based on the time frequency
@@ -60,9 +37,9 @@
    until we have more blocks in place to pull frequency data from."
   []
   (let [recent-blocks (take-last 10 @bc/block-chain)]
-    (if (and recent-blocks (> (count recent-blocks) 5))
-      (adjusted-target recent-blocks 15)
-      (hex-string (math/expt 2 237)))))
+    (if (> (count recent-blocks) 1)
+      (target/adjusted-target recent-blocks 15)
+      default-target)))
 
 (defn generate-block
   [transactions]
@@ -83,13 +60,11 @@
   ([block] (mine block (atom true)))
   ([block switch]
    (let [attempt (hashed block)]
-     (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000))
-       (println "got to nonce: " (get-in attempt [:header :nonce])))
+     (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
      (if (meets-target? attempt)
        attempt
        (if (not @switch)
-         (do (println "exiting")
-             nil)
+         (do (println "exiting") nil)
          (recur (update-in block [:header :nonce] inc)
               switch))))))
 
@@ -140,26 +115,26 @@
 ;; -- pull from these when generating new block
 
 
-(def beth-pub
-  "-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA74d+zjjXvCMF0TTHQAJz
-m3Lgkca4gK3E3XNb+iCipPT7bPOqvl98waBAWOiip+e+h061rC9foJKuhotWe4Gu
-a0upgIfB5We1H/eEGaEK2ZrfTdQa87JW6ejVkHP2B/lL2ibTmnT/CvJg2seY1YB0
-r+rBI3ONuvFVzVBNesASXNLrNE+dH0+zrUufDvo2a5y0mt0f4q8QFZDxX2ettE7I
-zpNt9ea5kRh/gpIeSeaU4uEUt3is/R2yr1JPzQN7Hx3efDfXJ7b6MnL6wU+/0D1R
-mE5YtARxnvXBZb3sALmg5fdyOVg/L/s2lizHKRk2ASaWCXu/X2Nw9ISuMhWgGMzs
-twIDAQAB
------END PUBLIC KEY-----\n")
+;; (def beth-pub
+;;   "-----BEGIN PUBLIC KEY-----
+;; MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA74d+zjjXvCMF0TTHQAJz
+;; m3Lgkca4gK3E3XNb+iCipPT7bPOqvl98waBAWOiip+e+h061rC9foJKuhotWe4Gu
+;; a0upgIfB5We1H/eEGaEK2ZrfTdQa87JW6ejVkHP2B/lL2ibTmnT/CvJg2seY1YB0
+;; r+rBI3ONuvFVzVBNesASXNLrNE+dH0+zrUufDvo2a5y0mt0f4q8QFZDxX2ettE7I
+;; zpNt9ea5kRh/gpIeSeaU4uEUt3is/R2yr1JPzQN7Hx3efDfXJ7b6MnL6wU+/0D1R
+;; mE5YtARxnvXBZb3sALmg5fdyOVg/L/s2lizHKRk2ASaWCXu/X2Nw9ISuMhWgGMzs
+;; twIDAQAB
+;; -----END PUBLIC KEY-----\n")
 
-(def pay-beth
-  (let [source-hash (get-in @bc/block-chain [0 :transactions 0 :hash])
-        source-index 0]
-    {:inputs [{:source-hash source-hash
-               :source-index source-index}]
-     :outputs [:amount 25 :address beth-pub]
-     :timestamp (current-time-millis)}))
+;; (def pay-beth
+;;   (let [source-hash (get-in @bc/block-chain [0 :transactions 0 :hash])
+;;         source-index 0]
+;;     {:inputs [{:source-hash source-hash
+;;                :source-index source-index}]
+;;      :outputs [:amount 25 :address beth-pub]
+;;      :timestamp (current-time-millis)}))
 
 
-(def signed-beth (wallet/sign-txn pay-beth))
-(def hashed-beth (txn/hash-txn signed-beth))
-(def beth-block (generate-block [hashed-beth]))
+;; (def signed-beth (wallet/sign-txn pay-beth))
+;; (def hashed-beth (txn/hash-txn signed-beth))
+;; (def beth-block (generate-block [hashed-beth]))

@@ -41,23 +41,4 @@
         mined (mine b)]
     (is (= 1 (get-in mined [:header :nonce])))))
 
-(deftest getting-average-spacing-of-list
-  (is (= 4 (avg-spacing [0 4 8 12])))
-  (is (= 3 (avg-spacing [0 4 7 9]))))
-
-(deftest adjusting-target
-  (let [blocks [{:header {:timestamp 0 :target (hex-string 100)}}
-                {:header {:timestamp 60 :target (hex-string 100)}}]]
-    (is (= (hex-string 100) (adjusted-target blocks 60))))
-  (let [blocks [{:header {:timestamp 0 :target (hex-string 100)}}
-                {:header {:timestamp 30 :target (hex-string 100)}}
-                {:header {:timestamp 60 :target (hex-string 100)}}]]
-    ;; blocks are spacing 30 s against desired freq of 60, so we should halve the target
-    (is (= (hex-string 50) (adjusted-target blocks 60))))
-  (let [blocks [{:header {:timestamp 0 :target (hex-string 100)}}
-                {:header {:timestamp 120 :target (hex-string 100)}}
-                {:header {:timestamp 240 :target (hex-string 100)}}]]
-    ;; blocks are spacing 120 s against desired freq of 60, so we should double the target
-    (is (= (hex-string 200) (adjusted-target blocks 60)))))
-
 (run-tests)
