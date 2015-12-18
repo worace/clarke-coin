@@ -20,10 +20,7 @@
     :else (float ratio)))
 
 (defn target-value [block]
-  (let [t (get-in block [:header :target])]
-    (if (string? t)
-      (hex->int t)
-      t)))
+  (hex->int (get-in block [:header :target])))
 
 (defn adjusted-target [blocks frequency]
   "Finds the appropriate next target for the given collection of
@@ -42,4 +39,4 @@
         latest-target (target-value (last blocks))
         ratio (/ (avg-spacing times) frequency)
         adjustment (capped ratio)]
-    (bigint (* adjustment latest-target))))
+    (hex-string (bigint (* adjustment latest-target)))))
