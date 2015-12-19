@@ -38,3 +38,10 @@
 
 (defn hash-txn [txn]
   (assoc txn :hash (txn-hash txn)))
+
+(defn gather-transactions
+  "Gather pending transactions from the network and add our own coinbase
+   reward. (Currently just injecting the coinbase since we don't have other
+   txns available yet)"
+  []
+  [])

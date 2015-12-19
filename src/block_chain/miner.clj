@@ -1,91 +1,35 @@
 (ns block-chain.miner
   (:require [clojure.math.numeric-tower :as math]
-            [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
-            [block-chain.target :as target]
+            [block-chain.blocks :as blocks]
             [clojure.core.async :as async]
             [block-chain.transactions :as txn]
             [block-chain.wallet :as wallet]))
 
-(defn transactions-hash [transactions]
-  (sha256 (apply str (map :hash transactions))))
-
-(def block-hashable
-  (partial cat-keys [:parent-hash
-                     :transactions-hash
-                     :timestamp
-                     :target
-                     :nonce]))
-
-(defn block-hash [{:keys [header]}]
-  (sha256 (block-hashable header)))
-
-(defn latest-block-hash
-  "Look up the hash of the latest block in the chain.
-   Useful for getting parent hash for new blocks."
-  []
-  (if-let [parent (last @bc/block-chain)]
-    (get-in parent [:header :hash])
-    (hex-string 0)))
-
-(def default-target (hex-string (math/expt 2 236)))
-
-(defn next-target
-  "Calculate the appropriate next target based on the time frequency
-   of recent blocks. Currently just setting a static (easy) target
-   until we have more blocks in place to pull frequency data from."
-  []
-  (let [recent-blocks (take-last 10 @bc/block-chain)]
-    (if (> (count recent-blocks) 1)
-      (target/adjusted-target recent-blocks 15)
-      default-target)))
-
-(defn generate-block
-  [transactions]
-  {:header {:parent-hash (latest-block-hash)
-            :transactions-hash (transactions-hash transactions)
-            :target (next-target)
-            :timestamp (current-time-seconds)
-            :nonce 0}
-   :transactions transactions})
-
-(defn meets-target? [{{target :target hash :hash} :header}]
- (< (hex->int hash) (hex->int target)))
-
-(defn hashed [block]
-  (assoc-in block [:header :hash] (block-hash block)))
+(defn coinbase []
+  (txn/hash-txn
+   {:inputs []
+    :outputs [:amount 25 :address wallet/public-pem]
+    :timestamp (current-time-millis)}))
 
 (defn mine
   ([block] (mine block (atom true)))
   ([block switch]
-   (let [attempt (hashed block)]
+   (let [attempt (blocks/hashed block)]
      (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
-     (if (meets-target? attempt)
+     (if (blocks/meets-target? attempt)
        attempt
        (if (not @switch)
          (do (println "exiting") nil)
          (recur (update-in block [:header :nonce] inc)
               switch))))))
 
-(defn coinbase []
-  {:inputs []
-   :outputs [:amount 25 :address wallet/public-pem]
-   :timestamp (current-time-millis)})
-
-(defn gather-transactions
-  "Gather pending transactions from the network and add our own coinbase
-   reward. (Currently just injecting the coinbase since we don't have other
-   txns available yet)"
-  []
-  (into []
-        (map txn/hash-txn [(coinbase)])))
-
 (defonce mine? (atom true))
 (defn stop-miner! [] (reset! mine? false))
 
 (defn mine-block
-  ([] (mine-block (generate-block (gather-transactions))))
+  ([] (mine-block (blocks/generate-block [(coinbase)])))
   ([pending]
    (println "****** Will Mine Block: ******\n" pending "\n***************************")
    (if-let [b (mine pending mine?)]
