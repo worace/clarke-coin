@@ -10,7 +10,7 @@
 (defn coinbase []
   (txn/hash-txn
    {:inputs []
-    :outputs [:amount 25 :address wallet/public-pem]
+    :outputs [{:amount 25 :address wallet/public-pem}]
     :timestamp (current-time-millis)}))
 
 (defn mine

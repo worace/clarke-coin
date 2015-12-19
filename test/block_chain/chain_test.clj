@@ -15,7 +15,7 @@
    :hash "some-hash"})
 
 (deftest test-reads-stored-chain
-  (is (= [] (read-stored-chain))))
+  (is (vector? (read-stored-chain))))
 
 (deftest adds-to-chain
   (let [c (count @block-chain)]
