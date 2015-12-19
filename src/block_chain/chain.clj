@@ -42,10 +42,17 @@
 
 (defn next-target
   "Calculate the appropriate next target based on the time frequency
-   of recent blocks. Currently just setting a static (easy) target
-   until we have more blocks in place to pull frequency data from."
+   of recent blocks."
   []
   (let [recent-blocks (take-last 10 @block-chain)]
     (if (> (count recent-blocks) 1)
       (target/adjusted-target recent-blocks 15)
       default-target)))
+
+(defn balance [key blocks])
+(defn unspent-outputs [key blocks])
+(defn unspent? [txo blocks] )
+(defn assigned-to-key? [txo])
+
+(defn payment [amount from-key to-key blocks])
+(defn broadcast-txn [txn])
