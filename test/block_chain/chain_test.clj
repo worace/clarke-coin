@@ -25,10 +25,14 @@
 (deftest test-reads-blocks-from-json-file
   (let [c (read-stored-chain "./test/sample_chain.json")]
     (is (vector? c))
-    (is (= 1 (count c)))
-    (is (= "tx_hash" (get-in c [0 :header :transactions-hash])))))
+    (is (= 10 (count c)))
+    (is (= "acc2a45c839b7f7f25349442c68de523894f32897dea1f62fd4a2c1921d785a8" (get-in c [0 :header :transactions-hash])))))
 
 (deftest get-block-by-hash
   (let [c (read-stored-chain "./test/sample_chain.json")
-        b (block-by-hash "some-hash" c)]
-    (is (= "tx_hash" (get-in b [:header :transactions-hash])))))
+        b (first c)
+        found (block-by-hash
+                (get-in b [:header :hash])
+                c)
+        ]
+    (is (= b found))))

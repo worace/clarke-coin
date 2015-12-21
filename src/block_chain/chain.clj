@@ -20,15 +20,15 @@
   (reset! block-chain (read-stored-chain)))
 
 (defn write-chain!
-  ([] (write-chain! chain-path))
-  ([path] (spit path (write-json @block-chain))))
+  ([] (write-chain! chain-path @block-chain))
+  ([path blocks] (spit path (write-json blocks))))
 
 (defn add-block! [b]
   (swap! block-chain conj b))
 
 (defn block-by-hash
   ([hash] (block-by-hash hash @block-chain))
-  ([hash c] (first (filter #(= hash (:hash %)) c))))
+  ([hash c] (first (filter #(= hash (get-in % [:header :hash])) c))))
 
 (defn latest-block-hash
   "Look up the hash of the latest block in the chain.
