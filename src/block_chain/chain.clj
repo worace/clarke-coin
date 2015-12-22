@@ -31,10 +31,14 @@
   ([hash] (block-by-hash hash @block-chain))
   ([hash c] (first (filter #(= hash (get-in % [:header :hash])) c))))
 
+(defn transactions [blocks] (mapcat :transactions blocks))
+(defn inputs [blocks] (mapcat :inputs (transactions blocks)))
+(defn outputs [blocks] (mapcat :outputs (transactions blocks)))
+
 (defn txn-by-hash
-  [hash c]
+  [hash blocks]
   (first (filter #(= hash (get % :hash))
-                 (mapcat :transactions c))))
+                 (transactions blocks))))
 
 (defn latest-block-hash
   "Look up the hash of the latest block in the chain.
@@ -55,8 +59,6 @@
       (target/adjusted-target recent-blocks 15)
       default-target)))
 
-(defn balance [key blocks])
-(defn unspent-outputs [key blocks])
 
 (defn consumes-output?
   [source-hash source-index input]
@@ -68,12 +70,18 @@
    Transaction Output in the block chain. Searches the
    chain to find if this output has been spent."
   [source-hash source-index blocks]
-  (let [inputs (mapcat :inputs (mapcat :transactions blocks))
+  (let [inputs (inputs blocks)
         spends-output? (partial consumes-output? source-hash source-index)]
     (not-any? spends-output? inputs)))
 
 (defn assigned-to-key? [txo key]
   (= (:address txo) key))
+
+(defn balance [key blocks])
+(defn unspent-outputs [key blocks])
+(defn key-outputs [key blocks]
+  (filter #(assigned-to-key? % key)
+          (outputs blocks)))
 
 (defn payment [amount from-key to-key blocks])
 (defn broadcast-txn [txn])
