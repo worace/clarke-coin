@@ -86,5 +86,5 @@
   (let [signable (transactions/txn-signable txn)]
     (assoc txn
            :inputs
-           (map (fn [i] (assoc i :signature (sign signable)))
-                (:inputs txn)))))
+           (into [] (map (fn [i] (assoc i :signature (sign signable)))
+                         (:inputs txn)) ))))

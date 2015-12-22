@@ -14,10 +14,11 @@
             (into [] (read-json (slurp path)))
             [])))
 
-(def block-chain (atom []))
+(defonce block-chain (atom []))
 
-(defn load-chain! []
-  (reset! block-chain (read-stored-chain)))
+(defn load-chain!
+  ([] (load-chain! chain-path))
+  ([path] (reset! block-chain (read-stored-chain path))))
 
 (defn write-chain!
   ([] (write-chain! chain-path @block-chain))
@@ -29,6 +30,11 @@
 (defn block-by-hash
   ([hash] (block-by-hash hash @block-chain))
   ([hash c] (first (filter #(= hash (get-in % [:header :hash])) c))))
+
+(defn txn-by-hash
+  [hash c]
+  (first (filter #(= hash (get % :hash))
+                 (mapcat :transactions c))))
 
 (defn latest-block-hash
   "Look up the hash of the latest block in the chain.
@@ -51,8 +57,23 @@
 
 (defn balance [key blocks])
 (defn unspent-outputs [key blocks])
-(defn unspent? [txo blocks] )
-(defn assigned-to-key? [txo])
+
+(defn consumes-output?
+  [source-hash source-index input]
+  (and (= source-hash (:source-hash input))
+       (= source-index (:source-index input))))
+
+(defn unspent?
+  "takes a txn hash and output index identifying a
+   Transaction Output in the block chain. Searches the
+   chain to find if this output has been spent."
+  [source-hash source-index blocks]
+  (let [inputs (mapcat :inputs (mapcat :transactions blocks))
+        spends-output? (partial consumes-output? source-hash source-index)]
+    (not-any? spends-output? inputs)))
+
+(defn assigned-to-key? [txo key]
+  (= (:address txo) key))
 
 (defn payment [amount from-key to-key blocks])
 (defn broadcast-txn [txn])

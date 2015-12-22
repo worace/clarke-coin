@@ -13,6 +13,14 @@
     :outputs [{:amount 25 :address wallet/public-pem}]
     :timestamp (current-time-millis)}))
 
+(defn payment
+  [address source-hash source-index]
+  (txn/hash-txn
+   (wallet/sign-txn
+    {:inputs [{:source-hash source-hash :source-index source-index}]
+     :outputs [{:amount 25 :address address}]
+     :timestamp (current-time-millis)})))
+
 (defn mine
   ([block] (mine block (atom true)))
   ([block switch]
@@ -59,26 +67,21 @@
 ;; -- pull from these when generating new block
 
 
-;; (def beth-pub
-;;   "-----BEGIN PUBLIC KEY-----
-;; MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA74d+zjjXvCMF0TTHQAJz
-;; m3Lgkca4gK3E3XNb+iCipPT7bPOqvl98waBAWOiip+e+h061rC9foJKuhotWe4Gu
-;; a0upgIfB5We1H/eEGaEK2ZrfTdQa87JW6ejVkHP2B/lL2ibTmnT/CvJg2seY1YB0
-;; r+rBI3ONuvFVzVBNesASXNLrNE+dH0+zrUufDvo2a5y0mt0f4q8QFZDxX2ettE7I
-;; zpNt9ea5kRh/gpIeSeaU4uEUt3is/R2yr1JPzQN7Hx3efDfXJ7b6MnL6wU+/0D1R
-;; mE5YtARxnvXBZb3sALmg5fdyOVg/L/s2lizHKRk2ASaWCXu/X2Nw9ISuMhWgGMzs
-;; twIDAQAB
-;; -----END PUBLIC KEY-----\n")
+;; need to pay 25 from current wallet public pem to:
+;;"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn04rVGD/selxmPcYRmjc\nHE19e5XQOueBekYEdQHD5q06mzuLQqErjJDANt80JjF6Y69dOU23cqlZ1B/2Pj48\nK+OROFBlrT5usrAJa6we0Ku33w6avl47PXanhcfi39GKNr8RadCKHoG1klvKqVEm\nuhJO/2foXAb6LATB0YoQuH8sDvUmLHSSPTTCBO2YGtsCvlMBNxdnvGVyZA5iIPwu\nw7DN00jG8RJn0KQRDgTM+nFNxcw9bIOrfSxOmNTDo1y8EFwFiYZ6rORLN+cNL50T\nU1Kl/ShX0dfvXauSjliVSl3sll1brVC500HYlAK61ox5BakdZG6R+3tJKe1RAs3P\nNQIDAQAB\n-----END PUBLIC KEY-----\n"
 
-;; (def pay-beth
-;;   (let [source-hash (get-in @bc/block-chain [0 :transactions 0 :hash])
-;;         source-index 0]
-;;     {:inputs [{:source-hash source-hash
-;;                :source-index source-index}]
-;;      :outputs [:amount 25 :address beth-pub]
-;;      :timestamp (current-time-millis)}))
+;; block will have 2 transactions:
+;; - coinbase
+;; - payment
 
+;; current chain has 4 blocks, last of which is
+;; ours
+;; pay using output 0
+;; from txn "e6f4ed3ff30f3936d99385d33f6410c22781359e3cfe69ccabcad109ee9ab40f"
 
-;; (def signed-beth (wallet/sign-txn pay-beth))
-;; (def hashed-beth (txn/hash-txn signed-beth))
-;; (def beth-block (generate-block [hashed-beth]))
+#_(let [recip "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn04rVGD/selxmPcYRmjc\nHE19e5XQOueBekYEdQHD5q06mzuLQqErjJDANt80JjF6Y69dOU23cqlZ1B/2Pj48\nK+OROFBlrT5usrAJa6we0Ku33w6avl47PXanhcfi39GKNr8RadCKHoG1klvKqVEm\nuhJO/2foXAb6LATB0YoQuH8sDvUmLHSSPTTCBO2YGtsCvlMBNxdnvGVyZA5iIPwu\nw7DN00jG8RJn0KQRDgTM+nFNxcw9bIOrfSxOmNTDo1y8EFwFiYZ6rORLN+cNL50T\nU1Kl/ShX0dfvXauSjliVSl3sll1brVC500HYlAK61ox5BakdZG6R+3tJKe1RAs3P\nNQIDAQAB\n-----END PUBLIC KEY-----\n"
+      source-hash "e6f4ed3ff30f3936d99385d33f6410c22781359e3cfe69ccabcad109ee9ab40f"
+      source-index 0
+      txns [(coinbase)
+            (payment recip source-hash 0)]]
+  (mine-block (generate-block txns)))
