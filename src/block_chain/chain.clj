@@ -79,9 +79,28 @@
 
 (defn balance [key blocks])
 (defn unspent-outputs [key blocks])
-(defn key-outputs [key blocks]
-  (filter #(assigned-to-key? % key)
-          (outputs blocks)))
+
+(defn unspent-output-coords [key blocks]
+  (compact
+   (flatten
+    (for [txn (transactions blocks)]
+      (map (fn [output index]
+             )
+           (:outputs txn)
+           (range (count )))
+      (for [o (:outputs txn)
+            i (range (count o))]
+        (do
+          (if (assigned-to-key? o key)
+            (do
+              (println "\n\n")
+              (println "matched output: " o)
+              (println "against key: " (last (drop-last 2 (clojure.string/split key #"\n") )))
+              (println "w/source: " (:hash txn))
+              (println "and index: " i)
+              (println "\n\n")
+              {:source-hash (:hash txn) :source-index i})
+          nil)))))))
 
 (defn payment [amount from-key to-key blocks])
 (defn broadcast-txn [txn])

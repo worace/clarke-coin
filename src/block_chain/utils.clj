@@ -29,3 +29,5 @@
 
 (defn avg [things]
   (/ (reduce + things) (count things)))
+
+(def compact (partial filter (comp not nil?)))
