@@ -27,7 +27,7 @@
   ([block] (mine block (atom true)))
   ([block switch]
    (let [attempt (blocks/hashed block)]
-     (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
+     #_(when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
      (if (blocks/meets-target? attempt)
        attempt
        (if (not @switch)

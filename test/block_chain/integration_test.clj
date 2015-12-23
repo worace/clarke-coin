@@ -15,7 +15,7 @@
 (def key-b (wallet/generate-keypair 512))
 (def pem-b (pem/public-key->pem-string (.getPublic key-b)))
 
-(def easy-difficulty-target (hex-string (math/expt 2 243)))
+(def easy-difficulty-target (hex-string (math/expt 2 248)))
 
 (deftest generating-coinbase
   (let [cb (miner/coinbase pem-a)]
@@ -55,13 +55,48 @@
     (is (> (get-in block [:header :nonce]) 0))))
 
 (deftest test-committing-block-to-chain
-  (let [b (blocks/generate-block
-           [(miner/coinbase pem-a)]
-           {:target easy-difficulty-target})
-        chain (atom [])]
-    (miner/mine-and-commit chain b)
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
     (is (= 1 (count @chain)))))
 
 
 (deftest test-mining-multiple-blocks
-  )
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (is (= 3 (count @chain)))
+    (is (= (get-in (get @chain 0) [:header :hash])
+           (get-in (get @chain 1) [:header :parent-hash])))
+    (is (= (get-in (get @chain 1) [:header :hash])
+           (get-in (get @chain 2) [:header :parent-hash])))))
+
+
+(deftest test-checking-balances
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (is (= 3 (count (bc/unspent-outputs pem-a @chain))))
+    (is (= 75 (bc/balance pem-a @chain)))))

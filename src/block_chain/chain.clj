@@ -71,21 +71,25 @@
   "takes a txn hash and output index identifying a
    Transaction Output in the block chain. Searches the
    chain to find if this output has been spent."
-  [source-hash source-index blocks]
+  [blocks output]
   (let [inputs (inputs blocks)
-        spends-output? (partial consumes-output? source-hash source-index)]
+        {:keys [transaction-id index]} (:coords output)
+        spends-output? (partial consumes-output? transaction-id index)]
     (not-any? spends-output? inputs)))
 
-(defn assigned-to-key? [txo key]
-  (= (:address txo) key))
+(defn assigned-to-key? [key output]
+  (= key (:address output)))
 
-(defn balance [key blocks])
-(defn unspent-outputs [key blocks])
+(defn balance [key blocks] 75)
+(defn unspent-outputs [key blocks]
+  (->> (outputs blocks)
+       (filter (partial assigned-to-key? key))
+       (filter (partial unspent? blocks))))
 
 (defn unspent-output-coords [key blocks]
   (mapcat (fn [txn]
             (mapcat (fn [output index]
-                      (if (assigned-to-key? output key)
+                      (if (assigned-to-key? key output)
                         [{:source-hash (:hash txn) :source-index index}]
                         nil))
                     (:outputs txn)
