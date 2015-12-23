@@ -28,4 +28,9 @@
     (is (= txn
            (read-txn (serialize-txn txn))))))
 
+(deftest test-tagging-transaction-coordinates
+  (let [tagged (tag-coords (hash-txn sample-transaction))]
+    (is (= (:hash tagged) (get-in tagged [:outputs 0 :coords :transaction-id])))
+    (is (= 0 (get-in tagged [:outputs 0 :coords :index])))))
+
 (run-tests)

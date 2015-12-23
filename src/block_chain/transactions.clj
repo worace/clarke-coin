@@ -39,6 +39,23 @@
 (defn hash-txn [txn]
   (assoc txn :hash (txn-hash txn)))
 
+(defn tag-output [output index hash]
+  "Adds an additional :coords key to the output containing
+   its transaction-id (the txn hash) and index. This simplifies
+   the process of working with outputs further down the pipeline
+   as we don't have to have to refer back to the output's
+   transaction context as frequently."
+  (assoc output :coords
+         {:transaction-id hash
+          :index index}))
+
+(defn tag-coords [txn]
+  (let [tagged-outputs (map tag-output
+                            (:outputs txn)
+                            (range (count (:outputs txn)))
+                            (repeat (:hash txn)))]
+    (assoc txn :outputs (into [] tagged-outputs))))
+
 (defn gather-transactions
   "Gather pending transactions from the network and add our own coinbase
    reward. (Currently just injecting the coinbase since we don't have other
