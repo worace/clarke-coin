@@ -80,11 +80,15 @@
 (defn assigned-to-key? [key output]
   (= key (:address output)))
 
-(defn balance [key blocks] 75)
 (defn unspent-outputs [key blocks]
   (->> (outputs blocks)
        (filter (partial assigned-to-key? key))
        (filter (partial unspent? blocks))))
+
+(defn balance [key blocks]
+  (reduce +
+          (map :amount
+               (unspent-outputs key blocks))))
 
 (defn unspent-output-coords [key blocks]
   (mapcat (fn [txn]

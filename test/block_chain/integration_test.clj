@@ -100,3 +100,12 @@
                             {:target easy-difficulty-target :chain @chain}))
     (is (= 3 (count (bc/unspent-outputs pem-a @chain))))
     (is (= 75 (bc/balance pem-a @chain)))))
+
+(deftest test-transferring-outputs
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (is (= 1 (count (bc/unspent-outputs pem-a @chain))))
+    (is (= 25 (bc/balance pem-a @chain)))))
