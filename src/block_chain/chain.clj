@@ -24,6 +24,8 @@
   ([] (write-chain! chain-path @block-chain))
   ([path blocks] (spit path (write-json blocks))))
 
+(defn clear! [] (reset! block-chain []))
+
 (defn add-block! [b]
   (swap! block-chain conj b))
 
@@ -41,10 +43,10 @@
                  (transactions blocks))))
 
 (defn latest-block-hash
-  "Look up the hash of the latest block in the chain.
+  "Look up the hash of the latest block in the provided chain.
    Useful for getting parent hash for new blocks."
-  []
-  (if-let [parent (last @block-chain)]
+  [chain]
+  (if-let [parent (last chain)]
     (get-in parent [:header :hash])
     (hex-string 0)))
 
