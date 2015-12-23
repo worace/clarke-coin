@@ -17,13 +17,16 @@
   (sha256 (block-hashable header)))
 
 (defn generate-block
-  [transactions]
-  {:header {:parent-hash (chain/latest-block-hash)
-            :transactions-hash (transactions-hash transactions)
-            :target (chain/next-target)
-            :timestamp (current-time-seconds)
-            :nonce 0}
-   :transactions transactions})
+  ([transactions] (generate-block transactions {}))
+  ([transactions {:keys [parent-hash target timestamp nonce chain]}]
+   {:header {:parent-hash (or parent-hash
+                              (chain/latest-block-hash
+                               (or chain @chain/block-chain)))
+             :transactions-hash (transactions-hash transactions)
+             :target (or target (chain/next-target))
+             :timestamp (or timestamp (current-time-seconds))
+             :nonce (or nonce 0)}
+    :transactions transactions}))
 
 (defn meets-target? [{{target :target hash :hash} :header}]
  (< (hex->int hash) (hex->int target)))
