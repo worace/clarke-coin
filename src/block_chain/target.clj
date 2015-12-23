@@ -22,6 +22,9 @@
 (defn target-value [block]
   (hex->int (get-in block [:header :target])))
 
+(defn block-times [blocks]
+  (map #(get-in % [:header :timestamp]) blocks))
+
 (defn adjusted-target [blocks frequency]
   "Finds the appropriate next target for the given collection of
    blocks at the desired block-generation-frequency. First finds the
@@ -35,7 +38,7 @@
    Note that a higher target is easier and lower target is harder, so
    an average spacing longer than the desired frequency will result in
    increasing the target, and vice versa."
-  (let [times (map #(get-in % [:header :timestamp]) blocks)
+  (let [times (block-times blocks)
         latest-target (target-value (last blocks))
         ratio (/ (avg-spacing times) frequency)
         adjustment (capped ratio)]

@@ -56,9 +56,8 @@
   []
   (let [recent-blocks (take-last 10 @block-chain)]
     (if (> (count recent-blocks) 1)
-      (target/adjusted-target recent-blocks 15)
+      (target/adjusted-target recent-blocks 120)
       default-target)))
-
 
 (defn consumes-output?
   [source-hash source-index input]
@@ -77,6 +76,8 @@
 (defn assigned-to-key? [txo key]
   (= (:address txo) key))
 
+(defn last-target [] (get-in (last @block-chain) [:header :target]))
+
 (defn balance [key blocks])
 (defn unspent-outputs [key blocks])
 
@@ -85,22 +86,11 @@
    (flatten
     (for [txn (transactions blocks)]
       (map (fn [output index]
-             )
+             (if (assigned-to-key? o key)
+               {:source-hash (:hash txn) :source-index i}
+               nil))
            (:outputs txn)
-           (range (count )))
-      (for [o (:outputs txn)
-            i (range (count o))]
-        (do
-          (if (assigned-to-key? o key)
-            (do
-              (println "\n\n")
-              (println "matched output: " o)
-              (println "against key: " (last (drop-last 2 (clojure.string/split key #"\n") )))
-              (println "w/source: " (:hash txn))
-              (println "and index: " i)
-              (println "\n\n")
-              {:source-hash (:hash txn) :source-index i})
-          nil)))))))
+           (range (count (:outputs txn))))))))
 
 (defn payment [amount from-key to-key blocks])
 (defn broadcast-txn [txn])
