@@ -7,11 +7,13 @@
             [block-chain.transactions :as txn]
             [block-chain.wallet :as wallet]))
 
-(defn coinbase []
-  (txn/hash-txn
-   {:inputs []
-    :outputs [{:amount 25 :address wallet/public-pem}]
-    :timestamp (current-time-millis)}))
+(defn coinbase
+  ([] (coinbase wallet/public-pem))
+  ([address] (txn/tag-coords
+              (txn/hash-txn
+               {:inputs []
+                :outputs [{:amount 25 :address address}]
+                :timestamp (current-time-millis)}))))
 
 (defn payment
   [address source-hash source-index]
@@ -36,20 +38,19 @@
 (defonce mine? (atom true))
 (defn stop-miner! [] (reset! mine? false))
 
-(defn mine-block
-  ([] (mine-block (blocks/generate-block [(coinbase)])))
-  ([pending]
-   (println "****** Will Mine Block: ******\n" pending "\n***************************")
+(defn mine-and-commit
+  ([] (mine-and-commit bc/block-chain))
+  ([chain] (mine-and-commit chain (blocks/generate-block [(coinbase)])))
+  ([chain pending]
    (if-let [b (mine pending mine?)]
-     (do (println "****** Successfully Mined Block: ******\n" b "\n***************************")
-         (bc/add-block! b))
+     (swap! chain conj b)
      (println "didn't find coin, exiting"))))
 
 (defn run-miner! []
   (reset! mine? true)
   (async/go
     (while @mine?
-      (mine-block))))
+      (mine-and-commit))))
 
 ;; wallet -- using blockchain to find
 ;; balance / transaction outputs
