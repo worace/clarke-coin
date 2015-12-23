@@ -81,16 +81,14 @@
 (defn unspent-outputs [key blocks])
 
 (defn unspent-output-coords [key blocks]
-  (compact
-   (flatten
-    (for [txn (transactions blocks)]
-      (map (fn [output index]
-             (if (assigned-to-key? output key)
-               {:source-hash (:hash txn) :source-index index}
-               nil))
-           (:outputs txn)
-           (range (count (:outputs txn))))
-      ))))
+  (mapcat (fn [txn]
+            (mapcat (fn [output index]
+                      (if (assigned-to-key? output key)
+                        [{:source-hash (:hash txn) :source-index index}]
+                        nil))
+                    (:outputs txn)
+                    (range (count (:outputs txn)))))
+          (transactions blocks)))
 
 (defn payment [amount from-key to-key blocks])
 (defn broadcast-txn [txn])
