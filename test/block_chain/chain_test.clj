@@ -71,16 +71,21 @@
 ;; key B
 ;; "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn04rVGD/selxmPcYRmjc\nHE19e5XQOueBekYEdQHD5q06mzuLQqErjJDANt80JjF6Y69dOU23cqlZ1B/2Pj48\nK+OROFBlrT5usrAJa6we0Ku33w6avl47PXanhcfi39GKNr8RadCKHoG1klvKqVEm\nuhJO/2foXAb6LATB0YoQuH8sDvUmLHSSPTTCBO2YGtsCvlMBNxdnvGVyZA5iIPwu\nw7DN00jG8RJn0KQRDgTM+nFNxcw9bIOrfSxOmNTDo1y8EFwFiYZ6rORLN+cNL50T\nU1Kl/ShX0dfvXauSjliVSl3sll1brVC500HYlAK61ox5BakdZG6R+3tJKe1RAs3P\nNQIDAQAB\n-----END PUBLIC KEY-----\n"
 ;; has 2 coinbases
-(deftest test-finding-output-coords-for-key
-  (doseq [h (map :hash (transactions chain))] (println h))
-  (is (= {:source-hash "982436813783205f5d01cfd4bdff2c93f1bf3729690d5c825fb802d4bd6f9b11"
-          :source-index 0}
-         (first (unspent-output-coords key-a chain))))
-  (is (= 6 (count (outputs chain))))
-  #_(is (= 4 (count (unspent-output-coords key-a chain))))
+(deftest test-finding-output-coords-for-b
   (is (= [{:source-hash "e6f4ed3ff30f3936d99385d33f6410c22781359e3cfe69ccabcad109ee9ab40f" :source-index 0}
-          {:source-hash "72f1f4e69cf9d7700700885b7845e54cbab7179a83811fe0898a2246aa6c9278" :source-index 0}]
+          {:source-hash "5771a4321e21bc55d236602aecadd53243fe49cd9f9041383b282be8c0fe8559" :source-index 0}]
          (unspent-output-coords key-b chain))))
 
+(deftest test-output-coords-for-a
+  ;; 3x coinbase and 1x transfer from key b
+  (is (= [{:source-hash "982436813783205f5d01cfd4bdff2c93f1bf3729690d5c825fb802d4bd6f9b11" :source-index 0}
+          {:source-hash "9c2330d27b041b9d4b6204e36a2faf5112a24463dac064f790aff8870e18650b" :source-index 0}
+          {:source-hash "f3d85daa66d3e3e70606c1bbb7f8f4294eeb5d496aab1f9d26672048358f00ff" :source-index 0}
+          {:source-hash "72f1f4e69cf9d7700700885b7845e54cbab7179a83811fe0898a2246aa6c9278" :source-index 0}]
+         (unspent-output-coords key-a chain))))
+
 (deftest test-finding-unspent-outputs-for-key)
+
+
+
 

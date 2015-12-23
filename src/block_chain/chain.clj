@@ -85,22 +85,12 @@
    (flatten
     (for [txn (transactions blocks)]
       (map (fn [output index]
-             )
+             (if (assigned-to-key? output key)
+               {:source-hash (:hash txn) :source-index index}
+               nil))
            (:outputs txn)
-           (range (count )))
-      (for [o (:outputs txn)
-            i (range (count o))]
-        (do
-          (if (assigned-to-key? o key)
-            (do
-              (println "\n\n")
-              (println "matched output: " o)
-              (println "against key: " (last (drop-last 2 (clojure.string/split key #"\n") )))
-              (println "w/source: " (:hash txn))
-              (println "and index: " i)
-              (println "\n\n")
-              {:source-hash (:hash txn) :source-index i})
-          nil)))))))
+           (range (count (:outputs txn))))
+      ))))
 
 (defn payment [amount from-key to-key blocks])
 (defn broadcast-txn [txn])
