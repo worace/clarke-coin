@@ -108,4 +108,21 @@
                             [(miner/coinbase pem-a)]
                             {:target easy-difficulty-target :chain @chain}))
     (is (= 1 (count (bc/unspent-outputs pem-a @chain))))
-    (is (= 25 (bc/balance pem-a @chain)))))
+    (is (= 25 (bc/balance pem-a @chain)))
+    (let [source (get-in (last @chain)
+                         [:transactions 0 :outputs 0])
+          payment (miner/payment (.getPrivate key-a) pem-b source)]
+      (miner/mine-and-commit chain
+                             (blocks/generate-block
+                              [(miner/coinbase pem-a)
+                               payment]
+                              {:target easy-difficulty-target :chain @chain}))
+      ;; 2 blocks containing 3 transactions
+      ;; 2 coinbases for A and 1 txn transferring
+      ;; 1st coinbase to B
+      (is (= 2 (count @chain)))
+      (is (= 1 (count (bc/unspent-outputs pem-a @chain))))
+      (is (= 3 (count (bc/transactions @chain) )))
+      (is (= 1 (count (bc/unspent-outputs pem-b @chain))))
+      (is (= 25 (bc/balance pem-a @chain)))
+      (is (= 25 (bc/balance pem-b @chain))))))

@@ -69,22 +69,21 @@
 
 (defn sign
   "RSA private key signing of a message. Takes message as string"
-  ([message] (sign message (.getPrivate keypair)))
-  ([message private-key]
-   (encode64
-    (let [msg-data (.getBytes message)
-          sig (doto (java.security.Signature/getInstance "SHA256withRSA" "BC")
-                (.initSign private-key (java.security.SecureRandom.))
-                (.update msg-data))]
-      (.sign sig)))))
+  [message private-key]
+  (encode64
+   (let [msg-data (.getBytes message)
+         sig (doto (java.security.Signature/getInstance "SHA256withRSA" "BC")
+               (.initSign private-key (java.security.SecureRandom.))
+               (.update msg-data))]
+     (.sign sig))))
 
 (defn sign-txn
   "Takes a transaction map consisting of :inputs and :outputs, where each input contains
    a Source TXN Hash and Source Output Index. Signs each input by adding :signature
    which contains an RSA-SHA256 signature of the JSON representation of all the outputs in the transaction."
-  [txn]
+  [txn key]
   (let [signable (transactions/txn-signable txn)]
     (assoc txn
            :inputs
-           (into [] (map (fn [i] (assoc i :signature (sign signable)))
-                         (:inputs txn)) ))))
+           (into [] (map (fn [i] (assoc i :signature (sign signable key)))
+                         (:inputs txn))))))

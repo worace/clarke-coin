@@ -16,12 +16,17 @@
                 :timestamp (current-time-millis)}))))
 
 (defn payment
-  [address source-hash source-index]
-  (txn/hash-txn
-   (wallet/sign-txn
-    {:inputs [{:source-hash source-hash :source-index source-index}]
-     :outputs [{:amount 25 :address address}]
-     :timestamp (current-time-millis)})))
+  [paying-key receiving-key source-output]
+  (let [tx-hash (get-in source-output [:coords :transaction-id])
+        index (get-in source-output [:coords :index])
+        payment {:inputs [{:source-hash tx-hash
+                           :source-index index}]
+                 :outputs [{:amount 25
+                            :address receiving-key}]
+                 :timestamp (current-time-millis)}]
+    (-> payment
+        (wallet/sign-txn paying-key)
+        (txn/hash-txn))))
 
 (defn mine
   ([block] (mine block (atom true)))
