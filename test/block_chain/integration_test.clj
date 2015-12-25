@@ -33,8 +33,7 @@
     (is (= [:parent-hash :transactions-hash
             :target :timestamp :nonce] (keys (:header block))))
     (is (nil? (:hash block)))
-    (is (= (hex-string 0) (get-in block [:header :parent-hash])))
-    ))
+    (is (= (hex-string 0) (get-in block [:header :parent-hash])))))
 
 (deftest test-hashing-block
   (let [block (blocks/hashed
@@ -126,3 +125,29 @@
       (is (= 1 (count (bc/unspent-outputs pem-b @chain))))
       (is (= 25 (bc/balance pem-a @chain)))
       (is (= 25 (bc/balance pem-b @chain))))))
+
+(deftest test-selecting-sources-from-output-pool
+  (let [pool [{:amount 25 :address 1234}
+              {:amount 14 :address 1234}]
+        sources (miner/select-sources 25 pool)]
+    (is (= (take 1 pool) sources)))
+  (let [pool [{:amount 11 :address 1234}
+              {:amount 14 :address 1234}]
+        sources (miner/select-sources 25 pool)]
+    (is (= pool sources))))
+
+(deftest test-generating-payment-fails-without-sufficient-funds
+  )
+
+;; make payment
+;; - sending keypair
+;;   (use public to find outputs and
+;;    private to sign transaction)
+;; - receiving address
+;; - amount to pay
+;; - source chain
+
+;; use these to generate new txn including:
+;; output to recipient
+;; - change if necessary
+;; - txn fee ?

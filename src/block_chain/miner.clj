@@ -7,18 +7,19 @@
             [block-chain.transactions :as txn]
             [block-chain.wallet :as wallet]))
 
+(def coinbase-reward 25)
 (defn coinbase
   ([] (coinbase wallet/public-pem))
   ([address] (txn/tag-coords
               (txn/hash-txn
                {:inputs []
-                :outputs [{:amount 25 :address address}]
+                :outputs [{:amount coinbase-reward :address address}]
                 :timestamp (current-time-millis)}))))
 
 (defn payment
   [paying-key receiving-key source-output]
   (let [tx-hash (get-in source-output [:coords :transaction-id])
-        index (get-in source-output [:coords :index])
+        index   (get-in source-output [:coords :index])
         payment {:inputs [{:source-hash tx-hash
                            :source-index index}]
                  :outputs [{:amount 25
@@ -27,6 +28,20 @@
     (-> payment
         (wallet/sign-txn paying-key)
         (txn/hash-txn))))
+
+(defn select-sources
+  [amount output-pool]
+  (let [greaters (filter #(>= (:amount %) amount) output-pool)
+        lessers (filter #(< (:amount %) amount) output-pool)]
+    (if (first greaters)
+      (take 1 greaters)
+      (loop [sources []
+             pool lessers]
+        (println "sources: " sources "pool: " pool)
+        (if (>= (reduce + (map :amount sources)) amount)
+          sources
+          (recur (conj sources (first pool))
+                 (rest pool)))))))
 
 (defn mine
   ([block] (mine block (atom true)))
@@ -56,38 +71,3 @@
   (async/go
     (while @mine?
       (mine-and-commit))))
-
-;; wallet -- using blockchain to find
-;; balance / transaction outputs
-;; wallet:
-;; -- (available-utxos pub-key)
-;; -- (available-balance pub-key)
-;; wallet:
-;; (pay-to-address pub-key amount)
-;; -- find utxo totaling this amount
-;; -- generate new transaction transferring to that address
-
-
-;; transactions-pool
-;; -- keeping track of currently available / pending transactions
-;; -- pull from these when generating new block
-
-
-;; need to pay 25 from current wallet public pem to:
-;;"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn04rVGD/selxmPcYRmjc\nHE19e5XQOueBekYEdQHD5q06mzuLQqErjJDANt80JjF6Y69dOU23cqlZ1B/2Pj48\nK+OROFBlrT5usrAJa6we0Ku33w6avl47PXanhcfi39GKNr8RadCKHoG1klvKqVEm\nuhJO/2foXAb6LATB0YoQuH8sDvUmLHSSPTTCBO2YGtsCvlMBNxdnvGVyZA5iIPwu\nw7DN00jG8RJn0KQRDgTM+nFNxcw9bIOrfSxOmNTDo1y8EFwFiYZ6rORLN+cNL50T\nU1Kl/ShX0dfvXauSjliVSl3sll1brVC500HYlAK61ox5BakdZG6R+3tJKe1RAs3P\nNQIDAQAB\n-----END PUBLIC KEY-----\n"
-
-;; block will have 2 transactions:
-;; - coinbase
-;; - payment
-
-;; current chain has 4 blocks, last of which is
-;; ours
-;; pay using output 0
-;; from txn "e6f4ed3ff30f3936d99385d33f6410c22781359e3cfe69ccabcad109ee9ab40f"
-
-#_(let [recip "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn04rVGD/selxmPcYRmjc\nHE19e5XQOueBekYEdQHD5q06mzuLQqErjJDANt80JjF6Y69dOU23cqlZ1B/2Pj48\nK+OROFBlrT5usrAJa6we0Ku33w6avl47PXanhcfi39GKNr8RadCKHoG1klvKqVEm\nuhJO/2foXAb6LATB0YoQuH8sDvUmLHSSPTTCBO2YGtsCvlMBNxdnvGVyZA5iIPwu\nw7DN00jG8RJn0KQRDgTM+nFNxcw9bIOrfSxOmNTDo1y8EFwFiYZ6rORLN+cNL50T\nU1Kl/ShX0dfvXauSjliVSl3sll1brVC500HYlAK61ox5BakdZG6R+3tJKe1RAs3P\nNQIDAQAB\n-----END PUBLIC KEY-----\n"
-      source-hash "e6f4ed3ff30f3936d99385d33f6410c22781359e3cfe69ccabcad109ee9ab40f"
-      source-index 0
-      txns [(coinbase)
-            (payment recip source-hash 0)]]
-  (mine-block (generate-block txns)))
