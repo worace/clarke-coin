@@ -136,7 +136,7 @@
         sources (miner/select-sources 25 pool)]
     (is (= pool sources))))
 
-#_(deftest test-generating-payment-fails-without-sufficient-funds
+(deftest test-generating-payment-fails-without-sufficient-funds
   (let [chain (atom [])]
     (miner/mine-and-commit chain
                            (blocks/generate-block
@@ -144,11 +144,27 @@
                             {:target easy-difficulty-target :chain @chain}))
     (is (= 1 (count (bc/unspent-outputs pem-a @chain))))
     (is (= 25 (bc/balance pem-a @chain)))
-    (is (= "" (miner/generate-payment
-               key-a
-               pem-b
-               25
-               @chain)))))
+    (is (thrown? AssertionError
+                 (miner/generate-payment key-a pem-b 26 @chain)))))
+
+(deftest test-generating-raw-payment-txn
+  (let [sources (concat (:outputs (miner/coinbase pem-a))
+                        (:outputs (miner/coinbase pem-b)))
+        raw-p (miner/raw-payment-txn 50 "addr" sources)]
+    (is (= 2 (count (:inputs raw-p))))
+    (is (= (into #{} (vals (:coords (first sources))))
+           (into #{} (vals (first (:inputs raw-p))))))
+    (is (= (into #{} (vals (:coords (last sources))))
+           (into #{} (vals (last (:inputs raw-p))))))))
+
+(deftest test-generating-payment-produces-valid-txn
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (let [p (miner/generate-payment key-a pem-b 25 @chain)]
+      (is p))))
 
 ;; make payment
 ;; - sending keypair

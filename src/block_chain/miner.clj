@@ -29,8 +29,20 @@
         (wallet/sign-txn paying-key)
         (txn/hash-txn))))
 
+(defn raw-payment-txn
+  [amount address sources]
+  (let [inputs (into [] (map (fn [s]
+                               {:source-hash (get-in s [:coords :transaction-id])
+                                :source-index (get-in s [:coords :index])})
+                             sources))]
+    {:inputs inputs
+     :outputs {:amount amount :address address}
+     :timestamp (current-time-millis)}))
+
 (defn select-sources
   [amount output-pool]
+  (let [avail (reduce + (map :amount output-pool))]
+    (assert (>= avail amount) (str "Only found " avail " to fund " amount ".")))
   (let [greaters (filter #(>= (:amount %) amount) output-pool)
         lessers (filter #(< (:amount %) amount) output-pool)]
     (if (first greaters)
@@ -43,7 +55,14 @@
                  (rest pool)))))))
 
 (defn generate-payment [key address amount chain]
-  (let [output-pool (bc/unspent-outputs (:public-pem key) chain)]))
+  (let [output-pool (bc/unspent-outputs (:public-pem key) chain)
+        sources (select-sources amount output-pool)]
+    
+    ;; get payment txn
+    ;; sign it
+    ;; tag it
+    ;; hash it
+    ))
 
 (defn mine
   ([block] (mine block (atom true)))

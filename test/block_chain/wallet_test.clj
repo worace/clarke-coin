@@ -53,5 +53,3 @@
   (is (= #{:source-txn :source-output-index :signature}
          (into #{} (keys (first (:inputs (sign-txn unsigned-txn
                                                    (:private keypair)))))))))
-
-(run-tests)
