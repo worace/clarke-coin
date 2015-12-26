@@ -11,9 +11,9 @@
 
 
 (def key-a (wallet/generate-keypair 512))
-(def pem-a (pem/public-key->pem-string (.getPublic key-a)))
+(def pem-a (:public-pem key-a))
 (def key-b (wallet/generate-keypair 512))
-(def pem-b (pem/public-key->pem-string (.getPublic key-b)))
+(def pem-b (:public-pem key-b))
 
 (def easy-difficulty-target (hex-string (math/expt 2 248)))
 
@@ -110,7 +110,7 @@
     (is (= 25 (bc/balance pem-a @chain)))
     (let [source (get-in (last @chain)
                          [:transactions 0 :outputs 0])
-          payment (miner/payment (.getPrivate key-a) pem-b source)]
+          payment (miner/payment (:private key-a) pem-b source)]
       (miner/mine-and-commit chain
                              (blocks/generate-block
                               [(miner/coinbase pem-a)
@@ -136,8 +136,19 @@
         sources (miner/select-sources 25 pool)]
     (is (= pool sources))))
 
-(deftest test-generating-payment-fails-without-sufficient-funds
-  )
+#_(deftest test-generating-payment-fails-without-sufficient-funds
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain
+                           (blocks/generate-block
+                            [(miner/coinbase pem-a)]
+                            {:target easy-difficulty-target :chain @chain}))
+    (is (= 1 (count (bc/unspent-outputs pem-a @chain))))
+    (is (= 25 (bc/balance pem-a @chain)))
+    (is (= "" (miner/generate-payment
+               key-a
+               pem-b
+               25
+               @chain)))))
 
 ;; make payment
 ;; - sending keypair

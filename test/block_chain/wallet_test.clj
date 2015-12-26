@@ -9,15 +9,15 @@
 
 (deftest test-encrypt-and-decrypt-with-fresh-keys
   (let [kp (generate-keypair 128)
-        pub (.getPublic kp)
-        priv (.getPrivate kp)
-        ]
+        pub (:public kp)
+        priv (:private kp)]
     (is (= "pizza"
            (decrypt (encrypt "pizza" pub)
                     priv)))))
 
 (deftest test-encrypt-and-decrypt-with-deserialized-keys
-  (let [priv (.getPrivate (pem-file->key-pair "./test/sample_private_key.pem"))
+
+  (let [priv (:private (key-map (pem-file->key-pair "./test/sample_private_key.pem")))
         pub (pem-file->public-key "./test/sample_public_key.pem")]
     (is (= "pizza"
            (decrypt (encrypt "pizza" pub)
@@ -25,15 +25,15 @@
 
 (deftest test-serialize-and-deserialize-new-key
   (let [kp (generate-keypair 128)
-        encrypted (encrypt "pizza" (.getPublic kp))
-        pem-str (private-key->pem-string (.getPrivate kp))
-        deserialized (pem-string->key-pair pem-str)]
+        encrypted (encrypt "pizza" (:public kp))
+        pem-str (private-key->pem-string (:private kp))
+        deserialized (key-map (pem-string->key-pair pem-str))]
     (is (= "pizza"
            (decrypt encrypted
-                    (.getPrivate deserialized))))))
+                    (:private deserialized))))))
 
 (deftest test-signing-and-verifying
-  (let [priv (.getPrivate (pem-file->key-pair "./test/sample_private_key.pem"))
+  (let [priv (:private (key-map (pem-file->key-pair "./test/sample_private_key.pem")))
         pub (pem-file->public-key "./test/sample_public_key.pem")
         sig (sign "pizza" priv)]
     (is (verify sig "pizza" pub))
@@ -52,6 +52,6 @@
   ;; signing inputs adds new signature element
   (is (= #{:source-txn :source-output-index :signature}
          (into #{} (keys (first (:inputs (sign-txn unsigned-txn
-                                                   (.getPrivate keypair)))))))))
+                                                   (:private keypair)))))))))
 
 (run-tests)

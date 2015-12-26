@@ -9,7 +9,7 @@
 
 (def coinbase-reward 25)
 (defn coinbase
-  ([] (coinbase wallet/public-pem))
+  ([] (coinbase (:public-pem wallet/keypair)))
   ([address] (txn/tag-coords
               (txn/hash-txn
                {:inputs []
@@ -37,11 +37,13 @@
       (take 1 greaters)
       (loop [sources []
              pool lessers]
-        (println "sources: " sources "pool: " pool)
         (if (>= (reduce + (map :amount sources)) amount)
           sources
           (recur (conj sources (first pool))
                  (rest pool)))))))
+
+(defn generate-payment [key address amount chain]
+  (let [output-pool (bc/unspent-outputs (:public-pem key) chain)]))
 
 (defn mine
   ([block] (mine block (atom true)))

@@ -14,10 +14,15 @@
   (doto (java.security.KeyPairGenerator/getInstance "RSA" "BC")
     (.initialize length)))
 
+(defn key-map [kp]
+  {:private (.getPrivate kp)
+   :public (.getPublic kp)
+   :public-pem (pem/public-key->pem-string (.getPublic kp))})
+
 (defn generate-keypair
   "Generate an RSA Keypair. Accepts optional length. Default key length is 2048."
   ([] (generate-keypair 2048))
-  ([length] (.generateKeyPair (kp-generator length))))
+  ([length] (key-map (.generateKeyPair (kp-generator length)))))
 
 (defn encrypt [message public-key]
   "Perform RSA public key encryption of the given message (as a string).
@@ -56,16 +61,17 @@
    that keypair to use as our wallet. If not, generates a new keypair and
    saves it in that location for future use."
   []
-  (if (wallet-exists?)
-    (pem/pem-file->key-pair wallet-path)
-    (let [kp (generate-keypair)]
-      (spit wallet-path
-            (pem/private-key->pem-string (.getPrivate kp)))
-      kp)))
+   (if (wallet-exists?)
+     (key-map (pem/pem-file->key-pair wallet-path))
+     (let [kp (generate-keypair)]
+       (spit wallet-path
+             (pem/private-key->pem-string (.getPrivate kp)))
+       kp)))
 
+;; get keypair as map with:
+;; {:private "..." :public "..." :public-pem "..."}
 
 (def keypair (load-or-generate-keys!))
-(def public-pem (pem/public-key->pem-string (.getPublic keypair)))
 
 (defn sign
   "RSA private key signing of a message. Takes message as string"
