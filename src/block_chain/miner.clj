@@ -36,7 +36,7 @@
                                 :source-index (get-in s [:coords :index])})
                              sources))]
     {:inputs inputs
-     :outputs {:amount amount :address address}
+     :outputs [{:amount amount :address address}]
      :timestamp (current-time-millis)}))
 
 (defn select-sources
@@ -56,13 +56,12 @@
 
 (defn generate-payment [key address amount chain]
   (let [output-pool (bc/unspent-outputs (:public-pem key) chain)
-        sources (select-sources amount output-pool)]
-    
-    ;; get payment txn
-    ;; sign it
-    ;; tag it
-    ;; hash it
-    ))
+        sources (select-sources amount output-pool)
+        txn (raw-payment-txn amount address sources)]
+    (-> txn
+        (wallet/sign-txn (:private key))
+        (txn/hash-txn)
+        (txn/tag-coords))))
 
 (defn mine
   ([block] (mine block (atom true)))

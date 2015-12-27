@@ -164,7 +164,12 @@
                             [(miner/coinbase pem-a)]
                             {:target easy-difficulty-target :chain @chain}))
     (let [p (miner/generate-payment key-a pem-b 25 @chain)]
-      (is p))))
+      (is p)
+      ;; to test:
+      ;; - has valid hash
+      ;; - has correct output amount
+      ;; - has correct # of inputs
+      )))
 
 ;; make payment
 ;; - sending keypair
