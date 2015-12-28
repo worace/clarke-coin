@@ -3,15 +3,6 @@
             [block-chain.utils :refer :all]
             [cheshire.core :as json]))
 
-;; sample txn format:
-#_{:inputs [{:source-hash "original txn hash"
-             :source-index 0
-             :signature "pizza"}]
-   :outputs [{:amount 5
-              :address "(PUBLIC KEY)"}]
-   :timestamp (current-time-millis)}
-
-
 (def input-signable (partial cat-keys [:source-hash :source-index]))
 (def input-hashable (partial cat-keys [:source-hash :source-index :signature]))
 (def output-signable (partial cat-keys [:amount :address]))

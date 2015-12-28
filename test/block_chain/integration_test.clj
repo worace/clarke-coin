@@ -6,6 +6,7 @@
             [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
             [block-chain.pem :as pem]
+            [block-chain.transactions :as txn]
             [block-chain.blocks :as blocks]
             [block-chain.miner :as miner]))
 
@@ -163,23 +164,16 @@
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
                             {:target easy-difficulty-target :chain @chain}))
-    (let [p (miner/generate-payment key-a pem-b 25 @chain)]
-      (is p)
-      ;; to test:
-      ;; - has valid hash
-      ;; - has correct output amount
-      ;; - has correct # of inputs
-      )))
+    (let [p (miner/generate-payment key-a pem-b 25 @chain)
+          sig (:signature (first (:inputs p)))]
+      (is (= 1 (count (:inputs p))))
+      (is (= 1 (count (:outputs p))))
+      (is (= 25 (reduce + (map :amount (:outputs p)))))
+      (is (wallet/verify
+           sig
+           (txn/txn-signable p)
+           (:public key-a))))))
 
-;; make payment
-;; - sending keypair
-;;   (use public to find outputs and
-;;    private to sign transaction)
-;; - receiving address
-;; - amount to pay
-;; - source chain
-
-;; use these to generate new txn including:
-;; output to recipient
-;; - change if necessary
-;; - txn fee ?
+(deftest test-generating-payment-from-multiple-inputs)
+(deftest test-generating-payment-with-change)
+(deftest test-generating-payment-with-transaction-fee)
