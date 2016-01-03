@@ -54,10 +54,16 @@
           (recur (conj sources (first pool))
                  (rest pool)))))))
 
+(defn add-change [txn change-address sources total]
+  (let [change (- (apply + (map :amount sources)) total)]
+    (if (> change 0)
+      (update-in txn
+                 [:outputs]
+                 conj
+                 {:address change-address :amount change})
+      txn)))
+
 (defn generate-payment
-  ([key address amount chain]
-   (generate-payment key address amount chain 0))
-  ([key address amount chain fee]
    "Generates a transaction to pay the specified amount to the
     specified address using provided key. Sources inputs from the
     unspent outputs available to the provided key. If a transaction
@@ -65,10 +71,14 @@
     that are sourced, but not in the value of outputs that are
     spent. (i.e. the fee is the difference between input value
     and output value)"
+  ([key address amount chain]
+   (generate-payment key address amount chain 0))
+  ([key address amount chain fee]
    (let [output-pool (bc/unspent-outputs (:public-pem key) chain)
          sources (select-sources (+ amount fee) output-pool)
          txn (raw-payment-txn amount address sources)]
      (-> txn
+         (add-change (:public-pem key) sources (+ amount fee))
          (wallet/sign-txn (:private key))
          (txn/hash-txn)
          (txn/tag-coords)))))

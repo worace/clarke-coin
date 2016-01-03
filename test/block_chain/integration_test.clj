@@ -191,7 +191,7 @@
 (deftest test-generating-payment-with-transaction-fee
   (let [chain (atom [])]
     (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :chain @chain}))
-    (let [p (miner/generate-payment key-a pem-b 24 @chain)
+    (let [p (miner/generate-payment key-a pem-b 24 @chain 1)
           sig (:signature (first (:inputs p)))]
       (is (= 1 (count (:inputs p))))
       (is (= 1 (count (:outputs p))))
@@ -205,4 +205,23 @@
            (txn/txn-signable p)
            (:public key-a))))))
 
-(deftest test-generating-payment-with-change)
+(deftest test-generating-payment-with-change
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :chain @chain}))
+    (let [p (miner/generate-payment key-a pem-b 15 @chain 3)
+          sig (:signature (first (:inputs p)))]
+      (is (= 1 (count (:inputs p))))
+      (is (= 2 (count (:outputs p))))
+      (is (= 15 (:amount (first (:outputs p)))))
+      (is (= pem-b (:address (first (:outputs p)))))
+      (is (= 7 (:amount (last (:outputs p)))))
+      (is (= pem-a (:address (last (:outputs p)))))
+      (is (= 22 (reduce + (map :amount (:outputs p)))))
+      (let [sources (map (fn [i]
+                           (bc/source-output i @chain))
+                         (:inputs p))]
+        (is (= 25 (reduce + (map :amount sources)))))
+      (is (wallet/verify
+           sig
+           (txn/txn-signable p)
+           (:public key-a))))))
