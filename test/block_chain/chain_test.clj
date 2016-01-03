@@ -84,6 +84,13 @@
           {:source-hash "72f1f4e69cf9d7700700885b7845e54cbab7179a83811fe0898a2246aa6c9278" :source-index 0}]
          (unspent-output-coords key-a chain))))
 
+(deftest test-finding-source-of-input
+  (let [txn (first (:transactions (first chain)))
+        output (first (:outputs txn))
+        input {:source-hash (:hash txn) :source-index 0}]
+    (is (= output (source-output input chain)))
+    (is (nil? (source-output input [])))))
+
 (deftest test-finding-unspent-outputs-for-key)
 
 

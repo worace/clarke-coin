@@ -42,6 +42,11 @@
   (first (filter #(= hash (get % :hash))
                  (transactions blocks))))
 
+(defn source-output [input blocks]
+  (if-let [t (txn-by-hash (:source-hash input)
+                          blocks)]
+    (get (:outputs t) (:source-index input))))
+
 (defn latest-block-hash
   "Look up the hash of the latest block in the provided chain.
    Useful for getting parent hash for new blocks."
@@ -60,7 +65,6 @@
     (if (> (count recent-blocks) 1)
       (target/adjusted-target recent-blocks 15)
       default-target)))
-
 
 (defn consumes-output?
   [source-hash source-index input]
