@@ -174,7 +174,6 @@
            (txn/txn-signable p)
            (:public key-a))))))
 
-(deftest test-generating-payment-from-multiple-inputs)
 (deftest test-generating-payment-from-multiple-inputs
   (let [chain (atom [])]
     (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :chain @chain}))
@@ -188,5 +187,22 @@
            sig
            (txn/txn-signable p)
            (:public key-a))))))
+
+(deftest test-generating-payment-with-transaction-fee
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :chain @chain}))
+    (let [p (miner/generate-payment key-a pem-b 24 @chain)
+          sig (:signature (first (:inputs p)))]
+      (is (= 1 (count (:inputs p))))
+      (is (= 1 (count (:outputs p))))
+      (is (= 24 (reduce + (map :amount (:outputs p)))))
+      (let [sources (map (fn [i]
+                           (bc/source-output i @chain))
+                         (:inputs p))]
+        (is (= 25 (reduce + (map :amount sources)))))
+      (is (wallet/verify
+           sig
+           (txn/txn-signable p)
+           (:public key-a))))))
+
 (deftest test-generating-payment-with-change)
-(deftest test-generating-payment-with-transaction-fee)

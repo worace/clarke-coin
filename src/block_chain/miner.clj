@@ -54,14 +54,24 @@
           (recur (conj sources (first pool))
                  (rest pool)))))))
 
-(defn generate-payment [key address amount chain]
-  (let [output-pool (bc/unspent-outputs (:public-pem key) chain)
-        sources (select-sources amount output-pool)
-        txn (raw-payment-txn amount address sources)]
-    (-> txn
-        (wallet/sign-txn (:private key))
-        (txn/hash-txn)
-        (txn/tag-coords))))
+(defn generate-payment
+  ([key address amount chain]
+   (generate-payment key address amount chain 0))
+  ([key address amount chain fee]
+   "Generates a transaction to pay the specified amount to the
+    specified address using provided key. Sources inputs from the
+    unspent outputs available to the provided key. If a transaction
+    fee is provided, it will be included in the value of inputs
+    that are sourced, but not in the value of outputs that are
+    spent. (i.e. the fee is the difference between input value
+    and output value)"
+   (let [output-pool (bc/unspent-outputs (:public-pem key) chain)
+         sources (select-sources (+ amount fee) output-pool)
+         txn (raw-payment-txn amount address sources)]
+     (-> txn
+         (wallet/sign-txn (:private key))
+         (txn/hash-txn)
+         (txn/tag-coords)))))
 
 (defn mine
   ([block] (mine block (atom true)))
