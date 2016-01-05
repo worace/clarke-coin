@@ -70,7 +70,9 @@
     fee is provided, it will be included in the value of inputs
     that are sourced, but not in the value of outputs that are
     spent. (i.e. the fee is the difference between input value
-    and output value)"
+    and output value). Additionally, will roll any remaining
+    value into an additional 'change' output back to the paying
+    key."
   ([key address amount chain]
    (generate-payment key address amount chain 0))
   ([key address amount chain fee]
