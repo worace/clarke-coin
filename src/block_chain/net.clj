@@ -47,10 +47,45 @@
                (gets stream))))))
 
 
-(defn try-it []
-  (serve 8334 (fn [lines]
-                (println "handling lines: " lines)
-                (first lines))))
+(defn gets
+  "Read a line of textual data from the given socket"
+  [reader]
+  (.readLine reader))
+
+(defn read-lines [reader]
+  (loop [lines []
+         next-line (gets reader)]
+    (if (empty? next-line)
+      lines
+      (recur (conj lines next-line)
+             (gets reader)))))
+
+(def kill-switch (atom true))
+
+(defn serve-loop [port handler]
+  (async/go
+    (with-open [server-sock (ServerSocket. port)]
+      (try
+        (while @kill-switch
+          (println "will wait for next request")
+          (with-open [socket (.accept server-sock)
+                      stream (io/reader socket)]
+            (println "got connection: " socket)
+            (write-response socket
+                            (handler
+                             (read-lines stream)))))
+        (catch
+            Exception
+            e
+          (println "caught exception: " (.getMessage e)))))))
+
+
+(try
+     (/ 1 0)
+     (catch Exception e (str "caught exception: " (.getMessage e))))
+(defn handler [lines]
+  (println "handling lines: " lines)
+  (first lines))
 
 ;;echo handler:
 #_(serve 9000 (partial apply str))
