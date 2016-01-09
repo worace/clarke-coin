@@ -48,42 +48,55 @@
                (gets stream))))))
 
 
-(defn gets
-  "Read a line of textual data from the given socket"
-  [reader]
-  (.readLine reader))
+(let [server-sock (ServerSocket. 8335)]
+  (println "server waiting for conn")
+  (let [client-sock (.accept server-sock)
+        reader (io/reader client-sock)]
+    (println "received conn: " client-sock)
+    (loop [lines []
+           next-line (.readLine reader)]
+      (println "read line: " next-line)
+      (if (empty? next-line)
+        (let [writer (io/writer client-sock)]
+          (println "received end of message")
+          (println "will send lines to client: " lines)
+          (.write writer (clojure.string/join "\n" lines))
+          (.close writer)
+          (.close client-sock))
+        (recur (conj lines next-line)
+               (.readLine reader)))))
+  (println "exiting server")
+  (.close server-sock))
 
 (defn read-lines [reader]
   (loop [lines []
-         next-line (gets reader)]
+         next-line (.readLine reader)]
     (if (empty? next-line)
       lines
       (recur (conj lines next-line)
-             (gets reader)))))
-
-(def kill-switch (atom true))
-
-(defn serve-loop [port handler]
-  (async/go
-    (with-open [server-sock (ServerSocket. port)]
-      (try
-        (while @kill-switch
-          (println "will wait for next request")
-          (with-open [socket (.accept server-sock)
-                      stream (io/reader socket)]
-            (println "got connection: " socket)
-            (write-response socket
-                            (handler
-                             (read-lines stream)))))
-        (catch
-            Exception
-            e
-          (println "caught exception: " (.getMessage e)))))))
-
+             (.readLine reader)))))
 
 (defn handler [lines]
   (println "handling lines: " lines)
-  (first lines))
+  (clojure.string/join "\n" lines))
+
+(import '[java.net ServerSocket])
+(require '[clojure.java.io :as io])
+(defn start-server [port handler]
+  (let [server-sock (ServerSocket. port)]
+    (println "server waiting for will wait for next request")
+    {:server server-sock
+     :run-loop (future
+      (while true
+        (with-open [socket (.accept server-sock)
+                    reader (io/reader socket)
+                    writer (io/writer socket)]
+          (println "got connection: " socket)
+          (let [lines (read-lines reader)]
+            (println "read lines: " lines)
+            (.write writer
+                    (handler lines))))))
+     }))
 
 ;;echo handler:
 #_(serve 9000 (partial apply str))
