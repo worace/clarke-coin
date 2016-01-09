@@ -3,45 +3,35 @@
             [clojure.core.async :as async])
   (:import  [java.net ServerSocket]))
 
-(defn gets
-  "Read a line of textual data from the given socket"
-  [reader]
-  (.readLine reader))
-
 (defn write-response
   "Send the given string message out over the given socket"
   [socket msg]
   (let [writer (io/writer socket)]
-      (.write writer msg)
-      (.flush writer)))
+    (.write writer msg)
+    (.flush writer)))
 
-(defn read-lines [reader]
-  (loop [lines []
+(defn read-lines [socket]
+  (let [reader (io/reader socket)]
+    (loop [lines []
          next-line (.readLine reader)]
-    (if (empty? next-line)
-      lines
-      (recur (conj lines next-line)
-             (.readLine reader)))))
+      (if (empty? next-line)
+        lines
+        (recur (conj lines next-line)
+               (.readLine reader))))))
 
 (defn echo-handler [lines]
   (println "handling lines: " lines)
-  (clojure.string/join "\n" lines))
+  (str (clojure.string/join "\n" lines) "\n"))
 
-(import '[java.net ServerSocket])
-(require '[clojure.java.io :as io])
+(defn serve-loop [server-sock handler]
+  (future
+    (while true
+      (with-open [socket (.accept server-sock)]
+        (write-response socket
+                        (handler (read-lines socket)))))))
+
 (defn start-server [port handler]
-  (let [server-sock (ServerSocket. port)]
+  (let [server (ServerSocket. port)]
     (println "server waiting for will wait for next request")
-    {:server server-sock
-     :run-loop (future
-      (while true
-        (with-open [socket (.accept server-sock)
-                    reader (io/reader socket)
-                    writer (io/writer socket)]
-          (println "got connection: " socket)
-          (let [lines (read-lines reader)]
-            (println "read lines: " lines)
-            (.write writer
-                    (handler lines))))))
-     }))
+    {:server server :run-loop (serve-loop server handler)}))
 
