@@ -1,8 +1,9 @@
 (ns block-chain.net
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async]
-            [block-chain.utils :refer :all])
-  (:import  [java.net ServerSocket]))
+            [block-chain.utils :refer :all]
+            [block-chain.message-handlers :as m])
+  (:import  [java.net ServerSocket Socket]))
 
 (defn write-response
   "Send the given string message out over the given socket"
@@ -20,43 +21,31 @@
         (recur (conj lines next-line)
                (.readLine reader))))))
 
+(defn socket-info [socket]
+  {:remote-address (.getHostAddress (.getInetAddress socket))
+   :local-port (.getPort socket)
+   :outgoing-port (.getPort socket)})
+
 (defn serve-loop [server-sock handler]
   (future
     (while true
       (with-open [socket (.accept server-sock)]
-        (println "received req")
+        (socket-info socket)
         (write-response socket
-                        (handler (read-lines socket)))))))
+                        (handler (read-lines socket)
+                                 (socket-info socket)))))))
 
 (defn start-server [port handler]
   (let [server (ServerSocket. port)]
-    (println "server waiting for will wait for next request")
+    (println "server booted")
     {:server server :run-loop (serve-loop server handler)}))
-
-(defn echo [msg]
-  (println "echoing msg: " msg)
-  msg)
-
-(defn pong [msg]
-  (println "ponging")
-  {:message_type "pong" :payload (:payload msg)})
-
-(defn get-peers [msg]
-  {:message_type "peers" :payload []})
-
-(def message-handlers
-  {"echo" echo
-   "ping" pong
-   "get_peers" get-peers})
 
 (defonce server (atom nil))
 (def default-port 8334)
 
-(defn handler [lines]
-  (let [msg (read-json (first lines))
-        type (:message-type msg)
-        handler (get message-handlers type echo)]
-    (str (write-json (handler msg)) "\n\n")))
+(defn handler [lines socket-info]
+  (let [msg (read-json (first lines))]
+    (str (write-json (m/handler msg socket-info)) "\n\n")))
 
 (defn start!
   ([] (start! default-port))
