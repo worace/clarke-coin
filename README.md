@@ -230,6 +230,22 @@ __Q:__ What would be required to take it out of LAN?
 * TCP punching?
 * What is the bootstrapping/discovery mechanism?
 
+## Architecture Thoughts
+
+Message types:
+
+incoming (another peer requests data)
+Outgoing (an internal event necessitates sending data to peers)
+
+**Outgoing Message Types**
+
+Need to figure out best mechanism to send these in response
+to proper internal events
+
+- New Block
+- New Transaction
+- Forwarding Block / Transaction (maybe these are the same as sending our own)
+
 ## License
 
 Copyright © 2015 Horace Williams
