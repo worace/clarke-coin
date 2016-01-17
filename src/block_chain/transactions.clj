@@ -1,7 +1,18 @@
 (ns block-chain.transactions
   (:require [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]
+            [debugger.core :as dbg]
             [cheshire.core :as json]))
+
+(defonce txn-pool (atom #{}))
+(defn pool []
+  (into [] @txn-pool))
+
+(defn add! [txn]
+  ;;TODO - verify txn here
+  (swap! txn-pool conj txn))
+
+(defn clear-pool! [] (reset! txn-pool #{}))
 
 (def input-signable (partial cat-keys [:source-hash :source-index]))
 (def input-hashable (partial cat-keys [:source-hash :source-index :signature]))

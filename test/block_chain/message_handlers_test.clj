@@ -5,6 +5,7 @@
             [clojure.math.numeric-tower :as math]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
+            [block-chain.transactions :as txns]
             [block-chain.chain :as bc]
             [block-chain.blocks :as blocks]
             [block-chain.message-handlers :refer :all]))
@@ -48,7 +49,41 @@
                            block)
     (-> {:message-type "get_balance" :payload (:public-pem key-a)}
         (handler {})
-        (:payload)
-        (:balance)
+        :payload
+        :balance
         (= 25)
-        (is))))
+        is)))
+
+(deftest test-transaction-pool
+  (txns/clear-pool!)
+  (-> {:message-type "get_transaction_pool"}
+      (handler {})
+      :payload
+      (= [])
+      is)
+  (let [key (wallet/generate-keypair 512)
+        cb (miner/coinbase (:public-pem key))]
+    (handler {:message-type "add_transaction" :payload cb} {})
+    (-> {:message-type "get_transaction_pool"}
+        (handler {})
+        :payload
+        (= [cb])
+        is)))
+
+;; `validate_transaction`
+
+;; __Blocks__
+
+;; `get_blocks`
+;; `get_block` - payload: Block Hash of block to get info about - Node
+;; `add_block` - payload: JSON rep of new block - Node should validate
+;; `get_block_height` - payload: none - Node should respond with
+;; `get_latest_block` - payload: none - Node should respond with hash of the
+
+;; __Misc__
+
+;; * Chat - `chat` - payload: message to send - Just for funsies - sned an arbitrary message
+;; to one of your peers. No response required
+;; * Echo - `echo` - payload: arbitrary - Node should respond with the same payload that
+;; was sent
+;; `ping`
