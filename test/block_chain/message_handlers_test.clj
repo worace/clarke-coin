@@ -1,7 +1,6 @@
 (ns block-chain.message-handlers-test
   (:require [clojure.test :refer :all]
             [block-chain.utils :refer :all]
-            [block-chain.peers :as peers]
             [clojure.math.numeric-tower :as math]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
@@ -27,18 +26,18 @@
     (is (= (assoc msg :message-type "pong") (handler msg {})))))
 
 (deftest test-getting-adding-and-removing-peers
-  (peers/reset-peers!)
-  (is (= [] (:payload (handler {:message-type "get_peers"} {}))))
-  (handler {:message-type "add_peer"
-            :payload {:port 8335}}
-           sock-info)
-  (is (= [{:host "127.0.0.1" :port 8335}]
-         (:payload (handler {:message-type "get_peers"} {}))))
-  (handler {:message-type "remove_peer"
-            :payload {:port 8335}}
-           sock-info)
-  (is (= []
-         (:payload (handler {:message-type "get_peers"} {})))))
+  (with-redefs [db/peers (atom #{})]
+    (is (= #{} (:payload (handler {:message-type "get_peers"} {}))))
+    (handler {:message-type "add_peer"
+              :payload {:port 8335}}
+             sock-info)
+    (is (= #{{:host "127.0.0.1" :port 8335}}
+           (:payload (handler {:message-type "get_peers"} {}))))
+    (handler {:message-type "remove_peer"
+              :payload {:port 8335}}
+             sock-info)
+    (is (= #{}
+           (:payload (handler {:message-type "get_peers"} {}))))))
 
 (deftest test-getting-balance-for-key
   (let [chain (atom [])
