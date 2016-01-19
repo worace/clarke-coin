@@ -2,6 +2,7 @@
   (:require [clojure.math.numeric-tower :as math]
             [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
+            [block-chain.db :as db]
             [block-chain.blocks :as blocks]
             [clojure.core.async :as async]
             [block-chain.transactions :as txn]
@@ -101,7 +102,7 @@
 (defn stop-miner! [] (reset! mine? false))
 
 (defn mine-and-commit
-  ([] (mine-and-commit bc/block-chain))
+  ([] (mine-and-commit db/block-chain))
   ([chain] (mine-and-commit chain (blocks/generate-block [(coinbase)])))
   ([chain pending]
    (if-let [b (mine pending mine?)]

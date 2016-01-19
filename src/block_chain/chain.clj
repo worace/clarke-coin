@@ -5,33 +5,11 @@
             [block-chain.utils :refer :all]
             [block-chain.target :as target]))
 
-(def chain-path (str (System/getProperty "user.home")
-                     "/.block_chain.json"))
-
-(defn read-stored-chain
-  ([] (read-stored-chain chain-path))
-  ([path] (if (.exists (io/as-file path))
-            (into [] (read-json (slurp path)))
-            [])))
-
-(defonce block-chain (atom []))
-
-(defn load-chain!
-  ([] (load-chain! chain-path))
-  ([path] (reset! block-chain (read-stored-chain path))))
-
-(defn write-chain!
-  ([] (write-chain! chain-path @block-chain))
-  ([path blocks] (spit path (write-json blocks))))
-
-(defn clear! [] (reset! block-chain []))
-
-(defn add-block! [b]
-  (swap! block-chain conj b))
-
 (defn block-by-hash
-  ([hash] (block-by-hash hash @block-chain))
-  ([hash c] (first (filter #(= hash (get-in % [:header :hash])) c))))
+  [hash blocks]
+  (first
+   (filter #(= hash (get-in % [:header :hash]))
+           blocks)))
 
 (defn transactions [blocks] (mapcat :transactions blocks))
 (defn inputs [blocks] (mapcat :inputs (transactions blocks)))
@@ -60,8 +38,8 @@
 (defn next-target
   "Calculate the appropriate next target based on the time frequency
    of recent blocks."
-  []
-  (let [recent-blocks (take-last 10 @block-chain)]
+  [blocks]
+  (let [recent-blocks (take-last 10 blocks)]
     (if (> (count recent-blocks) 1)
       (target/adjusted-target recent-blocks 15)
       default-target)))

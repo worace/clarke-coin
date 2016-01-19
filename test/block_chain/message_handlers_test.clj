@@ -40,12 +40,13 @@
          (:payload (handler {:message-type "get_peers"} {})))))
 
 (deftest test-getting-balance-for-key
-  (let [key-a (wallet/generate-keypair 512)
+  (let [chain (atom [])
+        key-a (wallet/generate-keypair 512)
         easy-diff (hex-string (math/expt 2 248))
         block (blocks/generate-block
                [(miner/coinbase (:public-pem key-a))]
                {:target easy-diff})]
-    (miner/mine-and-commit bc/block-chain
+    (miner/mine-and-commit chain
                            block)
     (-> {:message-type "get_balance" :payload (:public-pem key-a)}
         (handler {})

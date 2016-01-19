@@ -1,6 +1,7 @@
 (ns block-chain.message-handlers
   (:require [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
+            [block-chain.db :as db]
             [block-chain.transactions :as txns]
             [block-chain.peers :as peers]))
 
@@ -27,7 +28,7 @@
 
 (defn get-balance [msg sock-info]
   (let [key (:payload msg)
-        balance (bc/balance key @bc/block-chain)]
+        balance (bc/balance key @db/block-chain)]
     {:message-type "balance"
      :payload {:key key :balance balance}}))
 
