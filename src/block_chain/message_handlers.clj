@@ -2,8 +2,7 @@
   (:require [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
             [block-chain.db :as db]
-            [block-chain.transactions :as txns]
-            [block-chain.peers :as peers]))
+            [block-chain.transactions :as txns]))
 
 (defn echo [msg sock-info]
   msg)
@@ -12,19 +11,21 @@
   {:message-type "pong" :payload (:payload msg)})
 
 (defn get-peers [msg sock-info]
-  {:message-type "peers" :payload (peers/get-peers)})
+  {:message-type "peers" :payload @db/peers})
 
 (defn add-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (peers/add-peer! {:host host :port port})
-    {:message-type "peers" :payload (peers/get-peers)}))
+    (swap! db/peers conj {:host host :port port})
+    {:message-type "peers" :payload @db/peers}))
 
 (defn remove-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (peers/remove-peer! {:host host :port port})
-    {:message-type "peers" :payload (peers/get-peers)}))
+    (swap! db/peers
+           clojure.set/difference
+           #{{:host host :port port}})
+    {:message-type "peers" :payload @db/peers}))
 
 (defn get-balance [msg sock-info]
   (let [key (:payload msg)
