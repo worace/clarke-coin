@@ -70,20 +70,16 @@
     (swap! db/block-chain conj "hi")
     (responds 1 {:message-type "get_block_height"})))
 
+(deftest test-getting-latest-block
+  (with-redefs [db/block-chain (atom [])]
+    (responds nil {:message-type "get_latest_block"})
+    (swap! db/block-chain conj {:some "block"})
+    (responds {:some "block"} {:message-type "get_latest_block"})))
+
+;; Need Validation Logic
 ;; `validate_transaction`
+;; `add_block` - payload: JSON rep of new block - Node should validate
 
-;; __Blocks__
-
+;; Need state / batching logic:
 ;; `get_blocks`
 ;; `get_block` - payload: Block Hash of block to get info about - Node
-;; `add_block` - payload: JSON rep of new block - Node should validate
-;; `get_block_height` - payload: none - Node should respond with
-;; `get_latest_block` - payload: none - Node should respond with hash of the
-
-;; __Misc__
-
-;; * Chat - `chat` - payload: message to send - Just for funsies - sned an arbitrary message
-;; to one of your peers. No response required
-;; * Echo - `echo` - payload: arbitrary - Node should respond with the same payload that
-;; was sent
-;; `ping`
