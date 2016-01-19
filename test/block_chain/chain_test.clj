@@ -2,9 +2,10 @@
   (:require [clojure.test :refer :all]
             [block-chain.chain :refer :all]
             [block-chain.utils :refer :all]
+            [block-chain.db :as db]
             [clojure.tools.namespace.repl :refer [refresh]]))
 
-(def chain (read-stored-chain "./test/sample_chain.json"))
+(def chain (db/read-stored-chain "./test/sample_chain.json"))
 (def utxo (get-in chain [0 :transactions 0 :outputs 0]))
 (def key-a "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn04rVGD/selxmPcYRmjc\nHE19e5XQOueBekYEdQHD5q06mzuLQqErjJDANt80JjF6Y69dOU23cqlZ1B/2Pj48\nK+OROFBlrT5usrAJa6we0Ku33w6avl47PXanhcfi39GKNr8RadCKHoG1klvKqVEm\nuhJO/2foXAb6LATB0YoQuH8sDvUmLHSSPTTCBO2YGtsCvlMBNxdnvGVyZA5iIPwu\nw7DN00jG8RJn0KQRDgTM+nFNxcw9bIOrfSxOmNTDo1y8EFwFiYZ6rORLN+cNL50T\nU1Kl/ShX0dfvXauSjliVSl3sll1brVC500HYlAK61ox5BakdZG6R+3tJKe1RAs3P\nNQIDAQAB\n-----END PUBLIC KEY-----\n")
 (def key-b "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuFl76216Veu5/H2MM4lO\nNFOuZLGcwxeUQzdmW2g+da5mmjyV3RiuYueDJFlAgx2iDASQM+rK1qKp7lj352DU\n3gABqJ5Tk1mRvGHTGz+aP4sj8CKUnjJIQVmmleiRZ47wRDsnrg9N0XyfW+aiPKxl\njvr1pkKJmryO+u2d69Tc69bNsqpGzFLTdO3w1k/jxa0pUAQNqf11MJSrzF7u/Z+8\nmaqFZlzZ5o1LgqTLMpeFg0pcMIKuZb9yQ1IKqOjLsvTvYYyBbNU31FD8qVY/R64z\nbrIYbfWXNiUrYOXyIq7rqegLf3fx+aJGgwUOGYr2MJjY+ZR5Z+cIKJiAgNnpkBWR\nhwIDAQAB\n-----END PUBLIC KEY-----\n")
@@ -18,20 +19,6 @@
             }
    :transactions []
    :hash "some-hash"})
-
-(deftest test-reads-stored-chain
-  (is (vector? (read-stored-chain))))
-
-(deftest adds-to-chain
-  (let [c (count @block-chain)]
-    (add-block! {})
-    (is (= (inc c) (count @block-chain)))))
-
-(deftest test-reads-blocks-from-json-file
-  (is (vector? chain))
-  (is (= 5 (count chain)))
-  (is (= "acc2a45c839b7f7f25349442c68de523894f32897dea1f62fd4a2c1921d785a8"
-         (get-in chain [0 :header :transactions-hash]))))
 
 (deftest get-block-by-hash
   (let [b (first chain)
@@ -90,8 +77,6 @@
         input {:source-hash (:hash txn) :source-index 0}]
     (is (= output (source-output input chain)))
     (is (nil? (source-output input [])))))
-
-(deftest test-finding-unspent-outputs-for-key)
 
 
 

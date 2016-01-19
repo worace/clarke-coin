@@ -1,5 +1,6 @@
 (ns block-chain.blocks
   (:require [block-chain.chain :as chain]
+            [block-chain.db :as db]
             [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]))
 
