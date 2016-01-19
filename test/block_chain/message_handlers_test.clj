@@ -7,6 +7,7 @@
             [block-chain.miner :as miner]
             [block-chain.transactions :as txns]
             [block-chain.chain :as bc]
+            [block-chain.db :as db]
             [block-chain.blocks :as blocks]
             [block-chain.message-handlers :refer :all]))
 
@@ -48,12 +49,13 @@
                {:target easy-diff})]
     (miner/mine-and-commit chain
                            block)
-    (-> {:message-type "get_balance" :payload (:public-pem key-a)}
-        (handler {})
-        :payload
-        :balance
-        (= 25)
-        is)))
+    (with-redefs [db/block-chain chain]
+      (-> {:message-type "get_balance" :payload (:public-pem key-a)}
+          (handler {})
+          :payload
+          :balance
+          (= 25)
+          is))))
 
 (deftest test-transaction-pool
   (txns/clear-pool!)
