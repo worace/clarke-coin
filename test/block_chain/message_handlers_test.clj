@@ -33,17 +33,16 @@
 
 (deftest test-getting-adding-and-removing-peers
   (with-redefs [db/peers (atom #{})]
-    (is (= #{} (:payload (handler {:message-type "get_peers"} {}))))
+    (responds #{} {:message-type "get_peers"})
     (handler {:message-type "add_peer"
               :payload {:port 8335}}
              sock-info)
-    (is (= #{{:host "127.0.0.1" :port 8335}}
-           (:payload (handler {:message-type "get_peers"} {}))))
+    (responds #{{:host "127.0.0.1" :port 8335}}
+              {:message-type "get_peers"})
     (handler {:message-type "remove_peer"
               :payload {:port 8335}}
              sock-info)
-    (is (= #{}
-           (:payload (handler {:message-type "get_peers"} {}))))))
+    (responds #{} {:message-type "get_peers"})))
 
 (deftest test-getting-balance-for-key
   (let [chain (atom [])
@@ -52,34 +51,18 @@
         block (blocks/generate-block
                [(miner/coinbase (:public-pem key-a))]
                {:target easy-diff})]
-    (miner/mine-and-commit chain
-                           block)
+    (miner/mine-and-commit chain block)
     (with-redefs [db/block-chain chain]
-      (-> {:message-type "get_balance" :payload (:public-pem key-a)}
-          (handler {})
-          :payload
-          :balance
-          (= 25)
-          is))))
+      (responds {:balance 25 :key (:public-pem key-a)} {:message-type "get_balance" :payload (:public-pem key-a)})
+      )))
 
 (deftest test-transaction-pool
   (with-redefs [db/transaction-pool (atom #{})]
-    (-> {:message-type "get_transaction_pool"}
-      (handler {})
-      :payload
-      (= [])
-      is)
     (let [key (wallet/generate-keypair 512)
-        cb (miner/coinbase (:public-pem key))]
-
-    (handler {:message-type "add_transaction" :payload cb} {})
-
-    (-> {:message-type "get_transaction_pool"}
-        (handler {})
-        :payload
-        (= [cb])
-        is))))
-
+          cb (miner/coinbase (:public-pem key))]
+      (responds [] {:message-type "get_transaction_pool"})
+      (handler {:message-type "add_transaction" :payload cb} {})
+      (responds [cb] {:message-type "get_transaction_pool" :payload cb}))))
 
 (deftest test-getting-block-height
   (with-redefs [db/block-chain (atom [])]
