@@ -58,20 +58,22 @@
           is))))
 
 (deftest test-transaction-pool
-  (txns/clear-pool!)
-  (-> {:message-type "get_transaction_pool"}
+  (with-redefs [db/transaction-pool (atom #{})]
+    (-> {:message-type "get_transaction_pool"}
       (handler {})
       :payload
       (= [])
       is)
-  (let [key (wallet/generate-keypair 512)
+    (let [key (wallet/generate-keypair 512)
         cb (miner/coinbase (:public-pem key))]
+
     (handler {:message-type "add_transaction" :payload cb} {})
+
     (-> {:message-type "get_transaction_pool"}
         (handler {})
         :payload
         (= [cb])
-        is)))
+        is))))
 
 ;; `validate_transaction`
 

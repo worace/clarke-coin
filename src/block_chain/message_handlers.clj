@@ -34,10 +34,10 @@
 
 (defn get-transaction-pool [msg sock-info]
   {:message-type "transaction_pool"
-   :payload (txns/pool)})
+   :payload (into [] @db/transaction-pool)})
 
 (defn add-transaction [msg sock-info]
-  (txns/add! (:payload msg)))
+  (swap! db/transaction-pool conj (:payload msg)))
 
 (def message-handlers
   {"echo" echo
