@@ -10,6 +10,12 @@
             [block-chain.blocks :as blocks]
             [block-chain.message-handlers :refer :all]))
 
+(defn responds
+  ([val msg] (responds val msg {}))
+  ([val msg sock-info]
+   (let [resp (handler msg sock-info)]
+     (is (= val (:payload resp))))))
+
 (def sock-info
   {:remote-address "127.0.0.1"
    :local-port 8334
@@ -73,6 +79,13 @@
         :payload
         (= [cb])
         is))))
+
+
+(deftest test-getting-block-height
+  (with-redefs [db/block-chain (atom [])]
+    (responds 0 {:message-type "get_block_height"})
+    (swap! db/block-chain conj "hi")
+    (responds 1 {:message-type "get_block_height"})))
 
 ;; `validate_transaction`
 

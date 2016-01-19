@@ -40,6 +40,10 @@
 (defn add-transaction [msg sock-info]
   (swap! db/transaction-pool conj (:payload msg)))
 
+(defn get-block-height [msg sock-info]
+  {:message-type "block_height"
+   :payload (count @db/block-chain)})
+
 (def message-handlers
   {"echo" echo
    "ping" pong
@@ -47,6 +51,7 @@
    "add_peer" add-peer
    "remove_peer" remove-peer
    "get_balance" get-balance
+   "get_block_height" get-block-height
    "get_transaction_pool" get-transaction-pool
    "add_transaction" add-transaction})
 
