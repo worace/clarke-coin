@@ -30,7 +30,6 @@
   (future
     (while true
       (with-open [socket (.accept server-sock)]
-        (socket-info socket)
         (write-response socket
                         (handler (read-lines socket)
                                  (socket-info socket)))))))

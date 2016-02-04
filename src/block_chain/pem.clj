@@ -16,6 +16,13 @@
   (let [kd (keydata (io/reader (.getBytes string)))]
     (.getKeyPair (org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter.) kd)))
 
+(defn der-string->pub-key [string]
+  (let [non-wrapped (clojure.string/replace string #"\n" "")
+        key-bytes (decode64 non-wrapped)
+        spec (java.security.spec.X509EncodedKeySpec. key-bytes)
+        key-factory (java.security.KeyFactory/getInstance "RSA")]
+    (.generatePublic key-factory spec)))
+
 (defn pem-string->pub-key [string]
   "Convert a PEM-formatted public key string to an RSA public key.
    Returns sun.security.rsa.RSAPublicKeyImpl"
