@@ -3,6 +3,7 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :main block-chain.core
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.bouncycastle/bcpg-jdk15on "1.53"]
                  [org.bouncycastle/bcpkix-jdk15on "1.53"]

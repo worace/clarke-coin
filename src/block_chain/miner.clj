@@ -105,7 +105,11 @@
   ([chain] (mine-and-commit chain (blocks/generate-block [(coinbase)])))
   ([chain pending]
    (if-let [b (mine pending mine?)]
-     (swap! chain conj b)
+     (do (println "*******************")
+     (println "found new block:")
+     (println b)
+     (println "*******************")
+     (swap! chain conj b))
      (println "didn't find coin, exiting"))))
 
 (defn run-miner! []

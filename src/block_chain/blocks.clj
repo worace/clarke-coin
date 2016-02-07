@@ -24,7 +24,7 @@
                                (or chain @chain/block-chain)))
              :transactions-hash (transactions-hash transactions)
              :target (or target (chain/next-target))
-             :timestamp (or timestamp (current-time-seconds))
+             :timestamp (or timestamp (current-time-millis))
              :nonce (or nonce 0)}
     :transactions transactions}))
 
