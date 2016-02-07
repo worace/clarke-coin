@@ -1,7 +1,6 @@
 (ns block-chain.transactions
   (:require [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]
-            [debugger.core :as dbg]
             [cheshire.core :as json]))
 
 (def input-signable (partial cat-keys [:source-hash :source-index]))

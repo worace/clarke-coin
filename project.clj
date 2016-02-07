@@ -10,8 +10,5 @@
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [cheshire "5.5.0"]
                  [net.async/async "0.1.0"]
-                 [aleph "0.4.1-beta2"]
-                 [manifold "0.1.1"]
                  [org.clojure/core.async "0.2.374"]
-                 [mvxcvi/clj-pgp "0.8.2"]
                  [pandect "0.5.4"]])
