@@ -252,3 +252,18 @@ Copyright © 2015 Horace Williams
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
+
+## Clarke-Coin tutorial videos
+
+Topics
+
+* Intro to hashing
+* Intro to public/private key
+* using public/private key crypto from ruby
+* building a wallet
+* Working with transactions
+
+Spec updates
+
+* Use DER encoding for addresses? fingerprinting?
+* use content-length leading bytes for tcp protocol

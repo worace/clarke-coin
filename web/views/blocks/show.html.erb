@@ -1,0 +1,19 @@
+<h1>Info for Block <%= @block["header"]["hash"] %></h1>
+
+<div>
+  <h2>Header</h2>
+  <% @block["header"].each do |k,v| %>
+    <p><strong><%= k.capitalize%>: </strong><%= v %></p>
+  <% end %>
+</div>
+
+<div>
+  <h2>Transactions</h2>
+  <% @block["transactions"].each do |t| %>
+    <p>
+      <a href="/transactions/<%= t["hash"]%>">
+        <%= t["hash"]%>
+      </a>
+    </p>
+  <% end %>
+</div>

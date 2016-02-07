@@ -1,0 +1,11 @@
+<h1>Dem Blocks</h1>
+
+<ul>
+  <% @blocks.each do |b| %>
+  <li>
+    <p>Block: <a href="/blocks/<%= b["header"]["hash"] %>"><%= b["header"]["hash"] %></a></p>
+    <p>Transactions: <%= b["transactions"].count %></p>
+    <p>Time: <%= b["header"]["timestamp"] %></p>
+  </li>
+  <% end %>
+</ul>
