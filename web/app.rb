@@ -32,6 +32,14 @@ class ClarkeClient
   def get_block(hash)
     send_message("get_block", hash)
   end
+
+  def get_transaction(hash)
+    send_message("get_transaction", hash)
+  end
+
+  def get_balance(address)
+    send_message("get_balance", address)
+  end
 end
 
 client = ClarkeClient.new
@@ -47,17 +55,15 @@ get "/blocks/:hash" do
 end
 
 get "/transactions/:hash" do
-  # list json of that transactions
+  @txn = client.get_transaction(params[:hash])["payload"]
+  erb :"transactions/show"
+end
+
+post "/balances" do
+  @balance_info = client.get_balance(params[:address].gsub("\r\n","\n"))["payload"]
+  erb :"balances/create"
 end
 
 get "/transactions/pool" do
   # show current txn pool
-end
-
-get "/balances/new" do
-  # show balance check form
-end
-
-post "/balances" do
-  # read address from params and show that address's balance
 end

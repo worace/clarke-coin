@@ -1,0 +1,27 @@
+<h1>Info for Transaction  <%= @txn["hash"] %></h1>
+
+<div>
+  <h2>Inputs</h2>
+  <% if @txn["inputs"].any? %>
+    <% @txn["inputs"].each do |i| %>
+      <% i.each do |k,v| %>
+        <p><strong><%= k.capitalize%>: </strong><%= v %></p>
+      <% end %>
+    <% end %>
+  <% else %>
+    <p>None (coinbase)</p>
+  <% end %>
+</div>
+
+<div>
+  <h2>Outputs</h2>
+  <% @txn["outputs"].each do |o| %>
+    <p><strong>Amount: </strong><%= o["amount"]%></p>
+    <p><strong>Address: </strong><%= o["address"]%></p>
+
+    <form action="/balances" method="post">
+      <input type="hidden" name="address" value="<%= o["address"] %>"></input>
+      <button>Look up this address</button>
+    </form>
+  <% end %>
+</div>
