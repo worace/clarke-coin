@@ -57,3 +57,30 @@
 (deftest test-real-block-adj
   (is (= "000012666666666665d77b75b24c1213528ed186cd962833de00000000000000"
          (adjusted-target sample-blocks 15))))
+
+(defn smaller-target [& targets]
+  (apply < (map hex->int targets)))
+
+(defn next-n-blocks [blocks n]
+  (loop [i n
+           blocks blocks]
+      (if (= i 0)
+        blocks
+        (recur (dec i)
+               (conj blocks
+                     {:header {:timestamp (+ 5000 (get-in (last blocks) [:header :timestamp]))
+                               :target (adjusted-target blocks 60000)}})))))
+
+(deftest test-weird-test
+  ;; want a test that starts form 0 and gradually builds up target from there
+  ;; insert tightly spaced frequencies each time and see that
+  ;; the target gets harder, not easier
+  ;; (targets are monotonically decreasing)
+  (let [blocks [{:header {:timestamp 0 :target default}}
+                {:header {:timestamp 15000 :target default}}
+                {:header {:timestamp 30000 :target default}}]]
+    (is (smaller-target (adjusted-target blocks 600000) default))
+    (let [more-blocks (next-n-blocks blocks 20)
+          targets (map hex->int (map #(get-in % [:header :target]) more-blocks))]
+      (is (= 23 (count targets)))
+      (is (apply > (drop 3 targets))))))

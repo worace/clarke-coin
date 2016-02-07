@@ -1,6 +1,5 @@
 (ns block-chain.blocks
   (:require [block-chain.chain :as chain]
-            [block-chain.db :as db]
             [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]))
 
@@ -18,13 +17,12 @@
   (sha256 (block-hashable header)))
 
 (defn generate-block
-  ([transactions] (generate-block transactions {}))
-  ([transactions {:keys [parent-hash target timestamp nonce chain]}]
+  ([transactions] (generate-block transactions {:blocks []}))
+  ([transactions {:keys [parent-hash target timestamp nonce blocks]}]
    {:header {:parent-hash (or parent-hash
-                              (chain/latest-block-hash
-                               (or chain @chain/block-chain)))
+                              (chain/latest-block-hash blocks))
              :transactions-hash (transactions-hash transactions)
-             :target (or target (chain/next-target))
+             :target (or target (chain/next-target blocks))
              :timestamp (or timestamp (current-time-millis))
              :nonce (or nonce 0)}
     :transactions transactions}))

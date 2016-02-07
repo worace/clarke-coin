@@ -2,6 +2,9 @@
   (:require [block-chain.utils :refer :all]
             [clojure.math.numeric-tower :as math]))
 
+(def default (hex-string (math/expt 2 236)))
+(def frequency 120000)
+
 (defn avg-spacing
   "Finds average time spacing in seconds of a series of times"
   [times]

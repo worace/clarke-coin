@@ -59,7 +59,7 @@
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (is (= 1 (count @chain)))))
 
 
@@ -68,15 +68,15 @@
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (is (= 3 (count @chain)))
     (is (= (get-in (get @chain 0) [:header :hash])
            (get-in (get @chain 1) [:header :parent-hash])))
@@ -89,15 +89,15 @@
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (is (= 3 (count (bc/unspent-outputs pem-a @chain))))
     (is (= 75 (bc/balance pem-a @chain)))))
 
@@ -106,7 +106,7 @@
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (is (= 1 (count (bc/unspent-outputs pem-a @chain))))
     (is (= 25 (bc/balance pem-a @chain)))
     (let [source (get-in (last @chain)
@@ -116,7 +116,7 @@
                              (blocks/generate-block
                               [(miner/coinbase pem-a)
                                payment]
-                              {:target easy-difficulty-target :chain @chain}))
+                              {:target easy-difficulty-target :blocks @chain}))
       ;; 2 blocks containing 3 transactions
       ;; 2 coinbases for A and 1 txn transferring
       ;; 1st coinbase to B
@@ -142,7 +142,7 @@
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (is (= 1 (count (bc/unspent-outputs pem-a @chain))))
     (is (= 25 (bc/balance pem-a @chain)))
     (is (thrown? AssertionError
@@ -163,7 +163,7 @@
     (miner/mine-and-commit chain
                            (blocks/generate-block
                             [(miner/coinbase pem-a)]
-                            {:target easy-difficulty-target :chain @chain}))
+                            {:target easy-difficulty-target :blocks @chain}))
     (let [p (miner/generate-payment key-a pem-b 25 @chain)
           sig (:signature (first (:inputs p)))]
       (is (= 1 (count (:inputs p))))
@@ -176,8 +176,8 @@
 
 (deftest test-generating-payment-from-multiple-inputs
   (let [chain (atom [])]
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :chain @chain}))
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :chain @chain}))
+    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :blocks @chain}))
+    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :blocks @chain}))
     (let [p (miner/generate-payment key-a pem-b 50 @chain)
           sig (:signature (first (:inputs p)))]
       (is (= 2 (count (:inputs p))))
@@ -190,7 +190,7 @@
 
 (deftest test-generating-payment-with-transaction-fee
   (let [chain (atom [])]
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :chain @chain}))
+    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :blocks @chain}))
     (let [p (miner/generate-payment key-a pem-b 24 @chain 1)
           sig (:signature (first (:inputs p)))]
       (is (= 1 (count (:inputs p))))
@@ -207,7 +207,7 @@
 
 (deftest test-generating-payment-with-change
   (let [chain (atom [])]
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :chain @chain}))
+    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :blocks @chain}))
     (let [p (miner/generate-payment key-a pem-b 15 @chain 3)
           sig (:signature (first (:inputs p)))]
       (is (= 1 (count (:inputs p))))

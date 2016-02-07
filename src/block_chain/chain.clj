@@ -33,16 +33,14 @@
     (get-in parent [:header :hash])
     (hex-string 0)))
 
-(def default-target (hex-string (math/expt 2 236)))
-
 (defn next-target
   "Calculate the appropriate next target based on the time frequency
    of recent blocks."
   [blocks]
   (let [recent-blocks (take-last 10 blocks)]
     (if (> (count recent-blocks) 1)
-      (target/adjusted-target recent-blocks 15)
-      default-target)))
+      (target/adjusted-target recent-blocks target/frequency)
+      target/default)))
 
 (defn consumes-output?
   [source-hash source-index input]

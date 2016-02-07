@@ -103,13 +103,13 @@
 
 (defn mine-and-commit
   ([] (mine-and-commit db/block-chain))
-  ([chain] (mine-and-commit chain (blocks/generate-block [(coinbase)])))
+  ([chain] (mine-and-commit chain (blocks/generate-block [(coinbase)] {:blocks @chain})))
   ([chain pending]
    (if-let [b (mine pending mine?)]
-     (do (println "*******************")
+     (do
+       (println "*******************")
      (println "found new block:")
-     (println b)
-     (println "*******************")
+     (println "NEXT TARGET: " (bc/next-target @db/block-chain))
      (swap! chain conj b))
      (println "didn't find coin, exiting"))))
 
