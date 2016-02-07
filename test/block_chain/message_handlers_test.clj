@@ -22,7 +22,7 @@
 
 (deftest test-ping-pong
   (let [msg {:message-type "ping"
-             :payload (current-time-millis)}]
+             :payload (current-time-seconds)}]
     (is (= (assoc msg :message-type "pong") (handler msg {})))))
 
 (deftest test-getting-adding-and-removing-peers
