@@ -57,6 +57,11 @@
    :payload (bc/block-by-hash (:payload msg)
                               @db/block-chain)})
 
+(defn get-transaction [msg sock-info]
+  {:message-type "transaction_info"
+   :payload (bc/txn-by-hash (:payload msg)
+                              @db/block-chain)})
+
 (def message-handlers
   {"echo" echo
    "ping" pong
@@ -69,6 +74,7 @@
    "get_transaction_pool" get-transaction-pool
    "get_blocks" get-blocks
    "get_block" get-block
+   "get_transaction" get-transaction
    "add_transaction" add-transaction})
 
 (defn handler [msg sock-info]
