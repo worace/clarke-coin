@@ -65,7 +65,7 @@
      (key-map (pem/pem-file->key-pair wallet-path))
      (let [kp (generate-keypair)]
        (spit wallet-path
-             (pem/private-key->pem-string (.getPrivate kp)))
+             (pem/private-key->pem-string (:private kp)))
        kp)))
 
 ;; get keypair as map with:
