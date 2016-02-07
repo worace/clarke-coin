@@ -45,6 +45,7 @@
 
 (defn handler [lines socket-info]
   (let [msg (read-json (first lines))]
+    (println "handling message: " msg)
     (str (write-json (m/handler msg socket-info)) "\n\n")))
 
 (defn start!
