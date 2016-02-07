@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async]
             [block-chain.utils :refer :all]
+            [block-chain.db :as db]
             [block-chain.message-handlers :as m])
   (:import  [java.net ServerSocket Socket]))
 

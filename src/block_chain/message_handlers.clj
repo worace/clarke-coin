@@ -48,6 +48,15 @@
   {:message-type "latest_block"
    :payload (last @db/block-chain)})
 
+(defn get-blocks [msg sock-info]
+  {:message-type "blocks"
+   :payload @db/block-chain})
+
+(defn get-block [msg sock-info]
+  {:message-type "block_info"
+   :payload (bc/block-by-hash (:payload msg)
+                              @db/block-chain)})
+
 (def message-handlers
   {"echo" echo
    "ping" pong
@@ -58,6 +67,8 @@
    "get_block_height" get-block-height
    "get_latest_block" get-latest-block
    "get_transaction_pool" get-transaction-pool
+   "get_blocks" get-blocks
+   "get_block" get-block
    "add_transaction" add-transaction})
 
 (defn handler [msg sock-info]
