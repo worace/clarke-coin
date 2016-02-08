@@ -44,8 +44,13 @@ end
 
 client = ClarkeClient.new
 
+def splits(blocks)
+  blocks.map { |b| b["header"]["timestamp"].to_i / 1000 }.each_cons(2).map { |a,b| a - b }
+end
+
 get "/" do
-  @blocks = client.get_blocks["payload"]
+  @blocks = client.get_blocks["payload"].reverse
+  @splits = splits(@blocks)
   erb :"blocks/index"
 end
 
