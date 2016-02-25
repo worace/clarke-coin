@@ -90,7 +90,7 @@
   ([block] (mine block (atom true)))
   ([block switch]
    (let [attempt (blocks/hashed block)]
-     (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
+     #_(when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
      (if (blocks/meets-target? attempt)
        attempt
        (if (not @switch)
@@ -104,7 +104,7 @@
 (defn mine-and-commit
   ([] (mine-and-commit db/block-chain))
   ([chain]
-   (println "Preparing New block; found " (count @db/transaction-pool) " transactions in the pool.")
+   #_(println "Preparing New block; found " (count @db/transaction-pool) " transactions in the pool.")
    (let [txns (into [(coinbase)] @db/transaction-pool)]
      (reset! db/transaction-pool #{})
      (mine-and-commit chain
@@ -112,14 +112,13 @@
                      txns
                      {:blocks @chain}))))
   ([chain pending]
-   (println "will mine this block: ")
-   (println pending)
    (if-let [b (mine pending mine?)]
-     (do
+     (swap! chain conj b)
+     #_(do
        (println "*******************")
-     (println "found new block:")
-     (println "NEXT TARGET: " (bc/next-target @db/block-chain))
-     (swap! chain conj b))
+       (println "found new block:")
+       (println "NEXT TARGET: " (bc/next-target @db/block-chain))
+       (swap! chain conj b))
      (println "didn't find coin, exiting"))))
 
 (defn run-miner! []
