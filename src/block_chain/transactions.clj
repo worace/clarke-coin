@@ -4,7 +4,7 @@
             [cheshire.core :as json]))
 
 (def input-signable (partial cat-keys [:source-hash :source-index]))
-(def input-hashable (partial cat-keys [:source-hash :source-index :signature]))
+(def input-hashable (partial cat-keys [:source-hash :source-index]))
 (def output-signable (partial cat-keys [:amount :address]))
 (def output-hashable output-signable)
 
