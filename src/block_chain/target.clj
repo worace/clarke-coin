@@ -38,7 +38,8 @@
    Note that a higher target is easier and lower target is harder, so
    an average spacing longer than the desired frequency will result in
    increasing the target, and vice versa."
-  (let [times (map #(get-in % [:header :timestamp]) blocks)
+  default
+  #_(let [times (map #(get-in % [:header :timestamp]) blocks)
         latest-target (target-value (last blocks))
         ratio (/ (avg-spacing times) frequency)
         adjustment (capped ratio)]

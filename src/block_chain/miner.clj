@@ -17,18 +17,18 @@
                 :outputs [{:amount coinbase-reward :address address}]
                 :timestamp (current-time-millis)}))))
 
-(defn payment
-  [paying-key receiving-key source-output]
-  (let [tx-hash (get-in source-output [:coords :transaction-id])
-        index   (get-in source-output [:coords :index])
-        payment {:inputs [{:source-hash tx-hash
-                           :source-index index}]
-                 :outputs [{:amount 25
-                            :address receiving-key}]
-                 :timestamp (current-time-millis)}]
-    (-> payment
-        (wallet/sign-txn paying-key)
-        (txn/hash-txn))))
+;; (defn payment
+;;   [paying-key receiving-key source-output]
+;;   (let [tx-hash (get-in source-output [:coords :transaction-id])
+;;         index   (get-in source-output [:coords :index])
+;;         payment {:inputs [{:source-hash tx-hash
+;;                            :source-index index}]
+;;                  :outputs [{:amount 25
+;;                             :address receiving-key}]
+;;                  :timestamp (current-time-millis)}]
+;;     (-> payment
+;;         (wallet/sign-txn paying-key)
+;;         (txn/hash-txn))))
 
 (defn raw-payment-txn
   [amount address sources]
@@ -90,7 +90,7 @@
   ([block] (mine block (atom true)))
   ([block switch]
    (let [attempt (blocks/hashed block)]
-     #_(when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
+     (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
      (if (blocks/meets-target? attempt)
        attempt
        (if (not @switch)
@@ -103,8 +103,17 @@
 
 (defn mine-and-commit
   ([] (mine-and-commit db/block-chain))
-  ([chain] (mine-and-commit chain (blocks/generate-block [(coinbase)] {:blocks @chain})))
+  ([chain]
+   (println "Preparing New block; found " (count @db/transaction-pool) " transactions in the pool.")
+   (let [txns (into [(coinbase)] @db/transaction-pool)]
+     (reset! db/transaction-pool #{})
+     (mine-and-commit chain
+                    (blocks/generate-block
+                     txns
+                     {:blocks @chain}))))
   ([chain pending]
+   (println "will mine this block: ")
+   (println pending)
    (if-let [b (mine pending mine?)]
      (do
        (println "*******************")

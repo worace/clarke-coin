@@ -40,6 +40,11 @@ class ClarkeClient
   def get_balance(address)
     send_message("get_balance", address)
   end
+
+  def make_payment(private_pem, receiver_address, amount)
+    payload = {private_pem: private_pem, address: receiver_address, amount: amount}
+    send_message("make_payment", payload)
+  end
 end
 
 client = ClarkeClient.new
@@ -71,4 +76,12 @@ end
 
 get "/transactions/pool" do
   # show current txn pool
+end
+
+get "/payments/new" do
+  erb :"payments/new"
+end
+
+post "/payments" do
+  binding.pry
 end

@@ -101,7 +101,7 @@
     (is (= 3 (count (bc/unspent-outputs pem-a @chain))))
     (is (= 75 (bc/balance pem-a @chain)))))
 
-(deftest test-transferring-outputs
+#_(deftest test-transferring-outputs
   (let [chain (atom [])]
     (miner/mine-and-commit chain
                            (blocks/generate-block
