@@ -17,7 +17,7 @@
 (defn key-map [kp]
   {:private (.getPrivate kp)
    :public (.getPublic kp)
-   :public-pem (pem/public-key->pem-string (.getPublic kp))})
+   :address (pem/public-key->der-string (.getPublic kp))})
 
 (defn generate-keypair
   "Generate an RSA Keypair. Accepts optional length. Default key length is 2048."
@@ -69,7 +69,7 @@
        kp)))
 
 ;; get keypair as map with:
-;; {:private "..." :public "..." :public-pem "..."}
+;; {:private RSAPrivateKey :public RSAPublicKey :address "pub-key-der-string"}
 
 (def keypair (load-or-generate-keys!))
 

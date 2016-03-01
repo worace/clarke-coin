@@ -10,7 +10,7 @@
 
 (def coinbase-reward 25)
 (defn coinbase
-  ([] (coinbase (:public-pem wallet/keypair)))
+  ([] (coinbase (:address wallet/keypair)))
   ([address] (txn/tag-coords
               (txn/hash-txn
                {:inputs []
@@ -88,7 +88,7 @@
   ([key address amount chain]
    (generate-payment key address amount chain 0))
   ([key address amount chain fee]
-   (wallet/sign-txn (generate-unsigned-payment (:public-pem key)
+   (wallet/sign-txn (generate-unsigned-payment (:address key)
                                                address
                                                amount
                                                chain
