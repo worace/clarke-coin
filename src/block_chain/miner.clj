@@ -65,13 +65,13 @@
       txn)))
 
 (defn generate-unsigned-payment
-  ([from-pem to-pem amount chain] (generate-unsigned-payment from-pem to-pem amount chain 0))
-  ([from-pem to-pem amount chain fee]
-   (let [output-pool (bc/unspent-outputs from-pem chain)
+  ([from-address to-address amount chain] (generate-unsigned-payment from-address to-address amount chain 0))
+  ([from-address to-address amount chain fee]
+   (let [output-pool (bc/unspent-outputs from-address chain)
          sources (select-sources (+ amount fee) output-pool)
-         txn (raw-payment-txn amount to-pem sources)]
+         txn (raw-payment-txn amount to-address sources)]
      (-> txn
-         (add-change from-pem sources (+ amount fee))
+         (add-change from-address sources (+ amount fee))
          (txn/hash-txn)
          (txn/tag-coords)))))
 
