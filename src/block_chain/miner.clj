@@ -64,6 +64,17 @@
                  {:address change-address :amount change})
       txn)))
 
+(defn generate-unsigned-payment
+  ([from-pem to-pem amount chain] (generate-unsigned-payment from-pem to-pem amount chain 0))
+  ([from-pem to-pem amount chain fee]
+   (let [output-pool (bc/unspent-outputs from-pem chain)
+         sources (select-sources (+ amount fee) output-pool)
+         txn (raw-payment-txn amount to-pem sources)]
+     (-> txn
+         (add-change from-pem sources (+ amount fee))
+         (txn/hash-txn)
+         (txn/tag-coords)))))
+
 (defn generate-payment
    "Generates a transaction to pay the specified amount to the
     specified address using provided key. Sources inputs from the
@@ -77,14 +88,12 @@
   ([key address amount chain]
    (generate-payment key address amount chain 0))
   ([key address amount chain fee]
-   (let [output-pool (bc/unspent-outputs (:public-pem key) chain)
-         sources (select-sources (+ amount fee) output-pool)
-         txn (raw-payment-txn amount address sources)]
-     (-> txn
-         (add-change (:public-pem key) sources (+ amount fee))
-         (wallet/sign-txn (:private key))
-         (txn/hash-txn)
-         (txn/tag-coords)))))
+   (wallet/sign-txn (generate-unsigned-payment (:public-pem key)
+                                               address
+                                               amount
+                                               chain
+                                               fee)
+                    (:private key))))
 
 (defn mine
   ([block] (mine block (atom true)))

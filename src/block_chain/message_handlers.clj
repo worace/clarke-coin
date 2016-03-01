@@ -88,6 +88,15 @@
   {:message-type "transaction_created"
    :payload "lol"})
 
+(defn generate-transaction [msg sock-info]
+  ;; payload -- amount, from key, to key, txn fee
+  ;; take public key from message payload
+  ;; generate unsigned txn sending amount from that key
+  ;; to other key
+  ;; send this back; presumably so the receiver (wallet client) can sign
+  ;; it and make a payment
+  )
+
 (def message-handlers
   {"echo" echo
    "ping" pong
@@ -102,6 +111,7 @@
    "get_block" get-block
    "get_transaction" get-transaction
    "add_transaction" add-transaction
+   "generate_transaction" generate-transaction
    "make_payment" make-payment})
 
 

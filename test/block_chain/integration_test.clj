@@ -225,3 +225,26 @@
            sig
            (txn/txn-signable p)
            (:public key-a))))))
+
+(deftest test-generating-unsigned-payment
+  (let [chain (atom [])]
+    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase pem-a)] {:target easy-difficulty-target :blocks @chain}))
+    (let [p (miner/generate-unsigned-payment pem-a pem-b 15 @chain 3)
+          sig (:signature (first (:inputs p)))]
+      (is (= 1 (count (:inputs p))))
+      (is (= 2 (count (:outputs p))))
+      (is (= 15 (:amount (first (:outputs p)))))
+      (is (= pem-b (:address (first (:outputs p)))))
+      (is (= 7 (:amount (last (:outputs p)))))
+      (is (= pem-a (:address (last (:outputs p)))))
+      (is (= 22 (reduce + (map :amount (:outputs p)))))
+      (let [sources (map (fn [i]
+                           (bc/source-output i @chain))
+                         (:inputs p))]
+        (is (= 25 (reduce + (map :amount sources)))))
+      (is (= nil sig))
+      ;; verify that we can subsequently sign the txn as needed
+      (let [signed (wallet/sign-txn p (:private key-a))]
+        (is (wallet/verify (:signature (first (:inputs signed)))
+                           (txn/txn-signable signed)
+                           (:public key-a)))))))
