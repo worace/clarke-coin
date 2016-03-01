@@ -1,6 +1,6 @@
-(ns block-chain.pem-test
+(ns block-chain.key-serialization-test
   (:require [clojure.test :refer :all]
-            [block-chain.pem :refer :all]))
+            [block-chain.key-serialization :refer :all]))
 
 (deftest test-reading-pem-keys
   (let [pub-key-pem (slurp "./test/sample_public_key.pem")

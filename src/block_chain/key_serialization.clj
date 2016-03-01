@@ -1,4 +1,4 @@
-(ns block-chain.pem
+(ns block-chain.key-serialization
   (:require [clojure.java.io :as io]
             [clojure.string :refer [join split]]
             [block-chain.encoding :refer :all]))

@@ -1,7 +1,7 @@
 (ns block-chain.wallet
   (:require [clojure.java.io :as io]
             [clojure.string :refer [join split]]
-            [block-chain.pem :as pem]
+            [block-chain.key-serialization :as ks]
             [block-chain.transactions :as transactions]
             [block-chain.encoding :refer :all]))
 
@@ -17,7 +17,7 @@
 (defn key-map [kp]
   {:private (.getPrivate kp)
    :public (.getPublic kp)
-   :address (pem/public-key->der-string (.getPublic kp))})
+   :address (ks/public-key->der-string (.getPublic kp))})
 
 (defn generate-keypair
   "Generate an RSA Keypair. Accepts optional length. Default key length is 2048."
@@ -62,10 +62,10 @@
    saves it in that location for future use."
   []
    (if (wallet-exists?)
-     (key-map (pem/pem-file->key-pair wallet-path))
+     (key-map (ks/pem-file->key-pair wallet-path))
      (let [kp (generate-keypair)]
        (spit wallet-path
-             (pem/private-key->pem-string (:private kp)))
+             (ks/private-key->pem-string (:private kp)))
        kp)))
 
 ;; get keypair as map with:

@@ -1,11 +1,7 @@
 (ns block-chain.wallet-test
   (:require [clojure.test :refer :all]
             [block-chain.wallet :refer :all]
-            [block-chain.pem :refer [pem-file->key-pair
-                                     pem-file->public-key
-                                     private-key->pem-string
-                                     pem-string->key-pair]
-             :as pem]
+            [block-chain.key-serialization :as ks]
             [clojure.tools.namespace.repl :refer [refresh]]))
 
 (deftest test-encrypt-and-decrypt-with-fresh-keys
@@ -18,8 +14,8 @@
 
 (deftest test-encrypt-and-decrypt-with-deserialized-keys
 
-  (let [priv (:private (key-map (pem-file->key-pair "./test/sample_private_key.pem")))
-        pub (pem-file->public-key "./test/sample_public_key.pem")]
+  (let [priv (:private (key-map (ks/pem-file->key-pair "./test/sample_private_key.pem")))
+        pub (ks/pem-file->public-key "./test/sample_public_key.pem")]
     (is (= "pizza"
            (decrypt (encrypt "pizza" pub)
                     priv)))))
@@ -27,15 +23,15 @@
 (deftest test-serialize-and-deserialize-new-key
   (let [kp (generate-keypair 128)
         encrypted (encrypt "pizza" (:public kp))
-        pem-str (private-key->pem-string (:private kp))
-        deserialized (key-map (pem-string->key-pair pem-str))]
+        pem-str (ks/private-key->pem-string (:private kp))
+        deserialized (key-map (ks/pem-string->key-pair pem-str))]
     (is (= "pizza"
            (decrypt encrypted
                     (:private deserialized))))))
 
 (deftest test-signing-and-verifying
-  (let [priv (:private (key-map (pem-file->key-pair "./test/sample_private_key.pem")))
-        pub (pem-file->public-key "./test/sample_public_key.pem")
+  (let [priv (:private (key-map (ks/pem-file->key-pair "./test/sample_private_key.pem")))
+        pub (ks/pem-file->public-key "./test/sample_public_key.pem")
         sig (sign "pizza" priv)]
     (is (verify sig "pizza" pub))
     (is (not (verify sig "lul" pub)))))
@@ -59,8 +55,8 @@
 (deftest test-serializing-and-deserializing-der-keys
   (let [kp (generate-keypair 512)
         sig (sign "pizza" (:private kp))
-        private-der (pem/private-key->der-string (:private kp))
-        public-der (pem/public-key->der-string (:public kp))]
+        private-der (ks/private-key->der-string (:private kp))
+        public-der (ks/public-key->der-string (:public kp))]
     (is (verify sig "pizza" (:public kp)))
-    (is (verify sig "pizza" (pem/der-string->pub-key public-der)))
-    (is (verify sig "pizza" (:public (pem/der-string->key-pair private-der))))))
+    (is (verify sig "pizza" (ks/der-string->pub-key public-der)))
+    (is (verify sig "pizza" (:public (ks/der-string->key-pair private-der))))))

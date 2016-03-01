@@ -5,7 +5,7 @@
             [block-chain.chain :as bc]
             [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
-            [block-chain.pem :as pem]
+            [block-chain.key-serialization :as ks]
             [block-chain.transactions :as txn]
             [block-chain.blocks :as blocks]
             [block-chain.miner :as miner]))
