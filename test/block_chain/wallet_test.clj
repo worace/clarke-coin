@@ -4,7 +4,8 @@
             [block-chain.pem :refer [pem-file->key-pair
                                      pem-file->public-key
                                      private-key->pem-string
-                                     pem-string->key-pair]]
+                                     pem-string->key-pair]
+             :as pem]
             [clojure.tools.namespace.repl :refer [refresh]]))
 
 (deftest test-encrypt-and-decrypt-with-fresh-keys
@@ -53,3 +54,13 @@
   (is (= #{:source-txn :source-output-index :signature}
          (into #{} (keys (first (:inputs (sign-txn unsigned-txn
                                                    (:private keypair)))))))))
+
+
+(deftest test-serializing-and-deserializing-der-keys
+  (let [kp (generate-keypair 512)
+        sig (sign "pizza" (:private kp))
+        private-der (pem/private-key->der-string (:private kp))
+        public-der (pem/public-key->der-string (:public kp))]
+    (is (verify sig "pizza" (:public kp)))
+    (is (verify sig "pizza" (pem/der-string->pub-key public-der)))
+    (is (verify sig "pizza" (:public (pem/der-string->key-pair private-der))))))
