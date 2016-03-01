@@ -3,16 +3,9 @@
             [clojure.string :refer [join split]]
             [block-chain.encoding :refer :all]))
 
-(defn keydata [reader]
- (->> reader
-      (org.bouncycastle.openssl.PEMParser.)
-      (.readObject)))
-
-(defn pem-string->key-pair [string]
-  "Convert a PEM-formatted private key string to a public/private keypair.
-   Returns java.security.KeyPair."
-  (let [kd (keydata (io/reader (.getBytes string)))]
-    (.getKeyPair (org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter.) kd)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;; DER ;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn der-string->pub-key [string]
   (let [non-wrapped (clojure.string/replace string #"\n" "")
@@ -52,6 +45,21 @@
 
 (defn private-key->der-string [private-key]
   (encode64 (.getEncoded private-key)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;; PEM ;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn keydata [reader]
+ (->> reader
+      (org.bouncycastle.openssl.PEMParser.)
+      (.readObject)))
+
+(defn pem-string->key-pair [string]
+  "Convert a PEM-formatted private key string to a public/private keypair.
+   Returns java.security.KeyPair."
+  (let [kd (keydata (io/reader (.getBytes string)))]
+    (.getKeyPair (org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter.) kd)))
 
 (defn pem-string->pub-key [string]
   "Convert a PEM-formatted public key string to an RSA public key.
