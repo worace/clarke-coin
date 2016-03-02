@@ -13,9 +13,8 @@
                     priv)))))
 
 (deftest test-encrypt-and-decrypt-with-deserialized-keys
-
-  (let [priv (:private (key-map (ks/pem-file->key-pair "./test/sample_private_key.pem")))
-        pub (ks/pem-file->public-key "./test/sample_public_key.pem")]
+  (let [priv (:private (ks/der-file->key-pair "./test/sample_private_key.der"))
+        pub (ks/der-file->public-key "./test/sample_public_key.der")]
     (is (= "pizza"
            (decrypt (encrypt "pizza" pub)
                     priv)))))
@@ -23,15 +22,15 @@
 (deftest test-serialize-and-deserialize-new-key
   (let [kp (generate-keypair 128)
         encrypted (encrypt "pizza" (:public kp))
-        pem-str (ks/private-key->pem-string (:private kp))
-        deserialized (key-map (ks/pem-string->key-pair pem-str))]
+        der-str (ks/private-key->der-string (:private kp))
+        deserialized (ks/der-string->key-pair der-str)]
     (is (= "pizza"
            (decrypt encrypted
                     (:private deserialized))))))
 
 (deftest test-signing-and-verifying
-  (let [priv (:private (key-map (ks/pem-file->key-pair "./test/sample_private_key.pem")))
-        pub (ks/pem-file->public-key "./test/sample_public_key.pem")
+  (let [priv (:private (ks/der-file->key-pair "./test/sample_private_key.der"))
+        pub (ks/der-file->public-key "./test/sample_public_key.der")
         sig (sign "pizza" priv)]
     (is (verify sig "pizza" pub))
     (is (not (verify sig "lul" pub)))))

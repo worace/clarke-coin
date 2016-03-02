@@ -52,20 +52,20 @@
               (.update msg-data))]
     (.verify sig signature)))
 
-(def wallet-path (str (System/getProperty "user.home") "/.wallet.pem"))
+(def wallet-path (str (System/getProperty "user.home") "/.wallet.der"))
 
 (defn wallet-exists? [] (.exists (io/as-file wallet-path)))
 
 (defn load-or-generate-keys!
-  "Looks for wallet keypair to exist at ~/.wallet.pem. If found, loads
+  "Looks for wallet keypair to exist at ~/.wallet.der. If found, loads
    that keypair to use as our wallet. If not, generates a new keypair and
    saves it in that location for future use."
   []
    (if (wallet-exists?)
-     (key-map (ks/pem-file->key-pair wallet-path))
+     (ks/der-file->key-pair wallet-path)
      (let [kp (generate-keypair)]
        (spit wallet-path
-             (ks/private-key->pem-string (:private kp)))
+             (ks/private-key->der-string (:private kp)))
        kp)))
 
 ;; get keypair as map with:
