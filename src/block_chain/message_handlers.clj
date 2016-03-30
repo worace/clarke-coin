@@ -65,7 +65,6 @@
    :payload (bc/txn-by-hash (:payload msg)
                               @db/block-chain)})
 
-
 (defn make-payment [msg sock-info]
   ;; what if it fails?
   ;; this should forward the new transaction to other nodes we're connected to
