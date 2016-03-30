@@ -1,18 +1,27 @@
 (ns block-chain.core
   (:require [block-chain.miner :as miner]
+            [block-chain.db :as db]
+            [clojure.tools.nrepl.server :as repl]
             [block-chain.net :as net]))
 
+(defonce repl-server (atom nil))
+
+(defn start-repl! []
+  (if @repl-server
+    (repl/stop-server @repl-server))
+  (reset! repl-server (repl/start-server :port 7888)))
 
 (defn start! []
   (println "****** Starting Clarke Coin *******")
   (miner/run-miner!)
   (net/start!)
-  (Thread/sleep 1500))
+  (start-repl!))
 
 (defn stop! []
   (println "****** Stopping Clarke Coin *******")
   (miner/stop-miner!)
-  (net/shutdown!))
+  (net/shutdown!)
+  (repl/stop-server @repl-server))
 
 (defn -main [& args]
   (start!)

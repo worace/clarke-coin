@@ -2,6 +2,9 @@
   (:require [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
             [block-chain.db :as db]
+            [block-chain.wallet :as wallet]
+            [block-chain.key-serialization :as ks]
+            [block-chain.miner :as miner]
             [block-chain.transactions :as txns]))
 
 (defn echo [msg sock-info]
@@ -62,6 +65,36 @@
    :payload (bc/txn-by-hash (:payload msg)
                               @db/block-chain)})
 
+(defn make-payment [msg sock-info]
+  ;; what if it fails?
+  ;; this should forward the new transaction to other nodes we're connected to
+  ;; {:message-type make_payment, :payload {:private-der pizza, :address pizza2, :amount 15}}
+  ;; get private der from the message and turn it into a key
+  ;; generate new payment transaction for that amount
+  ;; use that key to sign that txn
+  ;; ...
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;;;;;;;; EXAMPLE ;;;;;;;;;;;;;;;;;;;;;;
+  #_(let [sample-private-key ""
+        sample-kp (ks/der-string->key-pair sample-private-key)
+        recipient-address ""
+        amount 15
+        txn (miner/generate-payment sample-kp recipient-address amount @db/block-chain 0)]
+    (swap! db/transaction-pool conj txn))
+
+  {:message-type "transaction_created"
+   :payload "lol"})
+
+(defn generate-transaction [msg sock-info]
+  ;; payload -- amount, from key, to key, txn fee
+  ;; take public key from message payload
+  ;; generate unsigned txn sending amount from that key
+  ;; to other key
+  ;; send this back; presumably so the receiver (wallet client) can sign
+  ;; it and make a payment
+  )
+
 (def message-handlers
   {"echo" echo
    "ping" pong
@@ -75,7 +108,10 @@
    "get_blocks" get-blocks
    "get_block" get-block
    "get_transaction" get-transaction
-   "add_transaction" add-transaction})
+   "add_transaction" add-transaction
+   "generate_transaction" generate-transaction
+   "make_payment" make-payment})
+
 
 (defn handler [msg sock-info]
   (let [handler-fn (get message-handlers

@@ -1,7 +1,7 @@
 (ns block-chain.wallet
   (:require [clojure.java.io :as io]
             [clojure.string :refer [join split]]
-            [block-chain.pem :as pem]
+            [block-chain.key-serialization :as ks]
             [block-chain.transactions :as transactions]
             [block-chain.encoding :refer :all]))
 
@@ -17,7 +17,7 @@
 (defn key-map [kp]
   {:private (.getPrivate kp)
    :public (.getPublic kp)
-   :public-pem (pem/public-key->pem-string (.getPublic kp))})
+   :address (ks/public-key->der-string (.getPublic kp))})
 
 (defn generate-keypair
   "Generate an RSA Keypair. Accepts optional length. Default key length is 2048."
@@ -52,24 +52,24 @@
               (.update msg-data))]
     (.verify sig signature)))
 
-(def wallet-path (str (System/getProperty "user.home") "/.wallet.pem"))
+(def wallet-path (str (System/getProperty "user.home") "/.wallet.der"))
 
 (defn wallet-exists? [] (.exists (io/as-file wallet-path)))
 
 (defn load-or-generate-keys!
-  "Looks for wallet keypair to exist at ~/.wallet.pem. If found, loads
+  "Looks for wallet keypair to exist at ~/.wallet.der. If found, loads
    that keypair to use as our wallet. If not, generates a new keypair and
    saves it in that location for future use."
   []
    (if (wallet-exists?)
-     (key-map (pem/pem-file->key-pair wallet-path))
+     (ks/der-file->key-pair wallet-path)
      (let [kp (generate-keypair)]
        (spit wallet-path
-             (pem/private-key->pem-string (:private kp)))
+             (ks/private-key->der-string (:private kp)))
        kp)))
 
 ;; get keypair as map with:
-;; {:private "..." :public "..." :public-pem "..."}
+;; {:private RSAPrivateKey :public RSAPublicKey :address "pub-key-der-string"}
 
 (def keypair (load-or-generate-keys!))
 

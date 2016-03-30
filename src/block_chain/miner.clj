@@ -10,25 +10,25 @@
 
 (def coinbase-reward 25)
 (defn coinbase
-  ([] (coinbase (:public-pem wallet/keypair)))
+  ([] (coinbase (:address wallet/keypair)))
   ([address] (txn/tag-coords
               (txn/hash-txn
                {:inputs []
                 :outputs [{:amount coinbase-reward :address address}]
                 :timestamp (current-time-millis)}))))
 
-(defn payment
-  [paying-key receiving-key source-output]
-  (let [tx-hash (get-in source-output [:coords :transaction-id])
-        index   (get-in source-output [:coords :index])
-        payment {:inputs [{:source-hash tx-hash
-                           :source-index index}]
-                 :outputs [{:amount 25
-                            :address receiving-key}]
-                 :timestamp (current-time-millis)}]
-    (-> payment
-        (wallet/sign-txn paying-key)
-        (txn/hash-txn))))
+;; (defn payment
+;;   [paying-key receiving-key source-output]
+;;   (let [tx-hash (get-in source-output [:coords :transaction-id])
+;;         index   (get-in source-output [:coords :index])
+;;         payment {:inputs [{:source-hash tx-hash
+;;                            :source-index index}]
+;;                  :outputs [{:amount 25
+;;                             :address receiving-key}]
+;;                  :timestamp (current-time-millis)}]
+;;     (-> payment
+;;         (wallet/sign-txn paying-key)
+;;         (txn/hash-txn))))
 
 (defn raw-payment-txn
   [amount address sources]
@@ -64,6 +64,17 @@
                  {:address change-address :amount change})
       txn)))
 
+(defn generate-unsigned-payment
+  ([from-address to-address amount chain] (generate-unsigned-payment from-address to-address amount chain 0))
+  ([from-address to-address amount chain fee]
+   (let [output-pool (bc/unspent-outputs from-address chain)
+         sources (select-sources (+ amount fee) output-pool)
+         txn (raw-payment-txn amount to-address sources)]
+     (-> txn
+         (add-change from-address sources (+ amount fee))
+         (txn/hash-txn)
+         (txn/tag-coords)))))
+
 (defn generate-payment
    "Generates a transaction to pay the specified amount to the
     specified address using provided key. Sources inputs from the
@@ -77,14 +88,12 @@
   ([key address amount chain]
    (generate-payment key address amount chain 0))
   ([key address amount chain fee]
-   (let [output-pool (bc/unspent-outputs (:public-pem key) chain)
-         sources (select-sources (+ amount fee) output-pool)
-         txn (raw-payment-txn amount address sources)]
-     (-> txn
-         (add-change (:public-pem key) sources (+ amount fee))
-         (wallet/sign-txn (:private key))
-         (txn/hash-txn)
-         (txn/tag-coords)))))
+   (wallet/sign-txn (generate-unsigned-payment (:address key)
+                                               address
+                                               amount
+                                               chain
+                                               fee)
+                    (:private key))))
 
 (defn mine
   ([block] (mine block (atom true)))
@@ -103,14 +112,22 @@
 
 (defn mine-and-commit
   ([] (mine-and-commit db/block-chain))
-  ([chain] (mine-and-commit chain (blocks/generate-block [(coinbase)] {:blocks @chain})))
+  ([chain]
+   #_(println "Preparing New block; found " (count @db/transaction-pool) " transactions in the pool.")
+   (let [txns (into [(coinbase)] @db/transaction-pool)]
+     (reset! db/transaction-pool #{})
+     (mine-and-commit chain
+                    (blocks/generate-block
+                     txns
+                     {:blocks @chain}))))
   ([chain pending]
    (if-let [b (mine pending mine?)]
-     (do
+     (swap! chain conj b)
+     #_(do
        (println "*******************")
-     (println "found new block:")
-     (println "NEXT TARGET: " (bc/next-target @db/block-chain))
-     (swap! chain conj b))
+       (println "found new block:")
+       (println "NEXT TARGET: " (bc/next-target @db/block-chain))
+       (swap! chain conj b))
      (println "didn't find coin, exiting"))))
 
 (defn run-miner! []

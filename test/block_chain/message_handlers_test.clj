@@ -49,17 +49,17 @@
         key-a (wallet/generate-keypair 512)
         easy-diff (hex-string (math/expt 2 248))
         block (blocks/generate-block
-               [(miner/coinbase (:public-pem key-a))]
+               [(miner/coinbase (:address key-a))]
                {:target easy-diff})]
     (miner/mine-and-commit chain block)
     (with-redefs [db/block-chain chain]
-      (responds {:balance 25 :key (:public-pem key-a)} {:message-type "get_balance" :payload (:public-pem key-a)})
+      (responds {:balance 25 :key (:address key-a)} {:message-type "get_balance" :payload (:address key-a)})
       )))
 
 (deftest test-transaction-pool
   (with-redefs [db/transaction-pool (atom #{})]
     (let [key (wallet/generate-keypair 512)
-          cb (miner/coinbase (:public-pem key))]
+          cb (miner/coinbase (:address key))]
       (responds [] {:message-type "get_transaction_pool"})
       (handler {:message-type "add_transaction" :payload cb} {})
       (responds [cb] {:message-type "get_transaction_pool" :payload cb}))))

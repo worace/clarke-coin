@@ -2,8 +2,7 @@
   (:require [clojure.test :refer :all]
             [block-chain.transactions :refer :all]
             [cheshire.core :as json]
-            [pandect.algo.sha256 :refer [sha256]]
-            [clojure.tools.namespace.repl :refer [refresh]]))
+            [pandect.algo.sha256 :refer [sha256]]))
 
 (def sample-transaction
   {:inputs [{:source-hash "1234"
@@ -13,12 +12,12 @@
               :address "5678"}]})
 
 (deftest test-hashable-transaction-string
-  (let [hashable (str "1234" "1" "pizza" "5" "5678")]
+  (let [hashable (str "1234" "1" "5" "5678")]
     (is (= hashable
          (txn-hashable sample-transaction)))))
 
 (deftest test-hashes-transaction
-  (let [hashable (str "1234" "1" "pizza" "5" "5678")]
+  (let [hashable (str "1234" "1" "5" "5678")]
     (is (= (sha256 hashable)
          (txn-hash sample-transaction)))))
 
@@ -32,5 +31,3 @@
   (let [tagged (tag-coords (hash-txn sample-transaction))]
     (is (= (:hash tagged) (get-in tagged [:outputs 0 :coords :transaction-id])))
     (is (= 0 (get-in tagged [:outputs 0 :coords :index])))))
-
-(run-tests)
