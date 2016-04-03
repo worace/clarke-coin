@@ -9,26 +9,31 @@
             [block-chain.wallet :as wallet]))
 
 (def coinbase-reward 25)
-(defn coinbase
-  ([] (coinbase (:address wallet/keypair)))
-  ([address] (txn/tag-coords
-              (txn/hash-txn
-               {:inputs []
-                :outputs [{:amount coinbase-reward :address address}]
-                :timestamp (current-time-millis)}))))
 
-;; (defn payment
-;;   [paying-key receiving-key source-output]
-;;   (let [tx-hash (get-in source-output [:coords :transaction-id])
-;;         index   (get-in source-output [:coords :index])
-;;         payment {:inputs [{:source-hash tx-hash
-;;                            :source-index index}]
-;;                  :outputs [{:amount 25
-;;                             :address receiving-key}]
-;;                  :timestamp (current-time-millis)}]
-;;     (-> payment
-;;         (wallet/sign-txn paying-key)
-;;         (txn/hash-txn))))
+(defn txn-fees
+  "Finds available txn-fees from a pool of txns by finding the diff
+   between cumulative inputs and cumulative outputs"
+  [pool]
+  (let [sources (map (partial bc/source-output @db/block-chain) (mapcat :inputs pool))
+        outputs (mapcat :outputs pool)]
+    (- (reduce + (map :amount sources))
+       (reduce + (map :amount outputs)))))
+
+(defn coinbase
+  "Generate new 'coinbase' mining reward transaction for the given
+   address and txn pool. Coinbase includes no inputs and 1 output,
+   where the address of the output is the address provided and the
+   amount of the output is "
+  ([] (coinbase (:address wallet/keypair)))
+  ([address] (coinbase address []))
+  ([address txn-pool]
+   (txn/tag-coords
+    (txn/hash-txn
+     {:inputs []
+      :outputs [{:amount (+ coinbase-reward
+                            (txn-fees txn-pool))
+                 :address address}]
+      :timestamp (current-time-millis)}))))
 
 (defn raw-payment-txn
   [amount address sources]
@@ -114,7 +119,7 @@
   ([] (mine-and-commit db/block-chain))
   ([chain]
    #_(println "Preparing New block; found " (count @db/transaction-pool) " transactions in the pool.")
-   (let [txns (into [(coinbase)] @db/transaction-pool)]
+   (let [txns (into [(coinbase (:address wallet/keypair) @db/transaction-pool)] @db/transaction-pool)]
      (reset! db/transaction-pool #{})
      (mine-and-commit chain
                     (blocks/generate-block
