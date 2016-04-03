@@ -7,6 +7,7 @@
             [block-chain.transactions :as txns]
             [block-chain.chain :as bc]
             [block-chain.db :as db]
+            [block-chain.target :as target]
             [block-chain.blocks :as blocks]
             [block-chain.message-handlers :refer :all]))
 
@@ -56,14 +57,6 @@
       (responds {:balance 25 :key (:address key-a)} {:message-type "get_balance" :payload (:address key-a)})
       )))
 
-(deftest test-transaction-pool
-  (with-redefs [db/transaction-pool (atom #{})]
-    (let [key (wallet/generate-keypair 512)
-          cb (miner/coinbase (:address key))]
-      (responds [] {:message-type "get_transaction_pool"})
-      (handler {:message-type "add_transaction" :payload cb} {})
-      (responds [cb] {:message-type "get_transaction_pool" :payload cb}))))
-
 (deftest test-getting-block-height
   (with-redefs [db/block-chain (atom [])]
     (responds 0 {:message-type "get_block_height"})
@@ -98,6 +91,31 @@
         ;;             (reduce + (map :amount (:outputs utxn))))))
         (is (nil? (get-in utxn [:inputs 0 :signature])))
         (is (= 2 (count (:outputs utxn))))))))
+
+(deftest test-submitting-transaction
+  (let [chain (atom [])
+        pool (atom #{})
+        key-a (wallet/generate-keypair 512)
+        key-b (wallet/generate-keypair 512)
+        easy-diff (hex-string (math/expt 2 248))
+        block (blocks/generate-block
+               [(miner/coinbase (:address key-a))]
+               {:target easy-diff})]
+    (miner/mine-and-commit chain block)
+    (with-redefs [db/block-chain chain
+                  db/transaction-pool pool
+                  target/default (hex-string (math/expt 2 248) )]
+      (let [payment (miner/generate-payment key-a (:address key-b) 25 @chain)]
+        (handler {:message-type "submit_transaction"
+                  :payload payment}
+                 sock-info)
+        (is (= 1 (count @pool)))
+        (miner/mine-and-commit)
+        (is (empty? @pool))
+        (is (= 0 (bc/balance (:address key-a) @chain)))
+        (is (= 25 (bc/balance (:address key-b) @chain)))
+        (is (= 1 (count (:outputs payment))))))))
+
 ;; Need Validation Logic
 ;; `validate_transaction`
 ;; `add_block` - payload: JSON rep of new block - Node should validate
@@ -105,3 +123,11 @@
 ;; Need state / batching logic:
 ;; `get_blocks`
 ;; `get_block` - payload: Block Hash of block to get info about - Node
+
+#_(deftest test-transaction-pool
+  (with-redefs [db/transaction-pool (atom #{})]
+    (let [key (wallet/generate-keypair 512)
+          cb (miner/coinbase (:address key))]
+      (responds [] {:message-type "get_transaction_pool"})
+      (handler {:message-type "submit_transaction" :payload cb} {})
+      (responds [cb] {:message-type "get_transaction_pool" :payload cb}))))

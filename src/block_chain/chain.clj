@@ -65,10 +65,10 @@
        (filter (partial assigned-to-key? key))
        (filter (partial unspent? blocks))))
 
-(defn balance [key blocks]
+(defn balance [address blocks]
   (reduce +
           (map :amount
-               (unspent-outputs key blocks))))
+               (unspent-outputs address blocks))))
 
 (defn unspent-output-coords [key blocks]
   (mapcat (fn [txn]

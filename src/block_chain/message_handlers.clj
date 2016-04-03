@@ -40,9 +40,6 @@
   {:message-type "transaction_pool"
    :payload (into [] @db/transaction-pool)})
 
-(defn add-transaction [msg sock-info]
-  (swap! db/transaction-pool conj (:payload msg)))
-
 (defn get-block-height [msg sock-info]
   {:message-type "block_height"
    :payload (count @db/block-chain)})
@@ -71,6 +68,7 @@
    could use this endpoint to generate transactions that they could then sign
    and return to the full node for inclusion in the block chain."
   [msg sock-info]
+  (println "will generate payment")
   {:message-type "unsigned_transaction"
    :payload (miner/generate-unsigned-payment
              (:from-address (:payload msg))
@@ -78,6 +76,12 @@
              (:amount (:payload msg))
              @db/block-chain
              (or (:fee (:payload msg)) 0))})
+
+(defn submit-transaction [msg sock-info]
+  (let [txn (:payload msg)]
+    (swap! db/transaction-pool conj txn)
+    {:message-type "transaction-accepted"
+     :payload txn}))
 
 (def message-handlers
   {"echo" echo
@@ -92,12 +96,14 @@
    "get_blocks" get-blocks
    "get_block" get-block
    "get_transaction" get-transaction
-   "add_transaction" add-transaction
+   "submit_transaction" submit-transaction
    "generate_payment" generate-payment})
 
 
 (defn handler [msg sock-info]
   (let [handler-fn (get message-handlers
                         (:message-type msg)
-                        echo)]
-    (handler-fn msg sock-info)))
+                        echo)
+        resp (handler-fn msg sock-info)]
+    ;; (println "Responding with: " resp)
+    resp))
