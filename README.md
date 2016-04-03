@@ -10,6 +10,7 @@ crypto currency?
 * [ ] Distribute blocks -- make node send new blocks to all peers as they are mined
 * [ ] Bootstrap new node from peer -- full node should pull all available blocks as needed when connected
 * [ ] DB Storage -- put blocks into SQLite -- should be much faster
+* [ ] DNS Server -- Static node others can connect to on boot to find peers
 
 ## License
 
