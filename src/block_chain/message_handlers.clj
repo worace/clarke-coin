@@ -65,27 +65,6 @@
    :payload (bc/txn-by-hash (:payload msg)
                               @db/block-chain)})
 
-(defn make-payment [msg sock-info]
-  ;; what if it fails?
-  ;; this should forward the new transaction to other nodes we're connected to
-  ;; {:message-type make_payment, :payload {:private-der pizza, :address pizza2, :amount 15}}
-  ;; get private der from the message and turn it into a key
-  ;; generate new payment transaction for that amount
-  ;; use that key to sign that txn
-  ;; ...
-
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;;;;;;;;; EXAMPLE ;;;;;;;;;;;;;;;;;;;;;;
-  #_(let [sample-private-key ""
-        sample-kp (ks/der-string->key-pair sample-private-key)
-        recipient-address ""
-        amount 15
-        txn (miner/generate-payment sample-kp recipient-address amount @db/block-chain 0)]
-    (swap! db/transaction-pool conj txn))
-
-  {:message-type "transaction_created"
-   :payload "lol"})
-
 (defn generate-payment
   "Generates an _unsigned_ payment transaction for supplied from-address,
    to-address, amount, and fee. Intended for use by wallet-only clients which
@@ -114,8 +93,7 @@
    "get_block" get-block
    "get_transaction" get-transaction
    "add_transaction" add-transaction
-   "generate_payment" generate-payment
-   "make_payment" make-payment})
+   "generate_payment" generate-payment})
 
 
 (defn handler [msg sock-info]
