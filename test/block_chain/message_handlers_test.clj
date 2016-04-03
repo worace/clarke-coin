@@ -76,6 +76,28 @@
     (swap! db/block-chain conj {:some "block"})
     (responds {:some "block"} {:message-type "get_latest_block"})))
 
+(deftest test-generating-transaction
+  (let [chain (atom [])
+        key-a (wallet/generate-keypair 512)
+        key-b (wallet/generate-keypair 512)
+        easy-diff (hex-string (math/expt 2 248))
+        block (blocks/generate-block
+               [(miner/coinbase (:address key-a))]
+               {:target easy-diff})]
+    (miner/mine-and-commit chain block)
+    (with-redefs [db/block-chain chain]
+      (let [utxn (:payload (handler {:message-type "generate_payment"
+                                     :payload {:amount 15
+                                               :from-address (:address key-a)
+                                               :to-address (:address key-b)
+                                               :fee 3}}
+                                    sock-info))]
+        (is (= 1 (count (:inputs utxn))))
+        ;; verify diff b/t inputs and outputs accounts for fee?
+        ;; (is (= 3 (- (:amount (first (:inputs utxn)))
+        ;;             (reduce + (map :amount (:outputs utxn))))))
+        (is (nil? (get-in utxn [:inputs 0 :signature])))
+        (is (= 2 (count (:outputs utxn))))))))
 ;; Need Validation Logic
 ;; `validate_transaction`
 ;; `add_block` - payload: JSON rep of new block - Node should validate

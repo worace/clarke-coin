@@ -86,14 +86,19 @@
   {:message-type "transaction_created"
    :payload "lol"})
 
-(defn generate-transaction [msg sock-info]
-  ;; payload -- amount, from key, to key, txn fee
-  ;; take public key from message payload
-  ;; generate unsigned txn sending amount from that key
-  ;; to other key
-  ;; send this back; presumably so the receiver (wallet client) can sign
-  ;; it and make a payment
-  )
+(defn generate-payment
+  "Generates an _unsigned_ payment transaction for supplied from-address,
+   to-address, amount, and fee. Intended for use by wallet-only clients which
+   could use this endpoint to generate transactions that they could then sign
+   and return to the full node for inclusion in the block chain."
+  [msg sock-info]
+  {:message-type "unsigned_transaction"
+   :payload (miner/generate-unsigned-payment
+             (:from-address (:payload msg))
+             (:to-address (:payload msg))
+             (:amount (:payload msg))
+             @db/block-chain
+             (or (:fee (:payload msg)) 0))})
 
 (def message-handlers
   {"echo" echo
@@ -109,7 +114,7 @@
    "get_block" get-block
    "get_transaction" get-transaction
    "add_transaction" add-transaction
-   "generate_transaction" generate-transaction
+   "generate_payment" generate-payment
    "make_payment" make-payment})
 
 
