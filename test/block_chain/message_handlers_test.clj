@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [block-chain.utils :refer :all]
             [clojure.math.numeric-tower :as math]
+            [clojure.pprint :refer [pprint]]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
             [block-chain.transactions :as txns]
@@ -114,6 +115,34 @@
         (is (empty? @pool))
         (is (= 0 (bc/balance (:address key-a) @chain)))
         (is (= 25 (bc/balance (:address key-b) @chain)))
+        (let [miner-addr (get-in (last @chain) [:transactions 0 :outputs 0 :address])]
+          (is (= 25 (bc/balance miner-addr @chain))))
+        (is (= 1 (count (:outputs payment))))))))
+
+#_(deftest test-submitting-transaction-with-txn-fee
+  (let [chain (atom [])
+        pool (atom #{})
+        key-a (wallet/generate-keypair 512)
+        key-b (wallet/generate-keypair 512)
+        easy-diff (hex-string (math/expt 2 248))
+        block (blocks/generate-block
+               [(miner/coinbase (:address key-a))]
+               {:target easy-diff})]
+    (miner/mine-and-commit chain block)
+    (with-redefs [db/block-chain chain
+                  db/transaction-pool pool
+                  target/default (hex-string (math/expt 2 248) )]
+      (let [payment (miner/generate-payment key-a (:address key-b) 24 @chain 1)]
+        (handler {:message-type "submit_transaction"
+                  :payload payment}
+                 sock-info)
+        (is (= 1 (count @pool)))
+        (miner/mine-and-commit)
+        (is (empty? @pool))
+        (is (= 0 (bc/balance (:address key-a) @chain)))
+        (is (= 24 (bc/balance (:address key-b) @chain)))
+        (let [miner-addr (get-in (last @chain) [:transactions 0 :outputs 0 :address])]
+          (is (= 26 (bc/balance miner-addr @chain))))
         (is (= 1 (count (:outputs payment))))))))
 
 ;; Need Validation Logic
