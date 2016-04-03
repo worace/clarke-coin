@@ -197,7 +197,7 @@
       (is (= 1 (count (:outputs p))))
       (is (= 24 (reduce + (map :amount (:outputs p)))))
       (let [sources (map (fn [i]
-                           (bc/source-output i @chain))
+                           (bc/source-output @chain i))
                          (:inputs p))]
         (is (= 25 (reduce + (map :amount sources)))))
       (is (wallet/verify
@@ -218,7 +218,7 @@
       (is (= address-a (:address (last (:outputs p)))))
       (is (= 22 (reduce + (map :amount (:outputs p)))))
       (let [sources (map (fn [i]
-                           (bc/source-output i @chain))
+                           (bc/source-output @chain i))
                          (:inputs p))]
         (is (= 25 (reduce + (map :amount sources)))))
       (is (wallet/verify
@@ -239,7 +239,7 @@
       (is (= address-a (:address (last (:outputs p)))))
       (is (= 22 (reduce + (map :amount (:outputs p)))))
       (let [sources (map (fn [i]
-                           (bc/source-output i @chain))
+                           (bc/source-output @chain i))
                          (:inputs p))]
         (is (= 25 (reduce + (map :amount sources)))))
       (is (= nil sig))

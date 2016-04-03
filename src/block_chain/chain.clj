@@ -20,7 +20,7 @@
   (first (filter #(= hash (get % :hash))
                  (transactions blocks))))
 
-(defn source-output [input blocks]
+(defn source-output [blocks input]
   (if-let [t (txn-by-hash (:source-hash input)
                           blocks)]
     (get (:outputs t) (:source-index input))))

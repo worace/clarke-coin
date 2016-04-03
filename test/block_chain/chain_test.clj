@@ -75,8 +75,8 @@
   (let [txn (first (:transactions (first chain)))
         output (first (:outputs txn))
         input {:source-hash (:hash txn) :source-index 0}]
-    (is (= output (source-output input chain)))
-    (is (nil? (source-output input [])))))
+    (is (= output (source-output chain input)))
+    (is (nil? (source-output [] input)))))
 
 
 
