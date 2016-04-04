@@ -5,6 +5,7 @@
             [block-chain.wallet :as wallet]
             [block-chain.key-serialization :as ks]
             [block-chain.miner :as miner]
+            [block-chain.peer-notifications :as peers]
             [block-chain.transactions :as txns]))
 
 (defn echo [msg sock-info]
@@ -68,7 +69,6 @@
    could use this endpoint to generate transactions that they could then sign
    and return to the full node for inclusion in the block chain."
   [msg sock-info]
-  (println "will generate payment")
   {:message-type "unsigned_transaction"
    :payload (miner/generate-unsigned-payment
              (:from-address (:payload msg))
@@ -80,6 +80,7 @@
 (defn submit-transaction [msg sock-info]
   (let [txn (:payload msg)]
     (swap! db/transaction-pool conj txn)
+    (peers/transaction-received! txn)
     {:message-type "transaction-accepted"
      :payload txn}))
 

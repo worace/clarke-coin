@@ -39,5 +39,5 @@
   ([] (write-block-chain! chain-path @block-chain))
   ([path blocks] (spit path (write-json blocks))))
 
-(defonce peers (atom #{}))
+(def peers (atom #{}))
 (defonce transaction-pool (atom #{}))

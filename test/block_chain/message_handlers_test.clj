@@ -3,8 +3,10 @@
             [block-chain.utils :refer :all]
             [clojure.math.numeric-tower :as math]
             [clojure.pprint :refer [pprint]]
+            [clojure.core.async :as async]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
+            [block-chain.net :as net]
             [block-chain.transactions :as txns]
             [block-chain.chain :as bc]
             [block-chain.db :as db]
@@ -140,6 +142,22 @@
         (let [miner-addr (get-in (last @chain) [:transactions 0 :outputs 0 :address])]
           ;; miner should have 25 from coinbase and 1 from allotted txn fee
           (is (= 26 (bc/balance miner-addr @chain))))))))
+
+(deftest test-forwarding-txns-to-peers
+  (let [peer-chan (async/chan)]
+    (with-open [peer (:server (net/start-server 8335 (fn [req-lines sock-info]
+                                                       (async/go (async/>! peer-chan (read-json (first req-lines)))))))]
+      (with-redefs [db/block-chain (atom [])
+                    db/transaction-pool (atom #{})
+                    db/peers (atom #{})
+                    target/default (hex-string (math/expt 2 248))]
+        (handler {:message-type "add_peer" :payload {:port 8335}} sock-info)
+        (miner/mine-and-commit)
+        (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
+          (handler {:message-type "submit_transaction" :payload txn} sock-info)
+          (let [[message chan] (async/alts!! [peer-chan (async/timeout 500)])]
+            (is (= txn (:payload message)))
+            (is (= "submit_transaction" (:message-type message)))))))))
 
 ;; Need Validation Logic
 ;; `validate_transaction`

@@ -31,14 +31,12 @@
   (future
     (while true
       (with-open [socket (.accept server-sock)]
-        (println "received connection....")
         (write-response socket
                         (handler (read-lines socket)
                                  (socket-info socket)))))))
 
 (defn start-server [port handler]
   (let [server (ServerSocket. port)]
-    (println "server booted")
     {:server server :run-loop (serve-loop server handler)}))
 
 (defonce server (atom nil))
@@ -46,8 +44,7 @@
 
 (defn handler [lines socket-info]
   (let [msg (read-json (first lines))]
-    (println "handling message: " msg)
-    (str (write-json (m/handler msg socket-info)) "\n\n")))
+    (msg-string (m/handler msg socket-info))))
 
 (defn start!
   ([] (start! default-port))
