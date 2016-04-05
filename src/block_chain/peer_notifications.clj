@@ -5,23 +5,14 @@
              :as async
              :refer [<! go go-loop chan]]))
 
-(defn notify! [event-type payload]
-  )
-
-
-(defonce notifs-chan (chan))
-
-(defonce running? (atom true))
-
-(defn stop-notifier! [] (reset! running? false))
-
-(defn start-notifier! []
-  (reset! running? true)
-  (go-loop []
-    (let [event (<! notifs-chan)]
-      (println "GOT EVENT: " event))
-    (if @running? (recur))))
-
+(defn block-mined!
+  [block]
+  (doseq [p @db/peers]
+    (send-tcp-message (:host p)
+                      (:port p)
+                      (msg-string
+                       {:message-type "submit_block"
+                        :payload block}))))
 
 (defn transaction-received!
   [txn]

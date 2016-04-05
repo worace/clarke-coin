@@ -6,6 +6,7 @@
             [block-chain.blocks :as blocks]
             [clojure.core.async :as async]
             [block-chain.transactions :as txn]
+            [block-chain.peer-notifications :as peers]
             [block-chain.wallet :as wallet]))
 
 (def coinbase-reward 25)
@@ -127,12 +128,9 @@
                      {:blocks @chain}))))
   ([chain pending]
    (if-let [b (mine pending mine?)]
-     (swap! chain conj b)
-     #_(do
-       (println "*******************")
-       (println "found new block:")
-       (println "NEXT TARGET: " (bc/next-target @db/block-chain))
-       (swap! chain conj b))
+     (do
+       (swap! chain conj b)
+       (peers/block-mined! b))
      (println "didn't find coin, exiting"))))
 
 (defn run-miner! []

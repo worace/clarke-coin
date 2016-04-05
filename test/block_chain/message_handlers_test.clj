@@ -173,20 +173,32 @@
 
 (deftest test-only-forwards-new-transactions
   (let [messages (atom [])]
-    (with-open [peer (test-server 8336 (fn [m] (swap! messages conj m)))]
+    (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
                     db/peers (atom #{})
                     target/default (hex-string (math/expt 2 248))]
         (miner/mine-and-commit)
         (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
-          (handler {:message-type "add_peer" :payload {:port 8336}} sock-info)
+          (handler {:message-type "add_peer" :payload {:port 8335}} sock-info)
           ;; send same txn twice but should only get forwarded once
           (handler {:message-type "submit_transaction" :payload txn} sock-info)
           (handler {:message-type "submit_transaction" :payload txn} sock-info)
-          (is (= 1 (count @messages))))))))
+          (is (= 1 (count @messages)))
+          (is (= txn (:payload (first @messages)))))))))
 
-(deftest test-forwarding-mined-blocks-to-peers)
+(deftest test-forwarding-mined-blocks-to-peers
+  (let [messages (atom [])]
+    (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
+      (with-redefs [db/block-chain (atom [])
+                    db/transaction-pool (atom #{})
+                    db/peers (atom #{})
+                    target/default (hex-string (math/expt 2 248))]
+        (handler {:message-type "add_peer" :payload {:port 8335}} sock-info)
+        (miner/mine-and-commit)
+        (is (= 1 (count @db/block-chain)))
+        (is (= 1 (count @messages)))
+        (is (= (first @db/block-chain) (:payload (first @messages))))))))
 
 (deftest test-forwarding-received-blocks-to-peers)
 
