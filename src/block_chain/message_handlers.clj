@@ -79,8 +79,10 @@
 
 (defn submit-transaction [msg sock-info]
   (let [txn (:payload msg)]
-    (swap! db/transaction-pool conj txn)
-    (peers/transaction-received! txn)
+    (if-not (contains? @db/transaction-pool txn)
+      (do
+        (swap! db/transaction-pool conj txn)
+        (peers/transaction-received! txn)))
     {:message-type "transaction-accepted"
      :payload txn}))
 
@@ -106,5 +108,4 @@
                         (:message-type msg)
                         echo)
         resp (handler-fn msg sock-info)]
-    ;; (println "Responding with: " resp)
     resp))
