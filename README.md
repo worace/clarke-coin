@@ -8,9 +8,9 @@ crypto currency?
 * [X] Generate Transaction message -- send from-addr, amount, to-addr and have node send u back an unsigned txn for that amount
 * [X] Use generate_payment endpoint from 'wallet' client
 * [X] Add transaction fees to output of coinbase transaction
-* [ ] Add Peer -- make node track peers that are sent to it
+* [X] Add Peer -- make node track peers that are sent to it
 * [ ] Distribute blocks -- make node send new blocks to all peers as they are mined
-* [ ] Distribute new transactions -- make node send new blocks to all peers as they are mined
+* [X] Distribute new transactions -- make node send new blocks to all peers as they are mined
 * [ ] Bootstrap new node from peer -- full node should pull all available blocks as needed when connected
 * [ ] DB Storage ?? put blocks into SQLite ?? should be much faster
 * [ ] DNS Server -- Static node others can connect to on boot to find peers
