@@ -9,11 +9,9 @@
 (defn write-response
   "Send the given string message out over the given socket"
   [socket msg]
-  (println "net will write-response " msg)
   (let [writer (io/writer socket)]
     (.write writer msg)
-    (.flush writer))
-  (println "net finished writing and flushing to socket"))
+    (.flush writer)))
 
 (defn read-lines [socket]
   (let [reader (io/reader socket)]
@@ -31,17 +29,12 @@
 
 (defn serve-loop [server-sock handler]
   (future
-    (println "Starting serve-loop future")
     (while true
-      (println "serve-loop future looping")
       (with-open [socket (.accept server-sock)]
-        (println "serve-loop got socket")
         (write-response socket
                         (let [handler-result (handler (read-lines socket)
                                                       (socket-info socket))]
-                          (println "serve-loop got handler result " handler-result)
-                          handler-result))
-        (println "serve-loop finished writing response")))))
+                          handler-result))))))
 
 (defn start-server [port handler]
   (let [server (ServerSocket. port)]

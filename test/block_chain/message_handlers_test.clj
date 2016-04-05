@@ -171,13 +171,6 @@
          (message-fn msg)
          (msg-string {:message-type "pong" :payload (:payload msg)})))))))
 
-
-;; (:server (net/start-server 8336 (fn [req-lines sock-info]
-;;                                                        (let [msg (read-json (first req-lines))]
-;;                                                          (swap! messages conj msg)
-;;                                                          (msg-string {:message-type "pong" :payload (:payload msg)})))))
-
-
 (deftest test-only-forwards-new-transactions
   (let [messages (atom [])]
     (with-open [peer (test-server 8336 (fn [m] (swap! messages conj m)))]
@@ -186,8 +179,9 @@
                     db/peers (atom #{})
                     target/default (hex-string (math/expt 2 248))]
         (miner/mine-and-commit)
-        (handler {:message-type "add_peer" :payload {:port 8336}} sock-info)
         (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
+          (handler {:message-type "add_peer" :payload {:port 8336}} sock-info)
+          ;; send same txn twice but should only get forwarded once
           (handler {:message-type "submit_transaction" :payload txn} sock-info)
           (handler {:message-type "submit_transaction" :payload txn} sock-info)
           (is (= 1 (count @messages))))))))
