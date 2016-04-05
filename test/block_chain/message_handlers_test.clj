@@ -143,7 +143,7 @@
           ;; miner should have 25 from coinbase and 1 from allotted txn fee
           (is (= 26 (bc/balance miner-addr @chain))))))))
 
-(deftest test-forwarding-txns-to-peers
+#_(deftest test-forwarding-txns-to-peers
   (let [peer-chan (async/chan)]
     (with-open [peer (:server (net/start-server 8335 (fn [req-lines sock-info]
                                                        (async/go (async/>! peer-chan (read-json (first req-lines)))))))]
@@ -157,7 +157,41 @@
           (handler {:message-type "submit_transaction" :payload txn} sock-info)
           (let [[message chan] (async/alts!! [peer-chan (async/timeout 500)])]
             (is (= txn (:payload message)))
-            (is (= "submit_transaction" (:message-type message)))))))))
+            (is (= "submit_transaction" (:message-type message))))))
+      (.close peer))))
+
+(deftest test-only-forwards-new-transactions
+  (let [peer-chan (async/chan 5)]
+    (with-open [peer (:server (net/start-server 8336 (fn [req-lines sock-info]
+                                                       (async/go (async/>! peer-chan (read-json (first req-lines)))))))]
+      (with-redefs [db/block-chain (atom [])
+                    db/transaction-pool (atom #{})
+                    db/peers (atom #{})
+                    target/default (hex-string (math/expt 2 248))]
+        (handler {:message-type "add_peer" :payload {:port 8336}} sock-info)
+        (let [txn {}]
+          (println (send-tcp-message "127.0.0.1" 8336 (msg-string {:message-type "echo"})))
+          (println (async/<!! peer-chan))
+          (println (send-tcp-message "127.0.0.1" 8336 (msg-string {:message-type "echo"})))
+
+          #_(handler {:message-type "submit_transaction" :payload txn} sock-info)
+          ;; (handler {:message-type "submit_transaction" :payload txn} sock-info)
+          ))
+      (.close peer))))
+
+(deftest test-forwarding-mined-blocks-to-peers)
+
+(deftest test-forwarding-received-blocks-to-peers)
+
+(deftest test-forwards-received-block-to-peers-only-if-new)
+
+(deftest test-receiving-block-stops-miner)
+
+(deftest test-receiving-block-clears-txn-pool)
+
+(deftest test-validating-incoming-transactions)
+
+(deftest test-validating-incoming-blocks)
 
 ;; Need Validation Logic
 ;; `validate_transaction`
