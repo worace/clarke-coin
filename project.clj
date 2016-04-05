@@ -10,6 +10,10 @@
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.nrepl "0.2.11"]
                  [cheshire "5.5.0"]
+                 [compojure "1.5.0"]
+                 [ring/ring-core "1.4.0"]
+                 [ring/ring-jetty-adapter "1.4.0"]
+                 [ring/ring-json "0.4.0"]
                  [net.async/async "0.1.0"]
                  [org.clojure/core.async "0.2.374"]
                  [pandect "0.5.4"]])
