@@ -88,7 +88,10 @@
 
 (defn submit-block [msg sock-info]
   (let [b (:payload msg)]
-    (swap! db/block-chain conj b)
+    (if-not (contains? (into #{} @db/block-chain) b)
+      (do
+        (swap! db/block-chain conj b)
+        (peers/block-received! b)))
     {:message-type "block-accepted"
      :payload b}))
 

@@ -130,7 +130,7 @@
    (if-let [b (mine pending mine?)]
      (do
        (swap! chain conj b)
-       (peers/block-mined! b))
+       (peers/block-received! b))
      (println "didn't find coin, exiting"))))
 
 (defn run-miner! []

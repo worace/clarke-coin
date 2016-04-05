@@ -5,7 +5,7 @@
              :as async
              :refer [<! go go-loop chan]]))
 
-(defn block-mined!
+(defn block-received!
   [block]
   (doseq [p @db/peers]
     (send-tcp-message (:host p)

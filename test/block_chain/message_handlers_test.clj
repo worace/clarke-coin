@@ -25,6 +25,17 @@
    :local-port 8334
    :outgoing-port 51283})
 
+(defn test-server
+  ([message-fn] (test-server 8335 message-fn))
+  ([port message-fn]
+   (:server
+    (net/start-server
+     port
+     (fn [req-lines sock-info]
+       (let [msg (read-json (first req-lines))]
+         (message-fn msg)
+         (msg-string {:message-type "pong" :payload (:payload msg)})))))))
+
 (def easy-diff (hex-string (math/expt 2 248)))
 
 (deftest test-echo
@@ -160,17 +171,6 @@
             (is (= "submit_transaction" (:message-type message))))))
       (.close peer))))
 
-(defn test-server
-  ([message-fn] (test-server 8335 message-fn))
-  ([port message-fn]
-   (:server
-    (net/start-server
-     port
-     (fn [req-lines sock-info]
-       (let [msg (read-json (first req-lines))]
-         (message-fn msg)
-         (msg-string {:message-type "pong" :payload (:payload msg)})))))))
-
 (deftest test-only-forwards-new-transactions
   (let [messages (atom [])]
     (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
@@ -209,9 +209,39 @@
       (handler {:message-type "submit_block" :payload b} sock-info)
       (is (= 1 (count @db/block-chain))))))
 
-(deftest test-forwarding-received-blocks-to-peers)
+(deftest test-forwarding-received-blocks-to-peers
+  (let [messages (atom [])]
+    (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
+      (with-redefs [db/block-chain (atom [])
+                    db/transaction-pool (atom #{})
+                    db/peers (atom #{})
+                    target/default (hex-string (math/expt 2 248))]
+        (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+                                                   {:blocks []
+                                                    :target easy-diff}))]
+          (handler {:message-type "add_peer" :payload {:port 8335}} sock-info)
+          (handler {:message-type "submit_block" :payload b} sock-info)
+          (is (= 1 (count @db/block-chain)))
+          (is (= "submit_block" (:message-type (first @messages))))
+          (is (= b (:payload (first @messages))))
+          (is (= 1 (count @messages))))))))
 
-(deftest test-forwards-received-block-to-peers-only-if-new)
+(deftest test-forwards-received-block-to-peers-only-if-new
+  (let [messages (atom [])]
+    (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
+      (with-redefs [db/block-chain (atom [])
+                    db/transaction-pool (atom #{})
+                    db/peers (atom #{})]
+        (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+                                                   {:blocks []
+                                                    :target easy-diff}))]
+          (handler {:message-type "add_peer" :payload {:port 8335}} sock-info)
+          (handler {:message-type "submit_block" :payload b} sock-info)
+          (handler {:message-type "submit_block" :payload b} sock-info)
+          (is (= 1 (count @db/block-chain)))
+          (is (= "submit_block" (:message-type (first @messages))))
+          (is (= b (:payload (first @messages))))
+          (is (= 1 (count @messages))))))))
 
 (deftest test-receiving-block-stops-miner)
 
