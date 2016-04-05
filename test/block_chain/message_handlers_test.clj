@@ -160,24 +160,37 @@
             (is (= "submit_transaction" (:message-type message))))))
       (.close peer))))
 
+(defn test-server
+  ([message-fn] (test-server 8335 message-fn))
+  ([port message-fn]
+   (:server
+    (net/start-server
+     port
+     (fn [req-lines sock-info]
+       (let [msg (read-json (first req-lines))]
+         (message-fn msg)
+         (msg-string {:message-type "pong" :payload (:payload msg)})))))))
+
+
+;; (:server (net/start-server 8336 (fn [req-lines sock-info]
+;;                                                        (let [msg (read-json (first req-lines))]
+;;                                                          (swap! messages conj msg)
+;;                                                          (msg-string {:message-type "pong" :payload (:payload msg)})))))
+
+
 (deftest test-only-forwards-new-transactions
-  (let [peer-chan (async/chan 5)]
-    (with-open [peer (:server (net/start-server 8336 (fn [req-lines sock-info]
-                                                       (async/go (async/>! peer-chan (read-json (first req-lines)))))))]
+  (let [messages (atom [])]
+    (with-open [peer (test-server 8336 (fn [m] (swap! messages conj m)))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
                     db/peers (atom #{})
                     target/default (hex-string (math/expt 2 248))]
+        (miner/mine-and-commit)
         (handler {:message-type "add_peer" :payload {:port 8336}} sock-info)
-        (let [txn {}]
-          (println (send-tcp-message "127.0.0.1" 8336 (msg-string {:message-type "echo"})))
-          (println (async/<!! peer-chan))
-          (println (send-tcp-message "127.0.0.1" 8336 (msg-string {:message-type "echo"})))
-
-          #_(handler {:message-type "submit_transaction" :payload txn} sock-info)
-          ;; (handler {:message-type "submit_transaction" :payload txn} sock-info)
-          ))
-      (.close peer))))
+        (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
+          (handler {:message-type "submit_transaction" :payload txn} sock-info)
+          (handler {:message-type "submit_transaction" :payload txn} sock-info)
+          (is (= 1 (count @messages))))))))
 
 (deftest test-forwarding-mined-blocks-to-peers)
 

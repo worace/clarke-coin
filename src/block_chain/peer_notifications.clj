@@ -26,10 +26,8 @@
 (defn transaction-received!
   [txn]
   (doseq [p @db/peers]
-    (println "will contact p: " p)
-    (go
-      (send-tcp-message (:host p)
-                        (:port p)
-                        (msg-string
-                         {:message-type "submit_transaction"
-                          :payload txn})))))
+    (send-tcp-message (:host p)
+                      (:port p)
+                      (msg-string
+                       {:message-type "submit_transaction"
+                        :payload txn}))))

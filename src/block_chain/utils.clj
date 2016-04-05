@@ -48,6 +48,9 @@
         writer (io/writer conn)]
     (.write writer message)
     (.flush writer)
+    (println "sned-tcp message finished writing and flushing")
     (let [resp (.readLine reader)]
+      (println "send-tcp read line")
       (.close conn)
+      (println "send-tcp closed connection")
       resp)))
