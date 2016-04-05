@@ -86,6 +86,12 @@
     {:message-type "transaction-accepted"
      :payload txn}))
 
+(defn submit-block [msg sock-info]
+  (let [b (:payload msg)]
+    (swap! db/block-chain conj b)
+    {:message-type "block-accepted"
+     :payload b}))
+
 (def message-handlers
   {"echo" echo
    "ping" pong
@@ -100,6 +106,7 @@
    "get_block" get-block
    "get_transaction" get-transaction
    "submit_transaction" submit-transaction
+   "submit_block" submit-block
    "generate_payment" generate-payment})
 
 

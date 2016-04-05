@@ -25,6 +25,8 @@
    :local-port 8334
    :outgoing-port 51283})
 
+(def easy-diff (hex-string (math/expt 2 248)))
+
 (deftest test-echo
   (let [msg {:message-type "echo"
              :payload "echo this"}]
@@ -51,7 +53,6 @@
 (deftest test-getting-balance-for-key
   (let [chain (atom [])
         key-a (wallet/generate-keypair 512)
-        easy-diff (hex-string (math/expt 2 248))
         block (blocks/generate-block
                [(miner/coinbase (:address key-a))]
                {:target easy-diff})]
@@ -126,7 +127,6 @@
         pool (atom #{})
         key-a (wallet/generate-keypair 512)
         key-b (wallet/generate-keypair 512)
-        easy-diff (hex-string (math/expt 2 248))
         block (blocks/generate-block
                [(miner/coinbase (:address key-a))]
                {:target easy-diff})]
@@ -199,6 +199,15 @@
         (is (= 1 (count @db/block-chain)))
         (is (= 1 (count @messages)))
         (is (= (first @db/block-chain) (:payload (first @messages))))))))
+
+(deftest test-receiving-new-block-adds-to-block-chain
+  (with-redefs [db/block-chain (atom [])
+                db/peers (atom #{})]
+    (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+                                               {:blocks []
+                                                :target easy-diff}))]
+      (handler {:message-type "submit_block" :payload b} sock-info)
+      (is (= 1 (count @db/block-chain))))))
 
 (deftest test-forwarding-received-blocks-to-peers)
 
