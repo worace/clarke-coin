@@ -92,6 +92,7 @@
       (do
         (miner/stop-miner!)
         (swap! db/block-chain conj b)
+        (reset! db/transaction-pool #{})
         (peers/block-received! b)))
     {:message-type "block-accepted"
      :payload b}))

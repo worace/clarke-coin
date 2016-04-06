@@ -245,7 +245,20 @@
           (is (= 1 (count @messages))))))))
 
 
-(deftest test-receiving-block-clears-txn-pool)
+(deftest test-receiving-block-clears-txn-pool
+  (with-redefs [db/block-chain (atom [])
+                db/transaction-pool (atom #{})
+                db/peers (atom #{})
+                target/default easy-difficulty]
+    (miner/mine-and-commit)
+    (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)
+          b (miner/mine (blocks/generate-block (into [(miner/coinbase txn)] txn)
+                                               {:blocks @db/block-chain
+                                                :target easy-difficulty}))]
+      (handler {:message-type "submit_transaction" :payload txn} sock-info)
+      (is (= 1 (count @db/transaction-pool)))
+      (handler {:message-type "submit_block" :payload b} sock-info)
+      (is (= 0 (count @db/transaction-pool))))))
 
 (deftest test-validating-incoming-transactions)
 
