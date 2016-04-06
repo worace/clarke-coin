@@ -90,6 +90,7 @@
   (let [b (:payload msg)]
     (if-not (contains? (into #{} @db/block-chain) b)
       (do
+        (miner/stop-miner!)
         (swap! db/block-chain conj b)
         (peers/block-received! b)))
     {:message-type "block-accepted"

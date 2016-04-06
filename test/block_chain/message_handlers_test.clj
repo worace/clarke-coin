@@ -36,7 +36,8 @@
          (message-fn msg)
          (msg-string {:message-type "pong" :payload (:payload msg)})))))))
 
-(def easy-diff (hex-string (math/expt 2 248)))
+(def easy-difficulty (hex-string (math/expt 2 248)))
+(def hard-difficulty (hex-string (math/expt 2 50)))
 
 (deftest test-echo
   (let [msg {:message-type "echo"
@@ -66,7 +67,7 @@
         key-a (wallet/generate-keypair 512)
         block (blocks/generate-block
                [(miner/coinbase (:address key-a))]
-               {:target easy-diff})]
+               {:target easy-difficulty})]
     (miner/mine-and-commit chain block)
     (with-redefs [db/block-chain chain]
       (responds {:balance 25 :key (:address key-a)} {:message-type "get_balance" :payload (:address key-a)})
@@ -88,10 +89,10 @@
   (let [chain (atom [])
         key-a (wallet/generate-keypair 512)
         key-b (wallet/generate-keypair 512)
-        easy-diff (hex-string (math/expt 2 248))
+        easy-difficulty (hex-string (math/expt 2 248))
         block (blocks/generate-block
                [(miner/coinbase (:address key-a))]
-               {:target easy-diff})]
+               {:target easy-difficulty})]
     (miner/mine-and-commit chain block)
     (with-redefs [db/block-chain chain]
       (let [utxn (:payload (handler {:message-type "generate_payment"
@@ -112,10 +113,10 @@
         pool (atom #{})
         key-a (wallet/generate-keypair 512)
         key-b (wallet/generate-keypair 512)
-        easy-diff (hex-string (math/expt 2 248))
+        easy-difficulty (hex-string (math/expt 2 248))
         block (blocks/generate-block
                [(miner/coinbase (:address key-a))]
-               {:target easy-diff})]
+               {:target easy-difficulty})]
     (miner/mine-and-commit chain block)
     (with-redefs [db/block-chain chain
                   db/transaction-pool pool
@@ -140,7 +141,7 @@
         key-b (wallet/generate-keypair 512)
         block (blocks/generate-block
                [(miner/coinbase (:address key-a))]
-               {:target easy-diff})]
+               {:target easy-difficulty})]
     (miner/mine-and-commit chain block)
     (with-redefs [db/block-chain chain
                   db/transaction-pool pool
@@ -205,7 +206,7 @@
                 db/peers (atom #{})]
     (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                {:blocks []
-                                                :target easy-diff}))]
+                                                :target easy-difficulty}))]
       (handler {:message-type "submit_block" :payload b} sock-info)
       (is (= 1 (count @db/block-chain))))))
 
@@ -218,7 +219,7 @@
                     target/default (hex-string (math/expt 2 248))]
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
-                                                    :target easy-diff}))]
+                                                    :target easy-difficulty}))]
           (handler {:message-type "add_peer" :payload {:port 8335}} sock-info)
           (handler {:message-type "submit_block" :payload b} sock-info)
           (is (= 1 (count @db/block-chain)))
@@ -234,7 +235,7 @@
                     db/peers (atom #{})]
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
-                                                    :target easy-diff}))]
+                                                    :target easy-difficulty}))]
           (handler {:message-type "add_peer" :payload {:port 8335}} sock-info)
           (handler {:message-type "submit_block" :payload b} sock-info)
           (handler {:message-type "submit_block" :payload b} sock-info)
@@ -243,7 +244,6 @@
           (is (= b (:payload (first @messages))))
           (is (= 1 (count @messages))))))))
 
-(deftest test-receiving-block-stops-miner)
 
 (deftest test-receiving-block-clears-txn-pool)
 
@@ -266,3 +266,22 @@
       (responds [] {:message-type "get_transaction_pool"})
       (handler {:message-type "submit_transaction" :payload cb} {})
       (responds [cb] {:message-type "get_transaction_pool" :payload cb}))))
+
+;; Think i have this implemented but still struggling to figure out the best way
+;; to test it:
+#_(deftest test-receiving-block-stops-miner
+  (with-redefs [db/block-chain (atom [])
+                db/transaction-pool (atom #{})
+                target/default hard-difficulty
+                db/peers (atom #{})]
+    (let [dummy-block {}
+          mining-chan (async/go
+                        (println "miner started")
+                        (miner/mine-and-commit)
+                        (println "miner finished")
+                        "Miner Stopped!")]
+      (handler {:message-type "submit_block" :payload dummy-block} sock-info)
+      (let [[message chan] (async/alts!! [mining-chan (async/timeout 1500)])]
+        (is (= "Miner Stopped!" message))
+        (is (= 1 (count @db/block-chain)))
+        (is (= dummy-block (first @db/block-chain)))))))

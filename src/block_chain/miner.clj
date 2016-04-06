@@ -119,14 +119,16 @@
 (defn mine-and-commit
   ([] (mine-and-commit db/block-chain))
   ([chain]
-   #_(println "Preparing New block; found " (count @db/transaction-pool) " transactions in the pool.")
-   (let [txns (into [(coinbase (:address wallet/keypair) @db/transaction-pool)] @db/transaction-pool)]
+   (let [txns (into [(coinbase (:address wallet/keypair)
+                               @db/transaction-pool)]
+                    @db/transaction-pool)]
      (reset! db/transaction-pool #{})
      (mine-and-commit chain
                     (blocks/generate-block
                      txns
                      {:blocks @chain}))))
   ([chain pending]
+   (reset! mine? true)
    (if-let [b (mine pending mine?)]
      (do
        (swap! chain conj b)
