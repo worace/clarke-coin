@@ -9,6 +9,7 @@
                  [org.bouncycastle/bcpkix-jdk15on "1.53"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.nrepl "0.2.11"]
+                 [clj-http "2.1.0"]
                  [cheshire "5.5.0"]
                  [compojure "1.5.0"]
                  [ring/ring-core "1.4.0"]
