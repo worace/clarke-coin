@@ -11,10 +11,10 @@
     (repl/stop-server @repl-server))
   (reset! repl-server (repl/start-server :port 7888)))
 
-(defn start! []
+(defn start! [& args]
   (println "****** Starting Clarke Coin *******")
   (miner/run-miner!)
-  (http/start! 3000)
+  (http/start! (Integer. (or (first args) "3000")))
   (start-repl!))
 
 (defn stop! []
@@ -24,7 +24,8 @@
   (repl/stop-server @repl-server))
 
 (defn -main [& args]
-  (start!)
+  (println "STARTING WITH ARGS: " args)
+  (apply start! args)
   (.addShutdownHook
    (Runtime/getRuntime)
    (Thread. stop!))
