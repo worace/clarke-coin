@@ -27,5 +27,3 @@
   (let [b {:header {:target large-target :nonce 0}}
         mined (mine b)]
     (is (= 1 (get-in mined [:header :nonce])))))
-
-(run-tests)

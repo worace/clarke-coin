@@ -12,6 +12,7 @@
                  [clj-http "2.1.0"]
                  [cheshire "5.5.0"]
                  [compojure "1.5.0"]
+                 [metosin/compojure-api "1.0.2"]
                  [ring/ring-core "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [ring/ring-json "0.4.0"]
