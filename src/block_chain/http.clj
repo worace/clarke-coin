@@ -9,30 +9,10 @@
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [block-chain.message-handlers :as h]
             [schema.core :as s]
+            [block-chain.schemas :refer :all]
             [compojure.route :as route]))
 
 
-(s/defschema UnsignedTransactionInput {:source-hash s/Str :source-index s/Int})
-(s/defschema SignedTransactionInput (assoc UnsignedTransactionInput :signature s/Str))
-(s/defschema TransactionOutput {:amount s/Int :address s/Str})
-(s/defschema UnsignedTransaction
-  {:hash s/Str
-   :timestamp s/Int
-   :inputs [UnsignedTransactionInput]
-   :outputs [TransactionOutput]})
-
-(s/defschema Transaction
-  (assoc UnsignedTransaction :inputs [SignedTransactionInput]))
-
-(s/defschema Block
-  {:header {:parent-hash s/Str
-            :transactions-hash s/Str
-            :target s/Str
-            :timestamp s/Int
-            :nonce s/Int}
-   :transactions [Transaction]})
-
-(s/defschema Peer {:host s/Str :port s/Str})
 
 (def test-api
   (sweet/api
@@ -49,6 +29,8 @@
    (sweet/GET "/blocks" []
               :return {:message String :payload [Block]}
               :summary "Fetch all blocks from this node's copy of the chain."
+              (let [resp (h/handler {:message "get_blocks" :payload {}} {})]
+                (ok resp))
               (ok (h/handler {:message "get_blocks" :payload {}} {})))
 
    (sweet/GET "/peers" []
@@ -67,6 +49,7 @@
               :return {:message String :payload Block}
               :summary "Fetch a specific block by providing its hash."
               (ok (h/handler {:message "get_block" :payload block-hash} {})))
+
    (sweet/GET "/latest_block" []
         :return {:message String :payload Block}
         :summary "Fetch the latest block in this node's copy of the chain."
@@ -86,10 +69,10 @@
 
    (sweet/POST "/echo"
                req
-               :return {:message String :payload {}}
-               :body [body {"message" s/Str}]
+               :return {:message String}
+               :body-params [message :- s/Str]
                :summary "Echoes the body of your request back to you"
-               (ok (h/handler {:message "echo" :payload (utils/read-json (slurp (:body req)))} {})))
+               (ok (h/handler {:message message} {})))
 
    (sweet/POST "/ping" req
                :return {:pong s/Int}
@@ -103,13 +86,54 @@
                :summary "Get balance for a given ClarkeCoin address (DER-encoded RSA public key)."
                (ok (h/handler {:message "get_balance" :payload (:address (utils/read-json (slurp (:body req))) )} {})))
 
-   (sweet/POST "/blocks"
-               req
+   (sweet/POST "/blocks" req
                :return {:message String :payload Block}
                :body [block Block]
-               (ok (h/handler {:message "submit_block" :payload (utils/read-json (slurp (:body req)))} {})))
-  (sweet/POST "/pending_transactions" req (response (h/handler {:message "submit_transaction" :payload (:body req)} {})))
+               :summary "Submit a new block to this node for inclusion in the chain."
+               (ok (h/handler {:message "submit_block" :payload block} {})))
+
+   (sweet/POST "/pending_transactions" req
+               :return {:message String :payload Transaction}
+               :body [transaction Transaction]
+               :summary "Submit a new transaction to this node for inclusion in the next block."
+               (ok (h/handler {:message "submit_transaction" :payload transaction} {})))
+   (route/not-found {:status 404 :body {:error "not found"}})
    ))
+
+(defn json-body [handler]
+  (fn [request]
+    (handler (update request :body (comp utils/read-json slurp)))))
+
+(defonce server (atom nil))
+
+(defn stop! [] (if-let [server @server] (.stop server)))
+(defn start!
+  ([] (start! 3001))
+  ([port]
+   (stop!)
+   (let [s (jetty/run-jetty #'test-api {:port port :join? false})]
+     (.start s)
+     (reset! server s))))
+
+(start!)
+
+#_(defroutes my-routes
+  (GET "/blocks" req (response (h/handler {:message "get_blocks" :payload {}} {})))
+  (GET "/peers" req (response (h/handler {:message "get_peers" :payload {}} {})))
+  (GET "/pending_transactions" req (response (h/handler {:message "get_transaction_pool" :payload {}} {})))
+  (GET "/blocks/:block-hash" [block-hash] (response (h/handler {:message "get_block" :payload block-hash} {})))
+  (GET "/latest_block" [] (response (h/handler {:message "get_latest_block" :payload {}} {})))
+  (GET "/block_height" [] (response (h/handler {:message "get_block_height" :payload {}} {})))
+  (GET "/transactions/:txn-hash" [txn-hash] (response (h/handler {:message "get_transaction" :payload txn-hash} {})))
+  (POST "/echo" req (response (h/handler {:message "echo" :payload (:body req)} {})))
+  (POST "/ping" req (response (h/handler {:message "ping" :payload (:body req)} {})))
+  (POST "/balance" req (response (h/handler {:message "get_balance" :payload (:address (:body req) )} {})))
+  (POST "/blocks" req (response (h/handler {:message "submit_block" :payload (:body req)} {})))
+  (POST "/pending_transactions" req (response (h/handler {:message "submit_transaction" :payload (:body req)} {})))
+  (route/not-found "<h1>Page not found</h1>"))
+#_(def app (-> my-routes
+             (json-body)
+             (wrap-json-response)))
 
 ;; {"echo" echo X
 ;;    "ping" ping X
@@ -126,40 +150,3 @@
 ;;    "submit_transaction" submit-transaction X
 ;;    "submit_block" submit-block X
 ;;    "generate_payment" generate-payment}
-
-(defroutes my-routes
-  (GET "/blocks" req (response (h/handler {:message "get_blocks" :payload {}} {})))
-  (GET "/peers" req (response (h/handler {:message "get_peers" :payload {}} {})))
-  (GET "/pending_transactions" req (response (h/handler {:message "get_transaction_pool" :payload {}} {})))
-  (GET "/blocks/:block-hash" [block-hash] (response (h/handler {:message "get_block" :payload block-hash} {})))
-  (GET "/latest_block" [] (response (h/handler {:message "get_latest_block" :payload {}} {})))
-  (GET "/block_height" [] (response (h/handler {:message "get_block_height" :payload {}} {})))
-  (GET "/transactions/:txn-hash" [txn-hash] (response (h/handler {:message "get_transaction" :payload txn-hash} {})))
-  (POST "/echo" req (response (h/handler {:message "echo" :payload (:body req)} {})))
-  (POST "/ping" req (response (h/handler {:message "ping" :payload (:body req)} {})))
-  (POST "/balance" req (response (h/handler {:message "get_balance" :payload (:address (:body req) )} {})))
-  (POST "/blocks" req (response (h/handler {:message "submit_block" :payload (:body req)} {})))
-  (POST "/pending_transactions" req (response (h/handler {:message "submit_transaction" :payload (:body req)} {})))
-  (route/not-found "<h1>Page not found</h1>"))
-
-(defn json-body [handler]
-  (fn [request]
-    (handler (update request :body (comp utils/read-json slurp)))))
-
-(def app (-> my-routes
-             (json-body)
-             (wrap-json-response)))
-
-(defonce server (atom nil))
-
-(defn stop! [] (if-let [server @server] (.stop server)))
-(defn start!
-  ([] (start! 3001))
-  ([port]
-   (stop!)
-   (let [s (jetty/run-jetty #'test-api {:port port :join? false})]
-     (.start s)
-     (reset! server s))))
-
-
-(start!)

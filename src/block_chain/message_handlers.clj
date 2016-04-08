@@ -15,7 +15,7 @@
   {:message "pong" :payload (:payload msg)})
 
 (defn get-peers [msg sock-info]
-  {:message "peers" :payload @db/peers})
+  {:message "peers" :payload (into [] @db/peers)})
 
 (defn add-peer [msg sock-info]
   (let [host (:remote-address sock-info)
@@ -116,8 +116,10 @@
 
 
 (defn handler [msg sock-info]
+  ;; (println "*****\n\n" "Message handler called with: " msg)
   (let [handler-fn (get message-handlers
                         (:message msg)
                         echo)
         resp (handler-fn msg sock-info)]
+    ;; (println "######\n\n" "Message handler returning value: " resp)
     resp))

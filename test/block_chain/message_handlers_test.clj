@@ -51,16 +51,16 @@
 
 (deftest test-getting-adding-and-removing-peers
   (with-redefs [db/peers (atom #{})]
-    (responds #{} {:message "get_peers"})
+    (responds [] {:message "get_peers"})
     (handler {:message "add_peer"
               :payload {:port 8335}}
              sock-info)
-    (responds #{{:host "127.0.0.1" :port 8335}}
+    (responds [{:host "127.0.0.1" :port 8335}]
               {:message "get_peers"})
     (handler {:message "remove_peer"
               :payload {:port 8335}}
              sock-info)
-    (responds #{} {:message "get_peers"})))
+    (responds [] {:message "get_peers"})))
 
 (deftest test-getting-balance-for-key
   (let [chain (atom [])
