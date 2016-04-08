@@ -70,7 +70,7 @@
                {:target easy-difficulty})]
     (miner/mine-and-commit chain block)
     (with-redefs [db/block-chain chain]
-      (responds {:balance 25 :key (:address key-a)} {:message "get_balance" :payload (:address key-a)})
+      (responds {:balance 25 :address (:address key-a)} {:message "get_balance" :payload (:address key-a)})
       )))
 
 (deftest test-getting-block-height

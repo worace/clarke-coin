@@ -32,10 +32,10 @@
     {:message "peers" :payload @db/peers}))
 
 (defn get-balance [msg sock-info]
-  (let [key (:payload msg)
-        balance (bc/balance key @db/block-chain)]
+  (let [address (:payload msg)
+        balance (bc/balance address @db/block-chain)]
     {:message "balance"
-     :payload {:key key :balance balance}}))
+     :payload {:address address :balance balance}}))
 
 (defn get-transaction-pool [msg sock-info]
   {:message "transaction_pool"
