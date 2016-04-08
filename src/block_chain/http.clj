@@ -9,7 +9,7 @@
 
 (def test-api
   (sweet/api
-   {:swagger {:ui "/api-docs"
+   {:swagger {:ui "/"
               :spec "/swagger.json"
               :data {:info {:title "ClarkeCoin Full-Node API"
                             :description "Endpoints and parameters for API."}}}}
