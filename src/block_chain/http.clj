@@ -103,5 +103,3 @@
    (let [s (jetty/run-jetty #'test-api {:port port :join? false})]
      (.start s)
      (reset! server s))))
-
-(start!)
