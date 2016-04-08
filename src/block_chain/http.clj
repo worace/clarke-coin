@@ -1,18 +1,11 @@
 (ns block-chain.http
-  (:require [compojure.core :refer :all]
-            [ring.adapter.jetty :as jetty]
-            [block-chain.utils :as utils]
+  (:require [ring.adapter.jetty :as jetty]
             [compojure.api.sweet :as sweet]
             [ring.util.http-response :refer :all]
-            [ring.util.response :refer [response]]
-            [ring.middleware.json :refer [wrap-json-response]]
-            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [block-chain.message-handlers :as h]
             [schema.core :as s]
             [block-chain.schemas :refer :all]
             [compojure.route :as route]))
-
-
 
 (def test-api
   (sweet/api
@@ -78,13 +71,13 @@
                :return {:pong s/Int}
                :body-params [ping :- s/Int]
                :summary "Ping with a timestamp and receive a Pong with a corresponding timestamp"
-               (ok {:pong (:ping (utils/read-json (slurp (:body req))))}))
+               (ok {:pong ping}))
 
    (sweet/POST "/balance" req
                :return {:message String :payload {:address s/Str :balance s/Int}}
                :body-params [address :- s/Str]
                :summary "Get balance for a given ClarkeCoin address (DER-encoded RSA public key)."
-               (ok (h/handler {:message "get_balance" :payload (:address (utils/read-json (slurp (:body req))) )} {})))
+               (ok (h/handler {:message "get_balance" :payload address} {})))
 
    (sweet/POST "/blocks" req
                :return {:message String :payload Block}
@@ -100,10 +93,6 @@
    (route/not-found {:status 404 :body {:error "not found"}})
    ))
 
-(defn json-body [handler]
-  (fn [request]
-    (handler (update request :body (comp utils/read-json slurp)))))
-
 (defonce server (atom nil))
 
 (defn stop! [] (if-let [server @server] (.stop server)))
@@ -116,37 +105,3 @@
      (reset! server s))))
 
 (start!)
-
-#_(defroutes my-routes
-  (GET "/blocks" req (response (h/handler {:message "get_blocks" :payload {}} {})))
-  (GET "/peers" req (response (h/handler {:message "get_peers" :payload {}} {})))
-  (GET "/pending_transactions" req (response (h/handler {:message "get_transaction_pool" :payload {}} {})))
-  (GET "/blocks/:block-hash" [block-hash] (response (h/handler {:message "get_block" :payload block-hash} {})))
-  (GET "/latest_block" [] (response (h/handler {:message "get_latest_block" :payload {}} {})))
-  (GET "/block_height" [] (response (h/handler {:message "get_block_height" :payload {}} {})))
-  (GET "/transactions/:txn-hash" [txn-hash] (response (h/handler {:message "get_transaction" :payload txn-hash} {})))
-  (POST "/echo" req (response (h/handler {:message "echo" :payload (:body req)} {})))
-  (POST "/ping" req (response (h/handler {:message "ping" :payload (:body req)} {})))
-  (POST "/balance" req (response (h/handler {:message "get_balance" :payload (:address (:body req) )} {})))
-  (POST "/blocks" req (response (h/handler {:message "submit_block" :payload (:body req)} {})))
-  (POST "/pending_transactions" req (response (h/handler {:message "submit_transaction" :payload (:body req)} {})))
-  (route/not-found "<h1>Page not found</h1>"))
-#_(def app (-> my-routes
-             (json-body)
-             (wrap-json-response)))
-
-;; {"echo" echo X
-;;    "ping" ping X
-;;    "get_peers" get-peers X
-;;    "add_peer" add-peer
-;;    "remove_peer" remove-peer
-;;    "get_balance" get-balance X
-;;    "get_block_height" get-block-height X
-;;    "get_latest_block" get-latest-block X
-;;    "get_transaction_pool" get-transaction-pool X
-;;    "get_blocks" get-blocks X
-;;    "get_block" get-block X
-;;    "get_transaction" get-transaction X
-;;    "submit_transaction" submit-transaction X
-;;    "submit_block" submit-block X
-;;    "generate_payment" generate-payment}
