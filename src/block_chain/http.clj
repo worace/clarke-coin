@@ -10,8 +10,8 @@
 
 (defroutes my-routes
   (GET "/" [] "<h1>Hello World</h1>")
-  (POST "/echo" req (response (h/echo (:body req) {})))
-  (POST "/ping" req (response (h/ping (:body req) {})))
+  (POST "/echo" req (response (h/handler {:message "echo" :payload (:body req)} {})))
+  (POST "/ping" req (response (h/handler {:message "ping" :payload (:body req)} {})))
   (route/not-found "<h1>Page not found</h1>"))
 
 (defn json-body [handler]

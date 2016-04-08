@@ -26,7 +26,7 @@
 
 (deftest test-echo
   (let [r (post-req "/echo" {:hello "there"})]
-    (is (= {:hello "there"}
+    (is (= {:message "echo" :payload {:hello "there"}}
            (:body r)))
     (is (= "application/json; charset=utf-8"
            (get-in r [:headers "Content-Type"])))))
