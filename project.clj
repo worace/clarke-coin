@@ -17,6 +17,7 @@
                  [ring/ring-core "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [ring/ring-json "0.4.0"]
+                 [ring-logger "0.7.6"]
                  [net.async/async "0.1.0"]
                  [org.clojure/core.async "0.2.374"]
                  [pandect "0.5.4"]])

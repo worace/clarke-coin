@@ -4,10 +4,11 @@
             [ring.util.http-response :refer :all]
             [block-chain.message-handlers :as h]
             [schema.core :as s]
+            [ring.logger :as logger]
             [block-chain.schemas :refer :all]
             [compojure.route :as route]))
 
-(def test-api
+(def api
   (sweet/api
    {:swagger {:ui "/"
               :spec "/swagger.json"
@@ -96,11 +97,16 @@
 (defonce server (atom nil))
 
 (defn stop! [] (if-let [server @server] (.stop server)))
+
+(def with-middleware
+  (-> api
+      (logger/wrap-with-logger)))
+
 (defn start!
   ([] (start! 3001))
   ([port]
    (println "HTTP Starting with port: " port)
    (stop!)
-   (let [s (jetty/run-jetty #'test-api {:port port :join? false})]
+   (let [s (jetty/run-jetty #'with-middleware {:port port :join? false})]
      (.start s)
      (reset! server s))))
