@@ -2,7 +2,7 @@
   (:require [block-chain.miner :as miner]
             [block-chain.db :as db]
             [clojure.tools.nrepl.server :as repl]
-            [block-chain.net :as net]))
+            [block-chain.http :as http]))
 
 (defonce repl-server (atom nil))
 
@@ -14,13 +14,13 @@
 (defn start! []
   (println "****** Starting Clarke Coin *******")
   (miner/run-miner!)
-  (net/start!)
+  (http/start! 3000)
   (start-repl!))
 
 (defn stop! []
   (println "****** Stopping Clarke Coin *******")
   (miner/stop-miner!)
-  (net/shutdown!)
+  (http/stop!)
   (repl/stop-server @repl-server))
 
 (defn -main [& args]
