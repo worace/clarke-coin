@@ -1,4 +1,5 @@
 (ns block-chain.core
+  (:gen-class)
   (:require [block-chain.miner :as miner]
             [block-chain.db :as db]
             [clojure.tools.nrepl.server :as repl]
