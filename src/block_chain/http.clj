@@ -99,6 +99,7 @@
 (defn start!
   ([] (start! 3001))
   ([port]
+   (println "HTTP Starting with port: " port)
    (stop!)
    (let [s (jetty/run-jetty #'test-api {:port port :join? false})]
      (.start s)
