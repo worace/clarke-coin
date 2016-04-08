@@ -11,7 +11,7 @@
     (send-tcp-message (:host p)
                       (:port p)
                       (msg-string
-                       {:message-type "submit_block"
+                       {:message "submit_block"
                         :payload block}))))
 
 (defn transaction-received!
@@ -20,5 +20,5 @@
     (send-tcp-message (:host p)
                       (:port p)
                       (msg-string
-                       {:message-type "submit_transaction"
+                       {:message "submit_transaction"
                         :payload txn}))))
