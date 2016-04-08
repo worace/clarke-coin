@@ -34,7 +34,7 @@
      (fn [req-lines sock-info]
        (let [msg (read-json (first req-lines))]
          (message-fn msg)
-         (msg-string {:message-type "pong" :payload (:payload msg)})))))))
+         (msg-string {:message "pong" :payload (:payload msg)})))))))
 
 (def easy-difficulty (hex-string (math/expt 2 248)))
 (def hard-difficulty (hex-string (math/expt 2 50)))
@@ -45,9 +45,9 @@
     (is (= msg (handler msg {})))))
 
 (deftest test-ping-pong
-  (let [msg {:message-type "ping"
+  (let [msg {:message "ping"
              :payload (current-time-seconds)}]
-    (is (= (assoc msg :message-type "pong") (handler msg {})))))
+    (is (= (assoc msg :message "pong") (handler msg {})))))
 
 (deftest test-getting-adding-and-removing-peers
   (with-redefs [db/peers (atom #{})]

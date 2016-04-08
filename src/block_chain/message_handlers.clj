@@ -11,8 +11,8 @@
 (defn echo [msg sock-info]
   msg)
 
-(defn pong [msg sock-info]
-  {:message-type "pong" :payload (:payload msg)})
+(defn ping [msg sock-info]
+  {:message "pong" :payload (:payload msg)})
 
 (defn get-peers [msg sock-info]
   {:message-type "peers" :payload @db/peers})
@@ -99,7 +99,7 @@
 
 (def message-handlers
   {"echo" echo
-   "ping" pong
+   "ping" ping
    "get_peers" get-peers
    "add_peer" add-peer
    "remove_peer" remove-peer
