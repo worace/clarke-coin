@@ -253,4 +253,3 @@ Topics
 Spec updates
 
 * Use DER encoding for addresses? fingerprinting?
-* use content-length leading bytes for tcp protocol

@@ -6,12 +6,15 @@
             [clojure.core.async :as async]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
-            [block-chain.net :as net]
             [block-chain.transactions :as txns]
             [block-chain.chain :as bc]
+            [ring.adapter.jetty :as jetty]
+            [compojure.core :refer [routes]]
+            [compojure.route :as route]
             [block-chain.db :as db]
             [block-chain.target :as target]
             [block-chain.blocks :as blocks]
+            [clj-http.client :as http]
             [block-chain.message-handlers :refer :all]))
 
 (defn responds
@@ -22,19 +25,35 @@
 
 (def sock-info
   {:remote-address "127.0.0.1"
-   :local-port 8334
+   :local-port 8335
    :outgoing-port 51283})
 
 (defn test-server
   ([message-fn] (test-server 8335 message-fn))
   ([port message-fn]
-   (:server
-    (net/start-server
-     port
-     (fn [req-lines sock-info]
-       (let [msg (read-json (first req-lines))]
-         (message-fn msg)
-         (msg-string {:message "pong" :payload (:payload msg)})))))))
+   (let [handler (routes (fn [req]
+                           (message-fn (update req :body slurp))
+                           {:status 200}))]
+     (jetty/run-jetty handler {:port port :join? false}))))
+
+(defmacro with-start
+  [bindings & body]
+  (cond
+    (= (count bindings) 0) `(do ~@body)
+    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+                              (try
+                                (. ~(bindings 0) start)
+                                (with-open ~(subvec bindings 2) ~@body)
+                                (finally
+                                  (. ~(bindings 0) stop))))
+    :else (throw (IllegalArgumentException.
+                  "with-open only allows Symbols in bindings"))))
+
+(with-start [s (test-server 9100 (fn [r] (println r)))]
+  (println "S is: " s)
+  (throw (RuntimeException. "pizza"))
+  (http/get "http://localhost:9100")
+  (println "macro body"))
 
 (def easy-difficulty (hex-string (math/expt 2 248)))
 (def hard-difficulty (hex-string (math/expt 2 50)))
@@ -154,23 +173,6 @@
         (let [miner-addr (get-in (last @chain) [:transactions 0 :outputs 0 :address])]
           ;; miner should have 25 from coinbase and 1 from allotted txn fee
           (is (= 26 (bc/balance miner-addr @chain))))))))
-
-#_(deftest test-forwarding-txns-to-peers
-  (let [peer-chan (async/chan)]
-    (with-open [peer (:server (net/start-server 8335 (fn [req-lines sock-info]
-                                                       (async/go (async/>! peer-chan (read-json (first req-lines)))))))]
-      (with-redefs [db/block-chain (atom [])
-                    db/transaction-pool (atom #{})
-                    db/peers (atom #{})
-                    target/default (hex-string (math/expt 2 248))]
-        (handler {:message "add_peer" :payload {:port 8335}} sock-info)
-        (miner/mine-and-commit)
-        (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
-          (handler {:message "submit_transaction" :payload txn} sock-info)
-          (let [[message chan] (async/alts!! [peer-chan (async/timeout 500)])]
-            (is (= txn (:payload message)))
-            (is (= "submit_transaction" (:message message))))))
-      (.close peer))))
 
 (deftest test-only-forwards-new-transactions
   (let [messages (atom [])]
@@ -298,3 +300,20 @@
         (is (= "Miner Stopped!" message))
         (is (= 1 (count @db/block-chain)))
         (is (= dummy-block (first @db/block-chain)))))))
+
+#_(deftest test-forwarding-txns-to-peers
+  (let [peer-chan (async/chan)]
+    (with-open [peer (:server (net/start-server 8335 (fn [req-lines sock-info]
+                                                       (async/go (async/>! peer-chan (read-json (first req-lines)))))))]
+      (with-redefs [db/block-chain (atom [])
+                    db/transaction-pool (atom #{})
+                    db/peers (atom #{})
+                    target/default (hex-string (math/expt 2 248))]
+        (handler {:message "add_peer" :payload {:port 8335}} sock-info)
+        (miner/mine-and-commit)
+        (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
+          (handler {:message "submit_transaction" :payload txn} sock-info)
+          (let [[message chan] (async/alts!! [peer-chan (async/timeout 500)])]
+            (is (= txn (:payload message)))
+            (is (= "submit_transaction" (:message message))))))
+      (.close peer))))
