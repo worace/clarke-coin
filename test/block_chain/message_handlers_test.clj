@@ -23,37 +23,38 @@
    (let [resp (handler msg sock-info)]
      (is (= val (:payload resp))))))
 
+(def test-port 9292)
 (def sock-info
   {:remote-address "127.0.0.1"
-   :local-port 8335
+   :local-port test-port
    :outgoing-port 51283})
 
 (defn test-server
-  ([message-fn] (test-server 8335 message-fn))
   ([port message-fn]
    (let [handler (routes (fn [req]
                            (message-fn (update req :body slurp))
                            {:status 200}))]
      (jetty/run-jetty handler {:port port :join? false}))))
 
-(defmacro with-start
+(defmacro with-test-handler
   [bindings & body]
   (cond
     (= (count bindings) 0) `(do ~@body)
-    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+    (symbol? (bindings 0)) `(let [~(bindings 0) (test-server test-port ~(bindings 1))]
                               (try
                                 (. ~(bindings 0) start)
-                                (with-open ~(subvec bindings 2) ~@body)
+                                (with-test-handler ~(subvec bindings 2) ~@body)
                                 (finally
                                   (. ~(bindings 0) stop))))
     :else (throw (IllegalArgumentException.
                   "with-open only allows Symbols in bindings"))))
 
-(with-start [s (test-server 9100 (fn [r] (println r)))]
-  (println "S is: " s)
-  (throw (RuntimeException. "pizza"))
-  (http/get "http://localhost:9100")
-  (println "macro body"))
+;; (let [messages (atom [])]
+;;   (with-test-handler [s (fn [r] (swap! messages conj r))]
+;;     (println "S is: " s)
+;;     (http/get "http://localhost:9156")
+;;     (println "reqs received: " @messages)
+;;     (println "macro body")))
 
 (def easy-difficulty (hex-string (math/expt 2 248)))
 (def hard-difficulty (hex-string (math/expt 2 50)))
@@ -175,33 +176,40 @@
           (is (= 26 (bc/balance miner-addr @chain))))))))
 
 (deftest test-only-forwards-new-transactions
-  (let [messages (atom [])]
-    (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
+  (let [reqs (atom [])]
+    (with-test-handler [peer (fn [req] (swap! reqs conj req))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
                     db/peers (atom #{})
                     target/default (hex-string (math/expt 2 248))]
         (miner/mine-and-commit)
         (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
-          (handler {:message "add_peer" :payload {:port 8335}} sock-info)
+          (handler {:message "add_peer" :payload {:port test-port}}
+                   sock-info)
           ;; send same txn twice but should only get forwarded once
           (handler {:message "submit_transaction" :payload txn} sock-info)
           (handler {:message "submit_transaction" :payload txn} sock-info)
-          (is (= 1 (count @messages)))
-          (is (= txn (:payload (first @messages)))))))))
+          (is (= 1 (count @reqs)))
+          (is (= "/pending_transactions" (:uri (first @reqs))))
+          (is (= :post (:request-method (first @reqs))))
+          (is (= txn (read-json (:body (first @reqs))))))))))
 
+(defn json-body [req] (read-json (:body req)))
 (deftest test-forwarding-mined-blocks-to-peers
-  (let [messages (atom [])]
-    (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
+  (let [reqs (atom [])]
+    (with-test-handler [peer (fn [req] (swap! reqs conj req))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
                     db/peers (atom #{})
                     target/default (hex-string (math/expt 2 248))]
-        (handler {:message "add_peer" :payload {:port 8335}} sock-info)
+        (handler {:message "add_peer" :payload {:port test-port}} sock-info)
         (miner/mine-and-commit)
         (is (= 1 (count @db/block-chain)))
-        (is (= 1 (count @messages)))
-        (is (= (first @db/block-chain) (:payload (first @messages))))))))
+        (is (= 1 (count @reqs)))
+        (is (= "/blocks" (:uri (first @reqs))))
+        (is (= :post (:request-method (first @reqs))))
+        (is (= (first @db/block-chain)
+               (json-body (first @reqs))))))))
 
 (deftest test-receiving-new-block-adds-to-block-chain
   (with-redefs [db/block-chain (atom [])
@@ -213,8 +221,8 @@
       (is (= 1 (count @db/block-chain))))))
 
 (deftest test-forwarding-received-blocks-to-peers
-  (let [messages (atom [])]
-    (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
+  (let [reqs (atom [])]
+    (with-test-handler [peer (fn [req] (swap! reqs conj req))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
                     db/peers (atom #{})
@@ -222,29 +230,31 @@
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
                                                     :target easy-difficulty}))]
-          (handler {:message "add_peer" :payload {:port 8335}} sock-info)
+          (handler {:message "add_peer" :payload {:port test-port}} sock-info)
           (handler {:message "submit_block" :payload b} sock-info)
           (is (= 1 (count @db/block-chain)))
-          (is (= "submit_block" (:message (first @messages))))
-          (is (= b (:payload (first @messages))))
-          (is (= 1 (count @messages))))))))
+          (is (= "/blocks" (:uri (first @reqs))))
+          (is (= :post (:request-method (first @reqs))))
+          (is (= b (json-body (first @reqs))))
+          (is (= 1 (count @reqs))))))))
 
 (deftest test-forwards-received-block-to-peers-only-if-new
-  (let [messages (atom [])]
-    (with-open [peer (test-server (fn [m] (swap! messages conj m)))]
+  (let [reqs (atom [])]
+    (with-test-handler [peer (fn [req] (swap! reqs conj req))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
                     db/peers (atom #{})]
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
                                                     :target easy-difficulty}))]
-          (handler {:message "add_peer" :payload {:port 8335}} sock-info)
+          (handler {:message "add_peer" :payload {:port test-port}} sock-info)
           (handler {:message "submit_block" :payload b} sock-info)
           (handler {:message "submit_block" :payload b} sock-info)
           (is (= 1 (count @db/block-chain)))
-          (is (= "submit_block" (:message (first @messages))))
-          (is (= b (:payload (first @messages))))
-          (is (= 1 (count @messages))))))))
+          (is (= "/blocks" (:uri (first @reqs))))
+          (is (= :post (:request-method (first @reqs))))
+          (is (= b (json-body (first @reqs))))
+          (is (= 1 (count @reqs))))))))
 
 
 (deftest test-receiving-block-clears-txn-pool
@@ -274,10 +284,9 @@
 ;; `get_blocks`
 ;; `get_block` - payload: Block Hash of block to get info about - Node
 
-#_(deftest test-transaction-pool
+(deftest test-transaction-pool
   (with-redefs [db/transaction-pool (atom #{})]
-    (let [key (wallet/generate-keypair 512)
-          cb (miner/coinbase (:address key))]
+    (let [cb (miner/coinbase)]
       (responds [] {:message "get_transaction_pool"})
       (handler {:message "submit_transaction" :payload cb} {})
       (responds [cb] {:message "get_transaction_pool" :payload cb}))))
@@ -300,20 +309,3 @@
         (is (= "Miner Stopped!" message))
         (is (= 1 (count @db/block-chain)))
         (is (= dummy-block (first @db/block-chain)))))))
-
-#_(deftest test-forwarding-txns-to-peers
-  (let [peer-chan (async/chan)]
-    (with-open [peer (:server (net/start-server 8335 (fn [req-lines sock-info]
-                                                       (async/go (async/>! peer-chan (read-json (first req-lines)))))))]
-      (with-redefs [db/block-chain (atom [])
-                    db/transaction-pool (atom #{})
-                    db/peers (atom #{})
-                    target/default (hex-string (math/expt 2 248))]
-        (handler {:message "add_peer" :payload {:port 8335}} sock-info)
-        (miner/mine-and-commit)
-        (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
-          (handler {:message "submit_transaction" :payload txn} sock-info)
-          (let [[message chan] (async/alts!! [peer-chan (async/timeout 500)])]
-            (is (= txn (:payload message)))
-            (is (= "submit_transaction" (:message message))))))
-      (.close peer))))
