@@ -33,21 +33,3 @@
   (/ (reduce + things) (count things)))
 
 (def compact (partial filter (comp not nil?)))
-
-(defn msg-string
-  "Takes clj data structure message (usually a map) and preps it for
-   sending to another node by a) converting it to json and b) appending
-   a double-newline (empty line denotes end of message)."
-  [message]
-  (str (write-json message)
-       "\n\n"))
-
-(defn send-tcp-message [host port message]
-  (let [conn (Socket. host port)
-        reader (io/reader conn)
-        writer (io/writer conn)]
-    (.write writer message)
-    (.flush writer)
-    (let [resp (.readLine reader)]
-      (.close conn)
-      resp)))

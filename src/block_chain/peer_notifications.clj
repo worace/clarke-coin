@@ -1,6 +1,5 @@
 (ns block-chain.peer-notifications
   (:require [block-chain.db :as db]
-            [block-chain.utils :refer [write-json msg-string]]
             [clj-http.client :as http]
             [clojure.core.async
              :as async
