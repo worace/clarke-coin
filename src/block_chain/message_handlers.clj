@@ -2,6 +2,7 @@
   (:require [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
             [block-chain.db :as db]
+            [block-chain.validations :as v]
             [block-chain.wallet :as wallet]
             [block-chain.key-serialization :as ks]
             [block-chain.miner :as miner]
@@ -78,13 +79,14 @@
              (or (:fee (:payload msg)) 0))})
 
 (defn submit-transaction [msg sock-info]
-  (let [txn (:payload msg)]
-    (if-not (contains? @db/transaction-pool txn)
+  (let [txn (:payload msg)
+        validation-errors (v/validate-transaction txn @db/block-chain @db/transaction-pool)]
+    (if (empty? validation-errors)
       (do
         (swap! db/transaction-pool conj txn)
-        (peers/transaction-received! txn)))
-    {:message "transaction-accepted"
-     :payload txn}))
+        (peers/transaction-received! txn)
+        {:message "transaction-accepted" :payload txn})
+      {:message "transaction-rejected" :payload validation-errors})))
 
 (defn submit-block [msg sock-info]
   (let [b (:payload msg)]

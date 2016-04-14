@@ -272,7 +272,16 @@
       (handler {:message "submit_block" :payload b} sock-info)
       (is (= 0 (count @db/transaction-pool))))))
 
-(deftest test-validating-incoming-transactions)
+#_(deftest test-validating-incoming-transactions
+  (with-redefs [db/block-chain (atom [])
+                db/transaction-pool (atom #{})
+                target/default easy-difficulty]
+    (let [alt-chain (atom [])]
+      (miner/mine-and-commit alt-chain)
+      (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @alt-chain)]
+        (is (= {:payload ["Insufficient funds."]
+                :message "transaction-rejected"}
+               (handler {:message "submit_transaction" :payload txn} sock-info)))))))
 
 (deftest test-validating-incoming-blocks)
 
