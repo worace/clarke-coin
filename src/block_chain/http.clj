@@ -100,7 +100,8 @@
 
 (def with-middleware
   (-> api
-      (logger/wrap-with-logger)))
+      (identity)
+      #_(logger/wrap-with-logger)))
 
 (defn start!
   ([] (start! 3001))

@@ -15,21 +15,34 @@
 
 (def a-coinbase (miner/coinbase (:address key-a)))
 (def b-coinbase (miner/coinbase (:address key-b)))
+
 (def a-paid (blocks/generate-block [a-coinbase]
                                   {:target easy-difficulty}))
 (def b-paid (blocks/generate-block [b-coinbase]
                                   {:target easy-difficulty}))
+
+;; A and B both start with 25
+;; A: 25 B: 25
 (miner/mine-and-commit chain a-paid)
 (miner/mine-and-commit chain b-paid)
 
-;; A and B both start with 25
 
+;; B pays A 5
+;; A: 30, B: 20
+(def b-pays-a-5 (miner/generate-payment key-b
+                                        (:address key-a)
+                                        5
+                                        @chain))
+(miner/mine-and-commit chain (blocks/generate-block [b-pays-a-5]
+                                                    {:target easy-difficulty}))
+
+
+;; Pending payment transactions:
 (def a-pays-b-15 (miner/generate-payment key-a
                                          (:address key-b)
                                          15
                                          @chain))
-(def a-pays-b-50
-  (assoc-in a-pays-b-15 [:outputs 0 :amount] 50))
+(def a-pays-b-50 (assoc-in a-pays-b-15 [:outputs 0 :amount] 50))
 
 
 (deftest test-valid-structure
@@ -40,6 +53,11 @@
 (deftest test-sufficient-balance
   (is (sufficient-inputs? a-pays-b-15 @chain #{}))
   (is (not (sufficient-inputs? a-pays-b-50 @chain #{}))))
+
+(deftest test-all-inputs-have-sources)
+
+(deftest test-valid-signatures
+  (is (signatures-valid? a-pays-b-15 @chain #{})))
 
 (deftest test-inputs-unspent)
 (deftest test-valid-outputs)
