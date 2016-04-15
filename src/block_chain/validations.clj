@@ -38,6 +38,13 @@
     (catch Exception e
         false)))
 
+(defn inputs-properly-sourced? [txn chain _]
+  (let [inputs-sources (match-inputs-to-sources txn chain)]
+    (and (every? identity (keys inputs-sources))
+         (every? identity (vals inputs-sources))
+         (= (count (vals inputs-sources))
+            (count (into #{} (vals inputs-sources)))))))
+
 (def txn-validations
   {new-transaction? "Transaction rejected because it already exists in this node's pending txn pool."})
 

@@ -54,7 +54,12 @@
   (is (sufficient-inputs? a-pays-b-15 @chain #{}))
   (is (not (sufficient-inputs? a-pays-b-50 @chain #{}))))
 
-(deftest test-all-inputs-have-sources)
+(deftest test-all-inputs-have-sources
+  (is (inputs-properly-sourced? a-pays-b-15 @chain #{}))
+  (let [bogus-sourced (assoc-in a-pays-b-15
+                                [:inputs 0 :source-hash]
+                                "pizza")]
+    (is (not (inputs-properly-sourced? bogus-sourced @chain #{})))))
 
 (deftest test-valid-signatures
   (is (signatures-valid? a-pays-b-15 @chain #{})))
