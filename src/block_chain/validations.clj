@@ -45,6 +45,10 @@
          (= (count (vals inputs-sources))
             (count (into #{} (vals inputs-sources)))))))
 
+(defn inputs-unspent? [txn chain _]
+  (let [sources (vals (match-inputs-to-sources txn chain))]
+    (every? (partial c/unspent? chain) sources)))
+
 (def txn-validations
   {new-transaction? "Transaction rejected because it already exists in this node's pending txn pool."})
 

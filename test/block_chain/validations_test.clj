@@ -1,6 +1,7 @@
 (ns block-chain.validations-test
   (:require [clojure.test :refer :all]
             [block-chain.wallet :as wallet]
+            [clojure.pprint :refer [pprint]]
             [block-chain.utils :refer :all]
             [clojure.math.numeric-tower :as math]
             [block-chain.miner :as miner]
@@ -62,8 +63,18 @@
     (is (not (inputs-properly-sourced? bogus-sourced @chain #{})))))
 
 (deftest test-valid-signatures
-  (is (signatures-valid? a-pays-b-15 @chain #{})))
+  (is (signatures-valid? a-pays-b-15 @chain #{}))
+  (let [bogus-sig (assoc-in a-pays-b-15
+                            [:outputs 0 :amount]
+                            16)]
+    (is (not (signatures-valid? bogus-sig @chain #{})))))
 
-(deftest test-inputs-unspent)
+(deftest test-inputs-unspent
+  (is (inputs-unspent? a-pays-b-15 @chain #{}))
+  (is (contains? (->> @chain
+                      (mapcat :transactions)
+                      (into #{})) b-pays-a-5))
+  (is (not (inputs-unspent? b-pays-a-5 @chain #{}))))
+
 (deftest test-valid-outputs)
 
