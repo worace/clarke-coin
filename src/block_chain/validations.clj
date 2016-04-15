@@ -50,7 +50,12 @@
     (every? (partial c/unspent? chain) sources)))
 
 (def txn-validations
-  {new-transaction? "Transaction rejected because it already exists in this node's pending txn pool."})
+  {new-transaction? "Transaction rejected because it already exists in this node's pending txn pool."
+   txn-structure-valid? "Transaction structure invalid."
+   inputs-properly-sourced? "One or more transaction inputs is not properly sourced, OR multiple inputs attempt to source the same output."
+   inputs-unspent? "Outputs referenced by one or more txn inputs has already been spent."
+   sufficient-inputs? "Transaction lacks sufficient inputs to cover its outputs"
+   signatures-valid? "One or more transactions signatures is invalid."})
 
 (defn validate-transaction [txn chain txn-pool]
   (mapcat (fn [[validation message]]
