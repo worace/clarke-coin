@@ -4,6 +4,8 @@
             [block-chain.http :as server]
             [block-chain.db :as db]
             [block-chain.blocks :as blocks]
+            [clojure.math.numeric-tower :as math]
+            [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
             [block-chain.utils :refer :all]
             [block-chain.schemas :refer :all]
@@ -11,8 +13,25 @@
             [clojure.pprint :refer [pprint]]))
 
 (def base-url "http://localhost:9292")
-(def sample-transaction (miner/coinbase))
-(def sample-block (blocks/hashed (blocks/generate-block [sample-transaction])))
+
+(def easy-difficulty (hex-string (math/expt 2 248)))
+(def chain (atom []))
+
+(def key-a (wallet/generate-keypair 512))
+(def key-b (wallet/generate-keypair 512))
+
+(def a-coinbase (miner/coinbase (:address key-a)))
+(def a-paid (blocks/generate-block [a-coinbase]
+                                  {:target easy-difficulty}))
+;; A: 25 B: 0
+(miner/mine-and-commit chain a-paid)
+(def sample-block (first @chain))
+
+;; A pays B 5
+(def sample-transaction (miner/generate-payment key-a
+                                         (:address key-b)
+                                         15
+                                         @chain))
 
 (defn post-req [path data]
   (update
@@ -37,11 +56,11 @@
 (defn with-db [f]
   (reset! db/peers #{})
   (reset! db/transaction-pool #{})
-  (reset! db/block-chain [])
+  (reset! db/block-chain @chain)
   (f)
   (reset! db/peers #{})
   (reset! db/transaction-pool #{})
-  (reset! db/block-chain []))
+  (reset! db/block-chain @chain))
 
 (use-fixtures :once with-server)
 (use-fixtures :each with-db)
@@ -68,8 +87,7 @@
   (is (= {:message "balance" :payload {:address "pizza" :balance 0} } (:body (post-req "/balance" {:address "pizza"})))))
 
 (deftest test-get-blocks
-  (swap! db/block-chain conj sample-block)
-  (is  (= {:message "blocks" :payload [sample-block]}
+  (is  (= {:message "blocks" :payload @chain}
           (:body (get-req "/blocks")))))
 
 (deftest test-get-transaction-pool
@@ -88,7 +106,6 @@
           (:body (get-req "/latest_block")))))
 
 (deftest test-get-block-height
-  (swap! db/block-chain conj {})
   (is  (= {:message "block_height" :payload 1}
           (:body (get-req "/block_height")))))
 

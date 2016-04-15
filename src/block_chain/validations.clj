@@ -4,14 +4,16 @@
             [block-chain.transactions :as t]
             [block-chain.key-serialization :as ks]
             [block-chain.wallet :as w]
+            [block-chain.utils :refer :all]
+            [clojure.pprint :refer [pprint]]
             [block-chain.schemas :refer :all]))
 
 (defn new-transaction? [txn _ txn-pool]
-  (contains? txn-pool txn))
+  (not (contains? txn-pool txn)))
 
 (defn sufficient-inputs? [txn chain txn-pool]
-  (let [sources (map (partial c/source-output chain)
-                     (:inputs txn))
+  (let [sources (compact (map (partial c/source-output chain)
+                              (:inputs txn)))
         outputs (:outputs txn)]
     (>= (reduce + (map :amount sources))
         (reduce + (map :amount outputs)))))
@@ -52,14 +54,15 @@
 (def txn-validations
   {new-transaction? "Transaction rejected because it already exists in this node's pending txn pool."
    txn-structure-valid? "Transaction structure invalid."
-   inputs-properly-sourced? "One or more transaction inputs is not properly sourced, OR multiple inputs attempt to source the same output."
-   inputs-unspent? "Outputs referenced by one or more txn inputs has already been spent."
+   ;; inputs-properly-sourced? "One or more transaction inputs is not properly sourced, OR multiple inputs attempt to source the same output."
+   ;; inputs-unspent? "Outputs referenced by one or more txn inputs has already been spent."
    sufficient-inputs? "Transaction lacks sufficient inputs to cover its outputs"
-   signatures-valid? "One or more transactions signatures is invalid."})
+   ;; signatures-valid? "One or more transactions signatures is invalid."
+   })
 
 (defn validate-transaction [txn chain txn-pool]
   (mapcat (fn [[validation message]]
-            (if (validation txn chain txn-pool)
+            (if-not (validation txn chain txn-pool)
               [message]
               []))
           txn-validations))

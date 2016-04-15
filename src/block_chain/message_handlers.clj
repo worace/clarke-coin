@@ -1,6 +1,7 @@
 (ns block-chain.message-handlers
   (:require [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
+            [clojure.pprint :refer [pprint]]
             [block-chain.db :as db]
             [block-chain.validations :as v]
             [block-chain.wallet :as wallet]
