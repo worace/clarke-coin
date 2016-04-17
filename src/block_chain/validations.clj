@@ -23,10 +23,12 @@
         (map (fn [i] [i (c/source-output chain i)]) (:inputs txn))))
 
 (defn verify-input-signature [input source txn]
-  (let [source-key (ks/der-string->pub-key (:address source))]
-    (w/verify (:signature input)
-              (t/txn-signable txn)
-              source-key)))
+  (if (and input source txn)
+    (let [source-key (ks/der-string->pub-key (:address source))]
+      (w/verify (:signature input)
+                (t/txn-signable txn)
+                source-key))
+    false))
 
 (defn signatures-valid? [txn chain _]
   (let [inputs-sources (match-inputs-to-sources txn chain)]
@@ -54,10 +56,10 @@
 (def txn-validations
   {new-transaction? "Transaction rejected because it already exists in this node's pending txn pool."
    txn-structure-valid? "Transaction structure invalid."
-   ;; inputs-properly-sourced? "One or more transaction inputs is not properly sourced, OR multiple inputs attempt to source the same output."
-   ;; inputs-unspent? "Outputs referenced by one or more txn inputs has already been spent."
+   inputs-properly-sourced? "One or more transaction inputs is not properly sourced, OR multiple inputs attempt to source the same output."
+   inputs-unspent? "Outputs referenced by one or more txn inputs has already been spent."
    sufficient-inputs? "Transaction lacks sufficient inputs to cover its outputs"
-   ;; signatures-valid? "One or more transactions signatures is invalid."
+   signatures-valid? "One or more transactions signatures is invalid."
    })
 
 (defn validate-transaction [txn chain txn-pool]

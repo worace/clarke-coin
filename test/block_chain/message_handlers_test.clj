@@ -279,9 +279,8 @@
     (let [alt-chain (atom [])]
       (miner/mine-and-commit alt-chain)
       (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @alt-chain)]
-        (is (= {:payload ["Transaction lacks sufficient inputs to cover its outputs"]
-                :message "transaction-rejected"}
-               (handler {:message "submit_transaction" :payload txn} sock-info)))))))
+        (is (= "transaction-rejected"
+               (:message (handler {:message "submit_transaction" :payload txn} sock-info))))))))
 
 (deftest test-validating-incoming-blocks)
 
