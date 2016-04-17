@@ -1,4 +1,4 @@
-(ns block-chain.validations-test
+(ns block-chain.transaction-validations-test
   (:require [clojure.test :refer :all]
             [block-chain.wallet :as wallet]
             [clojure.pprint :refer [pprint]]
@@ -6,7 +6,7 @@
             [clojure.math.numeric-tower :as math]
             [block-chain.miner :as miner]
             [block-chain.blocks :as blocks]
-            [block-chain.validations :refer :all]))
+            [block-chain.transaction-validations :refer :all]))
 
 (def easy-difficulty (hex-string (math/expt 2 248)))
 (def chain (atom []))
@@ -76,5 +76,23 @@
                       (into #{})) b-pays-a-5))
   (is (not (inputs-unspent? b-pays-a-5 @chain #{}))))
 
+(deftest test-correct-hash
+  (is (valid-hash? a-pays-b-15 @chain #{}))
+  (is (not (valid-hash? (assoc a-pays-b-15 :hash "pizza") @chain #{}))))
+
 (deftest test-valid-outputs)
 
+(deftest test-valid-block-hash
+  (is ()))
+
+;; Block:
+;; Hash is accurate to contents
+;; Correct parent hash
+;; Valid target (within allowed threshold)
+;; single coinbase
+;; coinbase has proper reward
+;; coinbase adds correct txn fees
+;; block's txn hash is accurate
+;; block's timestamp is within allowed threshold
+;; block's hash is lower than target
+;; txn interactions -- making sure multiple txns in single block don't spend same inputs?

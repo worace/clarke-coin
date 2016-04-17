@@ -1,4 +1,4 @@
-(ns block-chain.validations
+(ns block-chain.transaction-validations
   (:require [schema.core :as s]
             [block-chain.chain :as c]
             [block-chain.transactions :as t]
@@ -53,6 +53,9 @@
   (let [sources (vals (match-inputs-to-sources txn chain))]
     (every? (partial c/unspent? chain) sources)))
 
+(defn valid-hash? [txn chain _]
+  (= (:hash txn) (t/txn-hash txn)))
+
 (def txn-validations
   {new-transaction? "Transaction rejected because it already exists in this node's pending txn pool."
    txn-structure-valid? "Transaction structure invalid."
@@ -60,6 +63,7 @@
    inputs-unspent? "Outputs referenced by one or more txn inputs has already been spent."
    sufficient-inputs? "Transaction lacks sufficient inputs to cover its outputs"
    signatures-valid? "One or more transactions signatures is invalid."
+   valid-hash? "Transaction's hash does not match its contents."
    })
 
 (defn validate-transaction [txn chain txn-pool]
