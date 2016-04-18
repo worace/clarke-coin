@@ -81,18 +81,3 @@
   (is (not (valid-hash? (assoc a-pays-b-15 :hash "pizza") @chain #{}))))
 
 (deftest test-valid-outputs)
-
-(deftest test-valid-block-hash
-  (is ()))
-
-;; Block:
-;; Hash is accurate to contents
-;; Correct parent hash
-;; Valid target (within allowed threshold)
-;; single coinbase
-;; coinbase has proper reward
-;; coinbase adds correct txn fees
-;; block's txn hash is accurate
-;; block's timestamp is within allowed threshold
-;; block's hash is lower than target
-;; txn interactions -- making sure multiple txns in single block don't spend same inputs?

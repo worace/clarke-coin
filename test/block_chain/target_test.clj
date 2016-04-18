@@ -1,12 +1,7 @@
 (ns block-chain.target-test
   (:require [clojure.test :refer :all]
             [block-chain.utils :refer :all]
-            [clojure.math.numeric-tower :as math]
             [block-chain.target :refer :all]))
-
-(defn in-delta?
-  ([x y] (in-delta? x y 0.001))
-  ([x y delta] (< (math/abs (- x y)) delta)))
 
 (deftest test-average-spacing
   (is (= 10 (avg-spacing [10 20 30 40 50]))))

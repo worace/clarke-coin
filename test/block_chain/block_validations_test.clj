@@ -4,12 +4,14 @@
             [block-chain.wallet :as wallet]
             [clojure.pprint :refer [pprint]]
             [block-chain.utils :refer :all]
+            [block-chain.target :as target]
             [clojure.math.numeric-tower :as math]
             [block-chain.miner :as miner]
             [block-chain.blocks :as blocks]
             [block-chain.block-validations :refer :all]))
 
 (def easy-difficulty (hex-string (math/expt 2 248)))
+(def med-difficulty (hex-string (math/expt 2 244)))
 (def chain (atom []))
 
 (def key-a (wallet/generate-keypair 512))
@@ -32,9 +34,10 @@
 
 ;; Block contains 5 A -> B
 ;; And 25 coinbase -> A
-(def un-mined-block (blocks/generate-block [a-pays-b-5]
-                                           {:target easy-difficulty
-                                            :blocks @chain}))
+(def un-mined-block (blocks/hashed
+                     (blocks/generate-block [a-pays-b-5]
+                                            {:target easy-difficulty
+                                             :blocks @chain})))
 
 
 (deftest test-valid-block-hash
@@ -46,12 +49,33 @@
   (is (not (valid-parent-hash? (first @chain) @chain)))
   (is (valid-parent-hash? un-mined-block @chain)))
 
+(deftest test-hash-meets-target
+  (is (hash-meets-target? (first @chain)))
+  (is (not (hash-meets-target? un-mined-block))))
+
+(defn hex-* [i hex]
+  (-> hex
+      hex->int
+      (* i)
+      hex-string))
+
+(deftest test-block-target-within-threshold
+  (with-redefs [target/default easy-difficulty]
+    (is (valid-target? (first @chain) @chain))
+    (is (valid-target? un-mined-block @chain))
+    (is (valid-target? (update-in un-mined-block
+                                  [:header :target]
+                                  (partial hex-* 1001/1000))
+                       @chain))
+    (is (not (valid-target? (update-in un-mined-block
+                                       [:header :target]
+                                       (partial hex-* 5))
+                            @chain)))))
+
 ;; Block:
-;; Valid target (within allowed threshold)
 ;; single coinbase
 ;; coinbase has proper reward
 ;; coinbase adds correct txn fees
 ;; block's txn hash is accurate
 ;; block's timestamp is within allowed threshold
-;; block's hash is lower than target
 ;; txn interactions -- making sure multiple txns in single block don't spend same inputs?

@@ -1,7 +1,7 @@
 (ns block-chain.utils
   (:require [cheshire.core :as json]
-            [clojure.java.io :as io])
-  (:import  [java.net Socket]))
+            [clojure.math.numeric-tower :as math]
+            [clojure.java.io :as io]))
 
 (defn cat-keys
   "take a map and a vector of keys and create a concatenated
@@ -33,3 +33,9 @@
   (/ (reduce + things) (count things)))
 
 (def compact (partial filter (comp not nil?)))
+
+(def abs math/abs)
+
+(defn in-delta?
+  ([x y] (in-delta? x y 0.001))
+  ([x y delta] (< (abs (- x y)) delta)))
