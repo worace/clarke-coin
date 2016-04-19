@@ -5,6 +5,8 @@
             [block-chain.utils :refer :all]
             [block-chain.target :as target]))
 
+(def coinbase-reward 25)
+
 (defn block-by-hash
   [hash blocks]
   (first
@@ -24,6 +26,11 @@
   (if-let [t (txn-by-hash (:source-hash input)
                           blocks)]
     (get (:outputs t) (:source-index input))))
+
+(defn inputs-to-sources [inputs chain]
+  (into {}
+        (map (fn [i] [i (source-output chain i)])
+             inputs)))
 
 (defn latest-block-hash
   "Look up the hash of the latest block in the provided chain.
@@ -80,5 +87,12 @@
                     (range (count (:outputs txn)))))
           (transactions blocks)))
 
-(defn payment [amount from-key to-key blocks])
-(defn broadcast-txn [txn])
+(defn txn-fees
+  "Finds available txn-fees from a pool of txns by finding the diff
+   between cumulative inputs and cumulative outputs"
+  [txns chain]
+  (let [sources (map (partial source-output chain)
+                     (mapcat :inputs txns))
+        outputs (mapcat :outputs txns)]
+    (- (reduce + (map :amount sources))
+       (reduce + (map :amount outputs)))))

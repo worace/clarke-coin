@@ -9,30 +9,20 @@
             [block-chain.peer-notifications :as peers]
             [block-chain.wallet :as wallet]))
 
-(def coinbase-reward 25)
-
-(defn txn-fees
-  "Finds available txn-fees from a pool of txns by finding the diff
-   between cumulative inputs and cumulative outputs"
-  [pool]
-  (let [sources (map (partial bc/source-output @db/block-chain) (mapcat :inputs pool))
-        outputs (mapcat :outputs pool)]
-    (- (reduce + (map :amount sources))
-       (reduce + (map :amount outputs)))))
-
 (defn coinbase
   "Generate new 'coinbase' mining reward transaction for the given
    address and txn pool. Coinbase includes no inputs and 1 output,
    where the address of the output is the address provided and the
    amount of the output is "
   ([] (coinbase (:address wallet/keypair)))
-  ([address] (coinbase address []))
-  ([address txn-pool]
+  ([address] (coinbase address [] @db/block-chain))
+  ([address txn-pool] (coinbase address txn-pool @db/block-chain))
+  ([address txn-pool chain]
    (txn/tag-coords
     (txn/hash-txn
      {:inputs []
-      :outputs [{:amount (+ coinbase-reward
-                            (txn-fees txn-pool))
+      :outputs [{:amount (+ bc/coinbase-reward
+                            (bc/txn-fees txn-pool chain))
                  :address address}]
       :timestamp (current-time-millis)}))))
 

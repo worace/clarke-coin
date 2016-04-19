@@ -21,3 +21,18 @@
         received (hex->int (get-in block [:header :target]))
         threshold (/ expected 1000)]
     (in-delta? expected received threshold)))
+
+(defn valid-txn-hash? [block]
+  (= (get-in block [:header :transactions-hash])
+     (b/transactions-hash (:transactions block))))
+
+(defn valid-coinbase? [block chain]
+  (let [cb (first (:transactions block))]
+    (println "COINBASE: " cb)
+    (and
+     (= 1 (count (:outputs cb)))
+     (= 0 (count (:inputs cb)))
+     (= (+ c/coinbase-reward
+           (c/txn-fees (rest (:transactions block)) chain))
+        (:amount (first (:outputs cb))))
+     )))

@@ -35,9 +35,11 @@
 ;; Block contains 5 A -> B
 ;; And 25 coinbase -> A
 (def un-mined-block (blocks/hashed
-                     (blocks/generate-block [a-pays-b-5]
-                                            {:target easy-difficulty
-                                             :blocks @chain})))
+                     (blocks/generate-block
+                      [(miner/coinbase (:address key-a) [a-pays-b-5] @chain)
+                       a-pays-b-5]
+                      {:target easy-difficulty
+                       :blocks @chain})))
 
 
 (deftest test-valid-block-hash
@@ -72,10 +74,18 @@
                                        (partial hex-* 5))
                             @chain)))))
 
-;; Block:
+(deftest test-valid-txn-hash
+  (is (valid-txn-hash? un-mined-block))
+  (is (not (valid-txn-hash? (assoc-in un-mined-block
+                                      [:transactions 0 :hash]
+                                      "pizza")))))
+
 ;; single coinbase
 ;; coinbase has proper reward
 ;; coinbase adds correct txn fees
-;; block's txn hash is accurate
+(deftest test-valid-coinbase
+  (is (valid-coinbase? un-mined-block @chain)))
+
+;; Block:
 ;; block's timestamp is within allowed threshold
 ;; txn interactions -- making sure multiple txns in single block don't spend same inputs?

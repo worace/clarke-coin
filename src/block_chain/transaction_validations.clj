@@ -18,10 +18,6 @@
     (>= (reduce + (map :amount sources))
         (reduce + (map :amount outputs)))))
 
-(defn match-inputs-to-sources [txn chain]
-  (into {}
-        (map (fn [i] [i (c/source-output chain i)]) (:inputs txn))))
-
 (defn verify-input-signature [input source txn]
   (if (and input source txn)
     (let [source-key (ks/der-string->pub-key (:address source))]
@@ -31,7 +27,7 @@
     false))
 
 (defn signatures-valid? [txn chain _]
-  (let [inputs-sources (match-inputs-to-sources txn chain)]
+  (let [inputs-sources (c/inputs-to-sources (:inputs txn) chain)]
     (every? (fn [[input source]]
               (verify-input-signature input source txn))
             inputs-sources)))
@@ -43,14 +39,14 @@
         false)))
 
 (defn inputs-properly-sourced? [txn chain _]
-  (let [inputs-sources (match-inputs-to-sources txn chain)]
+  (let [inputs-sources (c/inputs-to-sources (:inputs txn) chain)]
     (and (every? identity (keys inputs-sources))
          (every? identity (vals inputs-sources))
          (= (count (vals inputs-sources))
             (count (into #{} (vals inputs-sources)))))))
 
 (defn inputs-unspent? [txn chain _]
-  (let [sources (vals (match-inputs-to-sources txn chain))]
+  (let [sources (vals (c/inputs-to-sources (:inputs txn) chain))]
     (every? (partial c/unspent? chain) sources)))
 
 (defn valid-hash? [txn chain _]
