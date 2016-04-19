@@ -45,8 +45,8 @@
 
 
 (deftest test-valid-block-hash
-  (is (valid-hash? (first @chain)))
-  (is (not (valid-hash? (assoc-in a-paid [:header :hash] "pizza")))))
+  (is (valid-hash? (first @chain) []))
+  (is (not (valid-hash? (assoc-in a-paid [:header :hash] "pizza") []))))
 
 (deftest test-proper-parent-hash
   (is (valid-parent-hash? (first @chain) []))
@@ -54,8 +54,8 @@
   (is (valid-parent-hash? un-mined-block @chain)))
 
 (deftest test-hash-meets-target
-  (is (hash-meets-target? (first @chain)))
-  (is (not (hash-meets-target? un-mined-block))))
+  (is (hash-meets-target? (first @chain) []))
+  (is (not (hash-meets-target? un-mined-block []))))
 
 (defn hex-* [i hex]
   (-> hex
@@ -77,10 +77,11 @@
                             @chain)))))
 
 (deftest test-valid-txn-hash
-  (is (valid-txn-hash? un-mined-block))
+  (is (valid-txn-hash? un-mined-block []))
   (is (not (valid-txn-hash? (assoc-in un-mined-block
                                       [:transactions 0 :hash]
-                                      "pizza")))))
+                                      "pizza")
+                            []))))
 
 (deftest test-valid-coinbase
   (is (valid-coinbase? un-mined-block @chain))
@@ -98,14 +99,16 @@
              a-pays-b-5]
             {:target easy-difficulty
              :blocks @chain}))]
-    (is (valid-timestamp? b))
+    (is (valid-timestamp? b []))
     (is (not (valid-timestamp? (assoc-in b
                                          [:header :timestamp]
-                                         (+ (current-time-millis) 7000)))))
+                                         (+ (current-time-millis) 7000))
+                               [])))
     (is (not (valid-timestamp? (assoc-in b
                                          [:header :timestamp]
                                          (- (current-time-millis)
-                                            70000)))))))
+                                            70000))
+                               [])))))
 
 (deftest test-all-txns-valid
   (is (valid-transactions? un-mined-block @chain))
@@ -121,3 +124,7 @@
                                             [:transactions]
                                             #(conj % duped-txn))
                                  @chain)))))
+
+(deftest test-validate-whole-block
+  (with-redefs [target/default easy-difficulty]
+    (is (empty? (validate-block (miner/mine un-mined-block) @chain)))))
