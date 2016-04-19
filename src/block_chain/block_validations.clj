@@ -2,6 +2,7 @@
   (:require [block-chain.blocks :as b]
             [block-chain.chain :as c]
             [block-chain.target :as t]
+            [block-chain.transaction-validations :as txn-v]
             [block-chain.utils :refer :all]))
 
 (defn valid-hash?
@@ -28,7 +29,6 @@
 
 (defn valid-coinbase? [block chain]
   (let [cb (first (:transactions block))]
-    (println "COINBASE: " cb)
     (and
      (= 1 (count (:outputs cb)))
      (= 0 (count (:inputs cb)))
@@ -36,3 +36,31 @@
            (c/txn-fees (rest (:transactions block)) chain))
         (:amount (first (:outputs cb))))
      )))
+
+(defn valid-timestamp?
+  "Require timestamp between 10 mins ago and 1 min from now.
+   Timestamps are in millis."
+  [{{ts :timestamp} :header}]
+  (and (> ts (- (current-time-millis) 60000))
+       (< ts (+ (current-time-millis) 6000))))
+
+(defn valid-transactions?
+  [block chain]
+  (empty? (mapcat #(txn-v/validate-transaction % chain #{})
+                  (rest (:transactions block)))))
+
+(defn unique-txn-inputs? [block chain]
+  (let [inputs (mapcat :inputs (:transactions block))]
+    (= (count inputs)
+       (count (into #{} inputs)))))
+
+(def block-validations
+  {valid-hash? "Block's hash does not match its contents."
+   valid-parent-hash? "Block's parent hash does not match most recent block on the chain."
+   hash-meets-target? "Block's hash does not meet the specified target."
+   valid-target? "Block's target does not match expectations based on time spread of recent blocks."
+   valid-txn-hash? "Block's transaction-hash does not match the contents of its transactions."
+   valid-coinbase? "Block's coinbase transaction is malformed or has incorrect amount."
+   valid-timestamp? "Block's timestamp is not within the expected 10-minutes-ago to 1-minute-from now window."
+   valid-transactions? "One or more of the Block's non-coinbase transactions are invalid."
+   unique-txn-inputs? "One or more of the Block's transactions attempt to spend the same sources."})

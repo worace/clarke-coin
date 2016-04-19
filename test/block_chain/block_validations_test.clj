@@ -8,6 +8,7 @@
             [clojure.math.numeric-tower :as math]
             [block-chain.miner :as miner]
             [block-chain.blocks :as blocks]
+            [block-chain.chain :as c]
             [block-chain.block-validations :refer :all]))
 
 (def easy-difficulty (hex-string (math/expt 2 248)))
@@ -30,7 +31,8 @@
 (def a-pays-b-5 (miner/generate-payment key-a
                                         (:address key-b)
                                         5
-                                        @chain))
+                                        @chain
+                                        2))
 
 ;; Block contains 5 A -> B
 ;; And 25 coinbase -> A
@@ -80,12 +82,42 @@
                                       [:transactions 0 :hash]
                                       "pizza")))))
 
-;; single coinbase
-;; coinbase has proper reward
-;; coinbase adds correct txn fees
 (deftest test-valid-coinbase
-  (is (valid-coinbase? un-mined-block @chain)))
+  (is (valid-coinbase? un-mined-block @chain))
+  (is (not (valid-coinbase? (update-in un-mined-block
+                                       [:transactions 0 :outputs 0 :amount]
+                                       inc)
+                            @chain)))
+  (with-redefs [c/coinbase-reward 15]
+    (is (not (valid-coinbase? un-mined-block @chain)))))
 
-;; Block:
-;; block's timestamp is within allowed threshold
-;; txn interactions -- making sure multiple txns in single block don't spend same inputs?
+(deftest test-valid-timestamp
+  (let [b (blocks/hashed
+           (blocks/generate-block
+            [(miner/coinbase (:address key-a) [a-pays-b-5] @chain)
+             a-pays-b-5]
+            {:target easy-difficulty
+             :blocks @chain}))]
+    (is (valid-timestamp? b))
+    (is (not (valid-timestamp? (assoc-in b
+                                         [:header :timestamp]
+                                         (+ (current-time-millis) 7000)))))
+    (is (not (valid-timestamp? (assoc-in b
+                                         [:header :timestamp]
+                                         (- (current-time-millis)
+                                            70000)))))))
+
+(deftest test-all-txns-valid
+  (is (valid-transactions? un-mined-block @chain))
+  (is (not (valid-transactions? (update-in un-mined-block
+                                           [:transactions 1 :outputs 0 :amount]
+                                           inc)
+                                @chain))))
+
+(deftest test-no-transactions-spend-same-inputs
+  (is (unique-txn-inputs? un-mined-block @chain))
+  (let [duped-txn (get-in un-mined-block [:transactions 1])]
+    (is (not (unique-txn-inputs? (update-in un-mined-block
+                                            [:transactions]
+                                            #(conj % duped-txn))
+                                 @chain)))))

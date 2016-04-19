@@ -68,3 +68,6 @@
               [message]
               []))
           txn-validations))
+
+(defn valid-transaction? [txn chain txn-pool]
+  (empty? (validate-transaction txn chain txn-pool)))
