@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [block-chain.db :as db]
             [block-chain.transaction-validations :as txn-v]
+            [block-chain.block-validations :as block-v]
             [block-chain.wallet :as wallet]
             [block-chain.key-serialization :as ks]
             [block-chain.miner :as miner]
@@ -90,15 +91,16 @@
       {:message "transaction-rejected" :payload validation-errors})))
 
 (defn submit-block [msg sock-info]
-  (let [b (:payload msg)]
-    (if-not (contains? (into #{} @db/block-chain) b)
+  (let [b (:payload msg)
+        validation-errors (block-v/validate-block b @db/block-chain)]
+    (if (empty? validation-errors)
       (do
         (miner/stop-miner!)
         (swap! db/block-chain conj b)
         (reset! db/transaction-pool #{})
-        (peers/block-received! b)))
-    {:message "block-accepted"
-     :payload b}))
+        (peers/block-received! b)
+        {:message "block-accepted" :payload b})
+      {:message "block-rejected" :payload validation-errors})))
 
 (def message-handlers
   {"echo" echo

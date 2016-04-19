@@ -16,6 +16,7 @@
             [schema.core :as s]
             [block-chain.schemas :refer :all]
             [block-chain.blocks :as blocks]
+            [block-chain.transaction-validations :as txn-v]
             [clj-http.client :as http]
             [block-chain.message-handlers :refer :all]))
 
@@ -213,11 +214,10 @@
 
 (deftest test-receiving-new-block-adds-to-block-chain
   (with-redefs [db/block-chain (atom [])
+                target/default easy-difficulty
                 db/peers (atom #{})]
-    (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
-                                               {:blocks []
-                                                :target easy-difficulty}))]
-      (handler {:message "submit_block" :payload b} sock-info)
+    (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
+      (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
       (is (= 1 (count @db/block-chain))))))
 
 (deftest test-forwarding-received-blocks-to-peers
@@ -243,12 +243,14 @@
     (with-test-handler [peer (fn [req] (swap! reqs conj req))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
+                    target/default easy-difficulty
                     db/peers (atom #{})]
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
                                                     :target easy-difficulty}))]
           (handler {:message "add_peer" :payload {:port test-port}} sock-info)
-          (handler {:message "submit_block" :payload b} sock-info)
+          (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
+          (is (= 1 (count @db/block-chain)))
           (handler {:message "submit_block" :payload b} sock-info)
           (is (= 1 (count @db/block-chain)))
           (is (= "/blocks" (:uri (first @reqs))))
@@ -264,12 +266,14 @@
                 target/default easy-difficulty]
     (miner/mine-and-commit)
     (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)
-          b (miner/mine (blocks/generate-block (into [(miner/coinbase txn)] txn)
+          b (miner/mine (blocks/generate-block (into [(miner/coinbase (:address wallet/keypair) [txn])] [txn])
                                                {:blocks @db/block-chain
                                                 :target easy-difficulty}))]
+      (is (empty? (txn-v/validate-transaction txn @db/block-chain #{})))
       (handler {:message "submit_transaction" :payload txn} sock-info)
       (is (= 1 (count @db/transaction-pool)))
-      (handler {:message "submit_block" :payload b} sock-info)
+      (responds {:balance 25 :address (:address wallet/keypair)} {:message "get_balance" :payload (:address wallet/keypair)})
+      (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
       (is (= 0 (count @db/transaction-pool))))))
 
 (deftest test-validating-incoming-transactions
