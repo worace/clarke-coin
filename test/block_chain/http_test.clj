@@ -142,14 +142,13 @@
     (is  (= {:message "blocks" :payload [sample-block next-block]}
             (:body (get-req "/blocks"))))))
 
-#_(deftest test-submitting-invalid-block-returns-validation-errors
-  (let [resp (post-req "/blocks" (update-in sample-block [:transactions 0 :outputs 0 :amount] inc))]
-    (is (= "block-rejected" (:message (:body resp))))
-    (is (= 400 (:status resp)))
-    (is (= (sort ["Transaction lacks sufficient inputs to cover its outputs.",
-                  "One or more transactions signatures is invalid."
-                  "Transaction's hash does not match its contents."])
-           (sort (:payload (:body resp)))))))
+(deftest test-submitting-invalid-block-returns-validation-errors
+  (with-redefs [target/default easy-difficulty]
+    (let [resp (post-req "/blocks" (update-in next-block [:transactions 0 :outputs 0 :amount] inc))]
+      (is (= "block-rejected" (:message (:body resp))))
+      (is (= 400 (:status resp)))
+      (is (= (sort ["Block's coinbase transaction is malformed or has incorrect amount."])
+             (sort (:payload (:body resp))))))))
 
 #_(deftest test-generating-payment-transaction
   (post-req "/pending_transactions" sample-transaction)
