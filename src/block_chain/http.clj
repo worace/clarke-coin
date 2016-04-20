@@ -6,6 +6,7 @@
             [schema.core :as s]
             [ring.logger :as logger]
             [block-chain.schemas :refer :all]
+            [clojure.java.io :as io]
             [compojure.route :as route]))
 
 (def api
@@ -56,7 +57,6 @@
 
    (sweet/GET "/transactions/:txn-hash"
               [txn-hash]
-              :path-params [block-hash :- (sweet/describe s/Str "Hexadecimal string representing SHA256 hash of the desired transaction")]
               :return {:message String :payload Transaction}
               :summary "Fetch a specific transaction by providing its hash."
               (ok (h/handler {:message "get_transaction" :payload txn-hash} {})))
@@ -91,17 +91,54 @@
                :body [transaction Transaction]
                :summary "Submit a new transaction to this node for inclusion in the next block."
                (ok (h/handler {:message "submit_transaction" :payload transaction} {})))
+
+   (sweet/POST "/unsigned_payment_transactions" req
+               :return {:message String :payload UnsignedTransaction}
+               :body-params [from_address :- s/Str
+                             to_address :- s/Str
+                             amount :- s/Int
+                             fee :- s/Int]
+               :summary "Submit a new transaction to this node for inclusion in the next block."
+               (let [resp (h/handler {:message "generate_payment" :payload {:from-address from_address
+                                                                            :to-address to_address
+                                                                            :amount amount
+                                                                            :fee fee}} {})]
+                 (if (= "transaction-accepted" (:message resp))
+                   (ok resp)
+                   (bad-request resp))))
    (route/not-found {:status 404 :body {:error "not found"}})
    ))
+
+;; {:message "unsigned_transaction"
+;;    :payload (miner/generate-unsigned-payment
+;;              (:from-address (:payload msg))
+;;              (:to-address (:payload msg))
+;;              (:amount (:payload msg))
+;;              @db/block-chain
+;;              (or (:fee (:payload msg)) 0))}
 
 (defonce server (atom nil))
 
 (defn stop! [] (if-let [server @server] (.stop server)))
 
+(defn debug-logger [handler]
+  (fn [request]
+    (let [b (slurp (:body request))]
+      (println "~~~~START Debug Logger~~~~")
+      (println request)
+      (println b)
+      (println "~~~~END Debug Logger~~~~")
+      (let [resp (handler (assoc request :body (io/input-stream (.getBytes b))))
+            resp-b (slurp (:body resp))]
+        (println "RETURNING RESP:" resp)
+        (println "resp body: " resp-b)
+        (assoc resp :body (io/input-stream (.getBytes resp-b)))))))
+
 (def with-middleware
   (-> api
       (identity)
-      #_(logger/wrap-with-logger)))
+      (debug-logger)
+      (logger/wrap-with-logger)))
 
 (defn start!
   ([] (start! 3001))

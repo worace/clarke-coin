@@ -6,6 +6,7 @@
             [block-chain.blocks :as blocks]
             [clojure.core.async :as async]
             [block-chain.transactions :as txn]
+            [block-chain.block-validations :as block-v]
             [block-chain.peer-notifications :as peers]
             [block-chain.wallet :as wallet]))
 
@@ -120,9 +121,12 @@
   ([chain pending]
    (reset! mine? true)
    (if-let [b (mine pending mine?)]
-     (do
-       (swap! chain conj b)
-       (peers/block-received! b))
+     (let [errors (block-v/validate-block b @chain)]
+       (if-not (empty? errors)
+         (println "MINED INVALID BLOCK: " errors))
+       (do
+         (swap! chain conj b)
+         (peers/block-received! b)))
      (println "didn't find coin, exiting"))))
 
 (defn run-miner! []
