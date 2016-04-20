@@ -9,6 +9,7 @@
             [block-chain.miner :as miner]
             [block-chain.utils :refer :all]
             [block-chain.schemas :refer :all]
+            [block-chain.target :as target]
             [schema.core :as s]
             [clojure.pprint :refer [pprint]]))
 
@@ -26,6 +27,11 @@
 ;; A: 25 B: 0
 (miner/mine-and-commit chain a-paid)
 (def sample-block (first @chain))
+
+(def next-block (miner/mine
+                 (blocks/generate-block [(miner/coinbase (:address key-a))]
+                                        {:target easy-difficulty
+                                         :blocks @chain})))
 
 ;; A pays B 5
 (def sample-transaction (miner/generate-payment key-a
@@ -96,7 +102,6 @@
           (:body (get-req "/pending_transactions")))))
 
 (deftest test-get-block-info
-  (swap! db/block-chain conj sample-block)
   (is  (= {:message "block_info" :payload sample-block}
           (:body (get-req (str "/blocks/" (get-in sample-block [:header :hash])))))))
 
@@ -119,7 +124,34 @@
   (is  (= {:message "transaction_pool" :payload [sample-transaction]}
           (:body (get-req "/pending_transactions")))))
 
-(deftest test-submit-block
-  (post-req "/blocks" sample-block)
-  (is  (= {:message "blocks" :payload [sample-block]}
-          (:body (get-req "/blocks")))))
+(deftest test-submitting-invalid-transaction-returns-validation-errors
+  (let [resp (post-req "/pending_transactions" (update-in sample-transaction [:outputs 0 :amount] inc))]
+    (is (= "transaction-rejected" (:message (:body resp))))
+    (is (= 400 (:status resp)))
+    (is (= (sort ["Transaction lacks sufficient inputs to cover its outputs.",
+                  "One or more transactions signatures is invalid."
+                  "Transaction's hash does not match its contents."])
+           (sort (:payload (:body resp)))))))
+
+(deftest test-submit-valid-block
+  (with-redefs [target/default easy-difficulty]
+    (let [resp (post-req "/blocks" next-block)]
+      (is (= 200 (:status resp)))
+      (is (= "block-accepted" (:message (:body resp))))
+      (is (= next-block (:payload (:body resp)))))
+    (is  (= {:message "blocks" :payload [sample-block next-block]}
+            (:body (get-req "/blocks"))))))
+
+#_(deftest test-submitting-invalid-block-returns-validation-errors
+  (let [resp (post-req "/blocks" (update-in sample-block [:transactions 0 :outputs 0 :amount] inc))]
+    (is (= "block-rejected" (:message (:body resp))))
+    (is (= 400 (:status resp)))
+    (is (= (sort ["Transaction lacks sufficient inputs to cover its outputs.",
+                  "One or more transactions signatures is invalid."
+                  "Transaction's hash does not match its contents."])
+           (sort (:payload (:body resp)))))))
+
+#_(deftest test-generating-payment-transaction
+  (post-req "/pending_transactions" sample-transaction)
+  (is  (= {:message "" :payload [sample-transaction]}
+          (:body (get-req "/pending_transactions")))))

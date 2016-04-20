@@ -84,13 +84,22 @@
                :return {:message String :payload Block}
                :body [block Block]
                :summary "Submit a new block to this node for inclusion in the chain."
-               (ok (h/handler {:message "submit_block" :payload block} {})))
+               (let [resp (h/handler {:message "submit_block" :payload block} {})]
+                     (if (= "block-accepted" (:message resp))
+                       (ok resp)
+                       (bad-request resp))))
+   ;; (ok (h/handler {:message "submit_block" :payload block} {}))
 
    (sweet/POST "/pending_transactions" req
                :return {:message String :payload Transaction}
                :body [transaction Transaction]
                :summary "Submit a new transaction to this node for inclusion in the next block."
-               (ok (h/handler {:message "submit_transaction" :payload transaction} {})))
+               (let [resp (h/handler {:message "submit_transaction" :payload transaction} {})]
+                     (if (= "transaction-accepted" (:message resp))
+                       (ok resp)
+                       (bad-request resp))))
+
+   ;; (ok (h/handler {:message "submit_transaction" :payload transaction} {}))
 
    (sweet/POST "/unsigned_payment_transactions" req
                :return {:message String :payload UnsignedTransaction}
@@ -137,8 +146,8 @@
 (def with-middleware
   (-> api
       (identity)
-      (debug-logger)
-      (logger/wrap-with-logger)))
+      #_(debug-logger)
+      #_(logger/wrap-with-logger)))
 
 (defn start!
   ([] (start! 3001))
