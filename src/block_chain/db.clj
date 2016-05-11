@@ -22,7 +22,9 @@
 ;; * miner.clj - mine? (atom true)
 ;; * net.clj - server - (atom nil)
 
-(defonce block-chain (atom []))
+(def genesis-block (read-json (slurp "./genesis.json")))
+
+(defonce block-chain (atom [genesis-block]))
 
 (def chain-path (str (System/getProperty "user.home")
                      "/.block_chain.json"))

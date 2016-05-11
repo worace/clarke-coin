@@ -9,17 +9,20 @@
   (-> (url peer "block_height")
       (http/get)
       (:body)
-      (Integer/parseInt)))
+      (read-json)
+      (:payload)))
 
 (defn blocks-since [peer block-hash]
   (-> (url peer "blocks_since" block-hash)
       (http/get)
       (:body)
-      (read-json)))
+      (read-json)
+      (:payload)))
 
 (defn block [peer block-hash]
   (-> (url peer "blocks" block-hash)
       (http/get)
       (:body)
-      (read-json)))
+      (read-json)
+      (:payload)))
 

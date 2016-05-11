@@ -16,15 +16,18 @@
           chain
           (recur next-batch chain)))
       (let [next-block (pc/block peer (first this-batch))]
+        (println "pulling block:" (first this-batch))
+        (println "block data:" next-block)
         (if (empty? (bv/validate-block next-block chain))
           (recur (rest this-batch) (conj chain next-block))
           chain)))))
 
 (defn sync-if-needed! [chain-ref peer]
   (try
-    (if (> (pc/block-height peer) (count @chain-ref))
-      (do (println "Found longer block chain in peer " peer ". Will sync")
-          (swap! chain-ref synced-chain peer)))
+    (let [h (pc/block-height peer)]
+      (if (> h (count @chain-ref))
+        (do (println "Found longer block chain in peer" peer "-" h)
+            (swap! chain-ref synced-chain peer))))
     (catch Exception e (println "Error syncing with peer: " peer ": " (.getMessage e)))))
 
 ;; take in:

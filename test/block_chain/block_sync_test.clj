@@ -27,12 +27,12 @@
 (defn blocks-since-handler [hash]
   {:status 200
    :headers {"Content-Type" "application/json"}
-   :body (write-json (map bhash (drop 1 @peer-chain)))})
+   :body (write-json {:payload (map bhash (drop 1 @peer-chain))})})
 
 (defn block-handler [hash]
   {:status 200
    :headers {"Content-Type" "application/json"}
-   :body (write-json (first (filter #(= hash (bhash %)) @peer-chain)))})
+   :body (write-json {:payload (first (filter #(= hash (bhash %)) @peer-chain))})})
 
 (defroutes peer-handler
   (GET "/blocks_since/:hash" [hash] (blocks-since-handler hash))
