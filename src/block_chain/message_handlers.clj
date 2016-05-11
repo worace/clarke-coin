@@ -5,6 +5,7 @@
             [block-chain.db :as db]
             [block-chain.transaction-validations :as txn-v]
             [block-chain.block-validations :as block-v]
+            [block-chain.block-sync :as block-sync]
             [block-chain.wallet :as wallet]
             [block-chain.key-serialization :as ks]
             [block-chain.miner :as miner]
@@ -24,6 +25,7 @@
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
     (swap! db/peers conj {:host host :port port})
+    (block-sync/sync-if-needed! db/block-chain {:host host :port port})
     {:message "peers" :payload @db/peers}))
 
 (defn remove-peer [msg sock-info]
@@ -102,6 +104,12 @@
         {:message "block-accepted" :payload b})
       {:message "block-rejected" :payload validation-errors})))
 
+(defn get-blocks-since [msg sock-info]
+  (let [start-pos (bc/block-index (:payload msg) @db/block-chain)]
+    (if start-pos
+      {:message "blocks_since" :payload (map bc/bhash (drop (inc start-pos) @db/block-chain))}
+      {:message "blocks_since" :payload []})))
+
 (def message-handlers
   {"echo" echo
    "ping" ping
@@ -114,6 +122,7 @@
    "get_transaction_pool" get-transaction-pool
    "get_blocks" get-blocks
    "get_block" get-block
+   "get_blocks_since" get-blocks-since
    "get_transaction" get-transaction
    "submit_transaction" submit-transaction
    "submit_block" submit-block

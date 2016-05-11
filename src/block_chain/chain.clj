@@ -7,11 +7,23 @@
 
 (def coinbase-reward 25)
 
+(defn bhash [block] (get-in block [:header :hash]))
+
 (defn block-by-hash
   [hash blocks]
   (first
    (filter #(= hash (get-in % [:header :hash]))
            blocks)))
+
+(defn index-of [predicate seq]
+  (loop [idx 0 items seq]
+    (cond
+      (empty? items) nil
+      (predicate (first items)) idx
+      :else (recur (inc idx) (rest items)))))
+
+(defn block-index [hash blocks]
+  (index-of (fn [b] (= hash (bhash b))) blocks))
 
 (defn transactions [blocks] (mapcat :transactions blocks))
 (defn inputs [blocks] (mapcat :inputs (transactions blocks)))

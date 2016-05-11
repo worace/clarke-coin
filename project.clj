@@ -4,7 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :main block-chain.core
-  :profiles {:uberjar {:aot :all}}
+  :plugins [[lein-environ "1.0.3"]]
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.bouncycastle/bcpg-jdk15on "1.53"]
                  [org.bouncycastle/bcpkix-jdk15on "1.53"]
@@ -18,5 +18,12 @@
                  [ring/ring-jetty-adapter "1.4.0"]
                  [ring/ring-json "0.4.0"]
                  [ring-logger "0.7.6"]
+                 [org.clojure/tools.logging "0.3.1"]
+                 [log4j/log4j "1.2.17" :exclusions [javax.mail/mail
+                                                  javax.jms/jms
+                                                  com.sun.jdmk/jmxtools
+                                                  com.sun.jmx/jmxri]]
+                 [environ "1.0.2"]
                  [org.clojure/core.async "0.2.374"]
-                 [pandect "0.5.4"]])
+                 [pandect "0.5.4"]]
+  :profiles {:uberjar {:aot :all}})

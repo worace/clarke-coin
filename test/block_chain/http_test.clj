@@ -150,6 +150,14 @@
       (is (= (sort ["Block's coinbase transaction is malformed or has incorrect amount."])
              (sort (:payload (:body resp))))))))
 
+(deftest test-getting-blocks-since-height
+  (miner/mine-and-commit)
+  (miner/mine-and-commit)
+  (is (= 3 (count @db/block-chain)))
+  (is (= (map #(get-in % [:header :hash]) (drop 1 @db/block-chain))
+         (:payload (:body (get-req (str "/blocks_since/" (get-in (first @db/block-chain)
+                                                       [:header :hash]))))))))
+
 #_(deftest test-generating-payment-transaction
   (post-req "/pending_transactions" sample-transaction)
   (is  (= {:message "" :payload [sample-transaction]}

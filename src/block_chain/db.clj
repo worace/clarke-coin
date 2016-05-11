@@ -1,6 +1,7 @@
 (ns block-chain.db
   (:require [clojure.java.io :as io]
-            [block-chain.utils :refer :all]))
+            [block-chain.utils :refer :all]
+            ))
 
 ;; DB namespace
 ;; * collect various atom / ref types from project

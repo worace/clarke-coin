@@ -40,10 +40,17 @@
 
    (sweet/GET "/blocks/:block-hash"
               [block-hash]
-              :path-params [block-hash :- (sweet/describe s/Str "Hexadecimal string representing SHA256 hash of the desired block")]
+              :path-params [block-hash :- (sweet/describe s/Str "hexadecimal string representing sha256 hash of the desired block")]
               :return {:message String :payload Block}
-              :summary "Fetch a specific block by providing its hash."
+              :summary "fetch a specific block by providing its hash."
               (ok (h/handler {:message "get_block" :payload block-hash} {})))
+
+   (sweet/GET "/blocks_since/:block-hash"
+              [block-hash]
+              :path-params [block-hash :- (sweet/describe s/Str "hexadecimal string representing sha256 hash of the desired block")]
+              :return {:message String :payload [String]}
+              :summary "fetch a list of block hashes after the provided hash on the chain."
+              (ok (h/handler {:message "get_blocks_since" :payload block-hash} {})))
 
    (sweet/GET "/latest_block" []
         :return {:message String :payload Block}

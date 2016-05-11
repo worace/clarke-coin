@@ -1,8 +1,9 @@
 (ns block-chain.target
   (:require [block-chain.utils :refer :all]
+            [environ.core :refer [env]]
             [clojure.math.numeric-tower :as math]))
 
-(def default (hex-string (math/expt 2 236)))
+(def default (env :default-target))
 (def frequency 300000)
 
 (defn avg-spacing

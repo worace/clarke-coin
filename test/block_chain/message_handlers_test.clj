@@ -190,10 +190,11 @@
           ;; send same txn twice but should only get forwarded once
           (is (= {:message "transaction-accepted" :payload txn} (handler {:message "submit_transaction" :payload txn} sock-info)))
           (handler {:message "submit_transaction" :payload txn} sock-info)
-          (is (= 1 (count @reqs)))
-          (is (= "/pending_transactions" (:uri (first @reqs))))
-          (is (= :post (:request-method (first @reqs))))
-          (is (= txn (read-json (:body (first @reqs))))))))))
+          (is (= 1 (get (frequencies (map :uri @reqs)) "/pending_transactions")))
+          (let [req (first (filter #(= "/pending_transactions" (:uri %)) @reqs))]
+            (is (= :post (:request-method req)))
+            (is (= txn (read-json (:body req)))))
+          )))))
 
 (defn json-body [req] (read-json (:body req)))
 (deftest test-forwarding-mined-blocks-to-peers
@@ -201,9 +202,8 @@
     (with-test-handler [peer (fn [req] (swap! reqs conj req))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
-                    db/peers (atom #{})
+                    db/peers (atom #{{:port test-port :host "localhost"}})
                     target/default (hex-string (math/expt 2 248))]
-        (handler {:message "add_peer" :payload {:port test-port}} sock-info)
         (miner/mine-and-commit)
         (is (= 1 (count @db/block-chain)))
         (is (= 1 (count @reqs)))
@@ -225,12 +225,11 @@
     (with-test-handler [peer (fn [req] (swap! reqs conj req))]
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
-                    db/peers (atom #{})
+                    db/peers (atom #{{:port test-port :host "127.0.0.1"}})
                     target/default (hex-string (math/expt 2 248))]
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
                                                     :target easy-difficulty}))]
-          (handler {:message "add_peer" :payload {:port test-port}} sock-info)
           (handler {:message "submit_block" :payload b} sock-info)
           (is (= 1 (count @db/block-chain)))
           (is (= "/blocks" (:uri (first @reqs))))
@@ -244,11 +243,10 @@
       (with-redefs [db/block-chain (atom [])
                     db/transaction-pool (atom #{})
                     target/default easy-difficulty
-                    db/peers (atom #{})]
+                    db/peers (atom #{{:port test-port :host "127.0.0.1"}})]
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
                                                     :target easy-difficulty}))]
-          (handler {:message "add_peer" :payload {:port test-port}} sock-info)
           (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
           (is (= 1 (count @db/block-chain)))
           (handler {:message "submit_block" :payload b} sock-info)
@@ -314,3 +312,17 @@
         (is (= "Miner Stopped!" message))
         (is (= 1 (count @db/block-chain)))
         (is (= dummy-block (first @db/block-chain)))))))
+
+(deftest test-blocks-since
+  (with-redefs [db/block-chain (atom [])]
+    (miner/mine-and-commit)
+    (miner/mine-and-commit)
+    (miner/mine-and-commit)
+    (is (= {:message "blocks_since" :payload (map bc/bhash (drop 1 @db/block-chain)) }
+           (handler
+                 {:message "get_blocks_since" :payload (bc/bhash (first @db/block-chain))}
+                 sock-info)))
+    (is (= {:message "blocks_since" :payload []}
+           (handler
+                 {:message "get_blocks_since" :payload "pizza"}
+                 sock-info)))))
