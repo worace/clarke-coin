@@ -1,7 +1,6 @@
 (ns block-chain.chain
   (:require [clojure.java.io :as io]
             [clojure.math.numeric-tower :as math]
-            [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]
             [block-chain.target :as target]))
 

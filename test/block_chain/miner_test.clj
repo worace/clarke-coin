@@ -1,6 +1,5 @@
 (ns block-chain.miner-test
   (:require  [clojure.test :refer :all]
-             [pandect.algo.sha256 :refer [sha256]]
              [block-chain.utils :refer :all]
              [clojure.math.numeric-tower :as math]
              [block-chain.miner :refer :all]

@@ -1,6 +1,5 @@
 (ns block-chain.blocks
   (:require [block-chain.chain :as chain]
-            [pandect.algo.sha256 :refer [sha256]]
             [block-chain.utils :refer :all]))
 
 (defn transactions-hash [transactions]

@@ -1,8 +1,8 @@
 (ns block-chain.transactions-test
   (:require [clojure.test :refer :all]
             [block-chain.transactions :refer :all]
-            [cheshire.core :as json]
-            [pandect.algo.sha256 :refer [sha256]]))
+            [block-chain.utils :refer :all]
+            [cheshire.core :as json]))
 
 (def sample-transaction
   {:inputs [{:source-hash "1234"
