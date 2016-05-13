@@ -1,7 +1,10 @@
 (ns block-chain.utils
   (:require [cheshire.core :as json]
             [clojure.math.numeric-tower :as math]
+            [pandect.algo.sha256 :as pandect]
             [clojure.java.io :as io]))
+
+(def sha256 pandect/sha256)
 
 (defn cat-keys
   "take a map and a vector of keys and create a concatenated
