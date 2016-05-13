@@ -3,6 +3,7 @@
             [block-chain.utils :refer :all]
             [block-chain.chain :as bc]
             [block-chain.db :as db]
+            [block-chain.queries :as q]
             [block-chain.blocks :as blocks]
             [clojure.core.async :as async]
             [block-chain.transactions :as txn]
@@ -134,3 +135,26 @@
   (async/go
     (while @mine?
       (mine-and-commit))))
+
+(defn mine-and-commit2
+  ([] (mine-and-commit2 db/db))
+  ([db-ref]
+   (let [txns (into [(coinbase (:address wallet/keypair)
+                               @db/transaction-pool)]
+                    @db/transaction-pool)]
+     (reset! db/transaction-pool #{})
+     (mine-and-commit2 db-ref
+                    (blocks/generate-block
+                     txns
+                     {:blocks (reverse (take 10 (q/chain @db-ref (q/highest-block @db-ref))))
+                      :parent-hash (q/highest-hash @db-ref)}))))
+  ([db-ref pending]
+   (reset! mine? true)
+   (if-let [b (mine pending mine?)]
+     (let [errors (block-v/validate-block b (vec (reverse (q/chain @db-ref (q/highest-block @db-ref)))))]
+       (if-not (empty? errors)
+         (println "MINED INVALID BLOCK: " errors))
+       (do
+         (swap! db-ref q/add-block b)
+         (peers/block-received! b)))
+     (println "didn't find coin, exiting"))))

@@ -1,10 +1,10 @@
 (ns block-chain.block-sync
   (:require [block-chain.peer-client :as pc]
             [block-chain.db :as db]
+            [block-chain.queries :refer [bhash]]
             [block-chain.block-validations :as bv]
             [block-chain.utils :refer :all]))
 
-(defn bhash [b] (get-in b [:header :hash]))
 (defn block-hashes [chain] (map bhash chain))
 
 (defn synced-chain [chain peer]
@@ -29,9 +29,3 @@
         (do (println "Found longer block chain in peer" peer "-" h)
             (swap! chain-ref synced-chain peer))))
     (catch Exception e (println "Error syncing with peer: " peer ": " (.getMessage e)))))
-
-;; take in:
-;; peer address
-;; existing chain
-;; return new chain with peer additions accounted for
-;; 1 - find common chain

@@ -1,6 +1,7 @@
 (ns block-chain.db
   (:require [clojure.java.io :as io]
             [block-chain.utils :refer :all]
+            [block-chain.queries :as q]
             ))
 
 ;; DB namespace
@@ -44,3 +45,6 @@
 
 (def peers (atom #{}))
 (defonce transaction-pool (atom #{}))
+(def empty-db {:blocks {} :children {} :chains {}})
+(def initial-db (q/add-block empty-db genesis-block))
+(defonce db (atom initial-db))

@@ -3,6 +3,7 @@
             [block-chain.peer-client :as pc]
             [block-chain.utils :refer :all]
             [block-chain.miner :as miner]
+            [block-chain.queries :refer [bhash]]
             [ring.adapter.jetty :as jetty]
             [compojure.core :refer [defroutes GET]]
             [block-chain.block-sync :refer :all]))
