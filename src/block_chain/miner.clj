@@ -153,8 +153,11 @@
    (if-let [b (mine pending mine?)]
      (let [errors (block-v/validate-block b (vec (reverse (q/chain @db-ref (q/highest-block @db-ref)))))]
        (if-not (empty? errors)
-         (println "MINED INVALID BLOCK: " errors))
+         (println "MINED INVALID BLOCK: " errors)
+         db-ref)
        (do
          (swap! db-ref q/add-block b)
-         (peers/block-received! b)))
-     (println "didn't find coin, exiting"))))
+         (peers/block-received! b)
+         db-ref))
+     (do (println "didn't find coin, exiting")
+         db-ref))))
