@@ -3,6 +3,7 @@
             [block-chain.chain :as bc]
             [clojure.pprint :refer [pprint]]
             [block-chain.db :as db]
+            [block-chain.queries :as q]
             [block-chain.transaction-validations :as txn-v]
             [block-chain.block-validations :as block-v]
             [block-chain.block-sync :as block-sync]
@@ -12,29 +13,25 @@
             [block-chain.peer-notifications :as peers]
             [block-chain.transactions :as txns]))
 
-(defn echo [msg sock-info]
-  msg)
+(defn echo [msg sock-info] msg)
 
-(defn ping [msg sock-info]
-  {:message "pong" :payload (:payload msg)})
+(defn ping [msg sock-info] {:message "pong" :payload (:payload msg)})
 
 (defn get-peers [msg sock-info]
-  {:message "peers" :payload (into [] @db/peers)})
+  {:message "peers" :payload (q/peers @db/db)})
 
 (defn add-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (swap! db/peers conj {:host host :port port})
+    (swap! db/db q/add-peer {:host host :port port})
     (block-sync/sync-if-needed! db/block-chain {:host host :port port})
     {:message "peers" :payload @db/peers}))
 
 (defn remove-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (swap! db/peers
-           clojure.set/difference
-           #{{:host host :port port}})
-    {:message "peers" :payload @db/peers}))
+    (swap! db/db q/remove-peer {:host host :port port})
+    {:message "peers" :payload (q/peers @db/db)}))
 
 (defn get-balance [msg sock-info]
   (let [address (:payload msg)

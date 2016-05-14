@@ -28,7 +28,7 @@
   (is (= (reverse (map bhash sample-chain)) (map bhash (longest-chain sample-db)))))
 
 (deftest test-adding-block
-  (is (= {:chains {} :blocks {} :children {}} db/empty-db))
+  (is (= {:chains {} :blocks {} :children {} :peers #{}} db/empty-db))
   (let [updated (add-block db/empty-db db/genesis-block)]
     (is (= db/genesis-block (get-in updated [:blocks (bhash db/genesis-block)])))
     (is (= 1 (get-in updated [:chains (bhash db/genesis-block)])))

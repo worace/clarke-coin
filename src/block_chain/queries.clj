@@ -40,3 +40,8 @@
       (assoc-in [:blocks hash] block)
       (update-in [:children parent-hash] conj hash)
       (assoc-in [:chains hash] (inc (chain-length db parent-hash)))))
+
+(defn add-peer [db peer] (update-in db [:peers] conj peer))
+(defn remove-peer [db peer]
+  (clojure.set/difference (:peers db) #{peer}))
+(defn peers [db] (into [] (:peers db)))

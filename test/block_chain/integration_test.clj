@@ -12,7 +12,6 @@
             [block-chain.queries :as q]
             [block-chain.miner :as miner]))
 
-
 (def key-a wallet/keypair)
 (def address-a (:address wallet/keypair))
 (def key-b (wallet/generate-keypair 512))

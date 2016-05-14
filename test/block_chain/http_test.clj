@@ -3,6 +3,7 @@
             [clj-http.client :as http]
             [block-chain.http :as server]
             [block-chain.db :as db]
+            [block-chain.queries :as q]
             [block-chain.blocks :as blocks]
             [clojure.math.numeric-tower :as math]
             [block-chain.wallet :as wallet]
@@ -24,7 +25,7 @@
 (def a-coinbase (miner/coinbase (:address key-a)))
 (def a-paid (blocks/generate-block [a-coinbase]
                                   {:target easy-difficulty}))
-;; A: 25 B: 0
+
 (miner/mine-and-commit chain a-paid)
 (def sample-block (first @chain))
 
@@ -60,10 +61,12 @@
   (server/stop!))
 
 (defn with-db [f]
+  (reset! db/db db/empty-db)
   (reset! db/peers #{})
   (reset! db/transaction-pool #{})
   (reset! db/block-chain @chain)
   (f)
+  (reset! db/db db/empty-db)
   (reset! db/peers #{})
   (reset! db/transaction-pool #{})
   (reset! db/block-chain @chain))
@@ -85,7 +88,7 @@
            (:body r)))))
 
 (deftest test-get-peers
-  (swap! db/peers conj {:host "192.168.0.1" :port "3000"})
+  (swap! db/db q/add-peer {:host "192.168.0.1" :port "3000"})
   (is (= {:message "peers" :payload [{:host "192.168.0.1" :port "3000"}]}
          (:body (get-req "/peers")))))
 

@@ -12,6 +12,7 @@
             [compojure.core :refer [routes]]
             [compojure.route :as route]
             [block-chain.db :as db]
+            [block-chain.queries :as q]
             [block-chain.target :as target]
             [schema.core :as s]
             [block-chain.schemas :refer :all]
@@ -25,6 +26,10 @@
   ([val msg sock-info]
    (let [resp (handler msg sock-info)]
      (is (= val (:payload resp))))))
+
+(defn response
+  ([msg] (response msg {}))
+  ([msg sock-info] (:payload (handler msg sock-info))))
 
 (def test-port 9292)
 (def sock-info
@@ -51,6 +56,12 @@
                                   (. ~(bindings 0) stop))))
     :else (throw (IllegalArgumentException.
                   "with-open only allows Symbols in bindings"))))
+(defn with-db [f]
+  (reset! db/db db/empty-db)
+  (f)
+  (reset! db/db db/empty-db))
+
+(use-fixtures :each with-db)
 
 (def easy-difficulty (hex-string (math/expt 2 248)))
 (def hard-difficulty (hex-string (math/expt 2 50)))
@@ -66,17 +77,16 @@
     (is (= (assoc msg :message "pong") (handler msg {})))))
 
 (deftest test-getting-adding-and-removing-peers
-  (with-redefs [db/peers (atom #{})]
-    (responds [] {:message "get_peers"})
-    (handler {:message "add_peer"
-              :payload {:port 8335}}
-             sock-info)
-    (responds [{:host "127.0.0.1" :port 8335}]
-              {:message "get_peers"})
-    (handler {:message "remove_peer"
-              :payload {:port 8335}}
-             sock-info)
-    (responds [] {:message "get_peers"})))
+  (is (= [] (response {:message "get_peers"})))
+  (handler {:message "add_peer"
+            :payload {:port 8335}}
+           sock-info)
+  (is (= [{:host "127.0.0.1" :port 8335}]
+         (response {:message "get_peers"})))
+  (handler {:message "remove_peer"
+            :payload {:port 8335}}
+           sock-info)
+  (is (= [] (response {:message "get_peers"}))))
 
 (deftest test-getting-balance-for-key
   (let [chain (atom [])
@@ -200,10 +210,9 @@
 (deftest test-forwarding-mined-blocks-to-peers
   (let [reqs (atom [])]
     (with-test-handler [peer (fn [req] (swap! reqs conj req))]
+      (swap! db/db q/add-peer {:port test-port :host "127.0.0.1"})
       (with-redefs [db/block-chain (atom [])
-                    db/transaction-pool (atom #{})
-                    db/peers (atom #{{:port test-port :host "localhost"}})
-                    target/default (hex-string (math/expt 2 248))]
+                    db/transaction-pool (atom #{})]
         (miner/mine-and-commit)
         (is (= 1 (count @db/block-chain)))
         (is (= 1 (count @reqs)))
@@ -223,10 +232,9 @@
 (deftest test-forwarding-received-blocks-to-peers
   (let [reqs (atom [])]
     (with-test-handler [peer (fn [req] (swap! reqs conj req))]
+      (swap! db/db q/add-peer {:port test-port :host "127.0.0.1"})
       (with-redefs [db/block-chain (atom [])
-                    db/transaction-pool (atom #{})
-                    db/peers (atom #{{:port test-port :host "127.0.0.1"}})
-                    target/default (hex-string (math/expt 2 248))]
+                    db/transaction-pool (atom #{})]
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
                                                     :target easy-difficulty}))]
@@ -240,10 +248,9 @@
 (deftest test-forwards-received-block-to-peers-only-if-new
   (let [reqs (atom [])]
     (with-test-handler [peer (fn [req] (swap! reqs conj req))]
+      (swap! db/db q/add-peer {:port test-port :host "127.0.0.1"})
       (with-redefs [db/block-chain (atom [])
-                    db/transaction-pool (atom #{})
-                    target/default easy-difficulty
-                    db/peers (atom #{{:port test-port :host "127.0.0.1"}})]
+                    db/transaction-pool (atom #{})]
         (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
                                                    {:blocks []
                                                     :target easy-difficulty}))]
