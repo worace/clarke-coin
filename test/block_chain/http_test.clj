@@ -4,8 +4,8 @@
             [block-chain.http :as server]
             [block-chain.db :as db]
             [block-chain.queries :as q]
+            [block-chain.peer-client :as pc]
             [block-chain.blocks :as blocks]
-            [clojure.math.numeric-tower :as math]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
             [block-chain.utils :refer :all]
@@ -16,29 +16,23 @@
 
 (def base-url "http://localhost:9292")
 
-(def easy-difficulty (hex-string (math/expt 2 248)))
-(def chain (atom []))
-
-(def key-a (wallet/generate-keypair 512))
+(def key-a wallet/keypair)
 (def key-b (wallet/generate-keypair 512))
 
-(def a-coinbase (miner/coinbase (:address key-a)))
-(def a-paid (blocks/generate-block [a-coinbase]
-                                  {:target easy-difficulty}))
+(miner/mine-and-commit-db)
+(def db-snapshot @db/db)
 
-(miner/mine-and-commit chain a-paid)
-(def sample-block (first @chain))
-
+(def sample-block (last (q/longest-chain @db/db)))
 (def next-block (miner/mine
-                 (blocks/generate-block [(miner/coinbase (:address key-a))]
-                                        {:target easy-difficulty
-                                         :blocks @chain})))
+                 (blocks/generate-block [(miner/coinbase (:address wallet/keypair))]
+                                        {:blocks (q/longest-chain @db/db)})))
 
 ;; A pays B 5
 (def sample-transaction (miner/generate-payment key-a
                                          (:address key-b)
                                          15
-                                         @chain))
+                                         (q/longest-chain @db/db)))
+
 
 (defn post-req [path data]
   (update
@@ -60,19 +54,12 @@
   (f)
   (server/stop!))
 
-(def init-db (-> db/empty-db
-                 (q/add-block sample-block)))
-
 (defn with-db [f]
-  (reset! db/db init-db)
-  (reset! db/peers #{})
+  (reset! db/db db-snapshot)
   (reset! db/transaction-pool #{})
-  (reset! db/block-chain @chain)
   (f)
-  (reset! db/db init-db)
-  (reset! db/peers #{})
-  (reset! db/transaction-pool #{})
-  (reset! db/block-chain @chain))
+  (reset! db/db db-snapshot)
+  (reset! db/transaction-pool #{}))
 
 (use-fixtures :once with-server)
 (use-fixtures :each with-db)
@@ -91,15 +78,15 @@
            (:body r)))))
 
 (deftest test-get-peers
-  (swap! db/db q/add-peer {:host "192.168.0.1" :port "3000"})
-  (is (= {:message "peers" :payload [{:host "192.168.0.1" :port "3000"}]}
+  (q/add-peer! db/db {:host "127.0.0.1" :port "9999"})
+  (is (= {:message "peers" :payload [{:host "127.0.0.1" :port "9999"}]}
          (:body (get-req "/peers")))))
 
 (deftest test-get-balance
   (is (= {:message "balance" :payload {:address "pizza" :balance 0} } (:body (post-req "/balance" {:address "pizza"})))))
 
 (deftest test-get-blocks
-  (is  (= {:message "blocks" :payload @chain}
+  (is  (= {:message "blocks" :payload (vec (reverse (q/longest-chain @db/db)))}
           (:body (get-req "/blocks")))))
 
 (deftest test-get-transaction-pool
@@ -111,14 +98,12 @@
   (is  (= {:message "block_info" :payload sample-block}
           (:body (get-req (str "/blocks/" (get-in sample-block [:header :hash])))))))
 
-(deftest test-get-latest-block
-  (swap! db/block-chain conj sample-block)
+(deftest test-get-latest-block (swap! db/block-chain conj sample-block)
   (is  (= {:message "latest_block" :payload sample-block}
           (:body (get-req "/latest_block")))))
 
 (deftest test-get-block-height
-  (is  (= {:message "block_height" :payload 1}
-          (:body (get-req "/block_height")))))
+  (is (= 1 (pc/block-height {:host "localhost" :port "9292"}))))
 
 (deftest test-get-block-info
   (swap! db/block-chain conj sample-block)
@@ -148,22 +133,15 @@
           (:body (get-req "/blocks")))))
 
 (deftest test-submitting-invalid-block-returns-validation-errors
-  (with-redefs [target/default easy-difficulty]
-    (let [resp (post-req "/blocks" (update-in next-block [:transactions 0 :outputs 0 :amount] inc))]
-      (is (= "block-rejected" (:message (:body resp))))
-      (is (= 400 (:status resp)))
-      (is (= (sort ["Block's coinbase transaction is malformed or has incorrect amount."])
-             (sort (:payload (:body resp))))))))
+  (let [resp (post-req "/blocks" (update-in next-block [:transactions 0 :outputs 0 :amount] inc))]
+    (is (= "block-rejected" (:message (:body resp))))
+    (is (= 400 (:status resp)))
+    (is (= (sort ["Block's coinbase transaction is malformed or has incorrect amount."])
+           (sort (:payload (:body resp)))))))
 
 (deftest test-getting-blocks-since-height
   (miner/mine-and-commit-db)
   (miner/mine-and-commit-db)
   (is (= (map q/bhash (drop 1 (reverse (q/longest-chain @db/db))))
-         (->> @db/db
-              q/longest-chain
-              last
-              q/bhash
-              (str "/blocks_since/")
-              get-req
-              :body
-              :payload))))
+         (pc/blocks-since {:host "localhost" :port "9292"}
+                          (q/bhash (last (q/longest-chain @db/db)))))))
