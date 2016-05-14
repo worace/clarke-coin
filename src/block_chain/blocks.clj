@@ -22,9 +22,10 @@
   ([transactions] (generate-block transactions {:blocks []}))
   ([transactions {:keys [parent-hash target timestamp nonce blocks]}]
    {:header {:parent-hash (or parent-hash
-                              (chain/latest-block-hash blocks))
+                              (or (q/bhash (first blocks))
+                                  (hex-string 0)))
              :transactions-hash (transactions-hash transactions)
-             :target (or target (chain/next-target blocks))
+             :target (or target (target/next-target blocks))
              :timestamp (or timestamp (current-time-millis))
              :nonce (or nonce 0)}
     :transactions transactions}))

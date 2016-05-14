@@ -47,11 +47,11 @@
                    (reset! peer-requests {}))))))
 
 (defn with-db [f]
-  (reset! db/db db/empty-db)
+  (reset! db/db db/initial-db)
   (reset! db/transaction-pool #{})
   (f)
   (reset! db/transaction-pool #{})
-  (reset! db/db db/empty-db))
+  (reset! db/db db/initial-db))
 
 (use-fixtures :each with-db with-peer)
 
@@ -83,12 +83,12 @@
             {:message "get_balance" :payload (:address wallet/keypair)}))
 
 (deftest test-getting-block-height
-  (responds 0 {:message "get_block_height"})
+  (responds 1 {:message "get_block_height"})
   (miner/mine-and-commit-db)
-  (responds 1 {:message "get_block_height"}))
+  (responds 2 {:message "get_block_height"}))
 
 (deftest test-getting-latest-block
-  (responds nil {:message "get_latest_block"})
+  (responds db/genesis-block {:message "get_latest_block"})
   (miner/mine-and-commit-db)
   (responds (q/highest-block @db/db)
             {:message "get_latest_block"}))
@@ -116,7 +116,8 @@
   (let [key-b (wallet/generate-keypair 512)
         payment (miner/generate-payment wallet/keypair (:address key-b) 25 (q/longest-chain @db/db))]
     (is (= payment (s/validate Transaction payment)))
-    (is (= 25 (bc/balance (:address wallet/keypair) (q/longest-chain @db/db))))
+    (is (= 25 (bc/balance (:address wallet/keypair)
+                          (q/longest-chain @db/db))))
     (is (= 1 (count (:outputs payment))))
     (is (= {:message "transaction-accepted"
             :payload payment}
@@ -160,7 +161,7 @@
 (deftest test-forwarding-mined-blocks-to-peers
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
   (miner/mine-and-commit-db)
-  (is (= 1 (q/chain-length @db/db)))
+  (is (= 2 (q/chain-length @db/db)))
   (is (= 1 (count (mapcat val @peer-requests))))
   (is (= (list "/blocks") (keys @peer-requests)))
   (let [req (first (@peer-requests "/blocks"))]
@@ -169,15 +170,17 @@
            (json-body req)))))
 
 (deftest test-receiving-new-block-adds-to-block-chain
-  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
+  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+                                             {:blocks (q/longest-chain @db/db)}))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
-    (is (= 1 (q/chain-length @db/db)))))
+    (is (= 2 (q/chain-length @db/db)))))
 
 (deftest test-forwarding-received-blocks-to-peers
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
+  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+                                             {:blocks (q/longest-chain @db/db)}))]
     (handler {:message "submit_block" :payload b} sock-info)
-    (is (= 1 (q/chain-length @db/db)))
+    (is (= 2 (q/chain-length @db/db)))
     (is (= (list "/blocks") (keys @peer-requests)))
     (let [req (first (@peer-requests "/blocks"))]
       (is (= :post (:request-method req)))
@@ -188,11 +191,12 @@
 
 (deftest test-forwards-received-block-to-peers-only-if-new
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
+  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+                                             {:blocks (q/longest-chain @db/db)}))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
-    (is (= 1 (q/chain-length @db/db)))
+    (is (= 2 (q/chain-length @db/db)))
     (handler {:message "submit_block" :payload b} sock-info)
-    (is (= 1 (q/chain-length @db/db)))
+    (is (= 2 (q/chain-length @db/db)))
     (let [req (first (@peer-requests "/blocks"))]
       (is (= :post (:request-method req)))
       (is (= b (json-body req)))
@@ -204,14 +208,10 @@
   (miner/mine-and-commit-db)
   (let [chain (q/longest-chain @db/db)
         addr (:address wallet/keypair)
-        txn (miner/generate-payment wallet/keypair
-                                    addr
-                                    25
-                                    chain)
-        b (miner/mine
-           (blocks/generate-block
-            (miner/block-transactions @db/db addr [txn])
-            {:blocks chain}))]
+        txn (miner/generate-payment wallet/keypair addr 25 chain)
+        b (-> (miner/block-transactions @db/db addr [txn])
+              (blocks/generate-block {:blocks chain})
+              (miner/mine))]
     (handler {:message "submit_transaction" :payload txn} sock-info)
     (is (= 1 (count @db/transaction-pool)))
     (responds {:balance 25 :address (:address wallet/keypair)} {:message "get_balance" :payload (:address wallet/keypair)})
@@ -240,5 +240,3 @@
            (handler
                  {:message "get_blocks_since" :payload "pizza"}
                  sock-info))))
-
-(deftest test-validating-incoming-blocks)

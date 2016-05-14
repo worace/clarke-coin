@@ -29,6 +29,9 @@
   ([db] (chain-length db (highest-hash db)))
   ([db hash] (or (get-in db [:chains hash]) 0)))
 
+(defn new-block? [db block]
+  (not (contains? (:blocks db) (bhash block))))
+
 (defn blocks-since [db hash]
   (->> db
        longest-chain

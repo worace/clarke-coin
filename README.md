@@ -22,15 +22,15 @@ crypto currency?
 ### DB style conversion
 
 * [X]  55 test/block_chain/block_sync_test.clj
-* [ ] 244 test/block_chain/integration_test.clj
-* [ ] 328 test/block_chain/message_handlers_test.clj
-* [ ] 164 test/block_chain/http_test.clj
-* [ ] 130 test/block_chain/block_validations_test.clj
+* [X] 244 test/block_chain/integration_test.clj
+* [X] 328 test/block_chain/message_handlers_test.clj
+* [X] 164 test/block_chain/http_test.clj
+* [X] 130 test/block_chain/block_validations_test.clj
+* [X]  83 test/block_chain/transaction_validations_test.clj
 * [ ]  16 test/block_chain/blocks_test.clj
 * [ ]  83 test/block_chain/chain_test.clj
 * [ ]  28 test/block_chain/miner_test.clj
 * [ ]  81 test/block_chain/target_test.clj
-* [ ]  83 test/block_chain/transaction_validations_test.clj
 * [ ]  33 test/block_chain/transactions_test.clj
 
 ### Payment Generation Workflow

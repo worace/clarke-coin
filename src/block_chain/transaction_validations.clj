@@ -2,17 +2,17 @@
   (:require [schema.core :as s]
             [block-chain.chain :as c]
             [block-chain.transactions :as t]
+            [block-chain.queries :as q]
             [block-chain.key-serialization :as ks]
             [block-chain.wallet :as w]
             [block-chain.utils :refer :all]
-            [clojure.pprint :refer [pprint]]
             [block-chain.schemas :refer :all]))
 
 (defn new-transaction? [txn _ txn-pool]
   (not (contains? txn-pool txn)))
 
-(defn sufficient-inputs? [txn chain txn-pool]
-  (let [sources (compact (map (partial c/source-output chain)
+(defn sufficient-inputs? [txn db txn-pool]
+  (let [sources (compact (map (partial c/source-output (q/longest-chain db))
                               (:inputs txn)))
         outputs (:outputs txn)]
     (>= (reduce + (map :amount sources))
@@ -26,8 +26,8 @@
                 source-key))
     false))
 
-(defn signatures-valid? [txn chain _]
-  (let [inputs-sources (c/inputs-to-sources (:inputs txn) chain)]
+(defn signatures-valid? [txn db _]
+  (let [inputs-sources (c/inputs-to-sources (:inputs txn) (q/longest-chain db))]
     (every? (fn [[input source]]
               (verify-input-signature input source txn))
             inputs-sources)))
@@ -38,16 +38,18 @@
     (catch Exception e
         false)))
 
-(defn inputs-properly-sourced? [txn chain _]
-  (let [inputs-sources (c/inputs-to-sources (:inputs txn) chain)]
+(defn inputs-properly-sourced? [txn db _]
+  (let [inputs-sources (c/inputs-to-sources (:inputs txn)
+                                            (q/longest-chain db))]
     (and (every? identity (keys inputs-sources))
          (every? identity (vals inputs-sources))
          (= (count (vals inputs-sources))
             (count (into #{} (vals inputs-sources)))))))
 
-(defn inputs-unspent? [txn chain _]
-  (let [sources (vals (c/inputs-to-sources (:inputs txn) chain))]
-    (every? (partial c/unspent? chain) sources)))
+(defn inputs-unspent? [txn db _]
+  (let [sources (vals (c/inputs-to-sources (:inputs txn)
+                                           (q/longest-chain db)))]
+    (every? (partial c/unspent? (q/longest-chain db)) sources)))
 
 (defn valid-hash? [txn chain _]
   (= (:hash txn) (t/txn-hash txn)))
@@ -62,9 +64,9 @@
    valid-hash? "Transaction's hash does not match its contents."
    })
 
-(defn validate-transaction [txn chain txn-pool]
+(defn validate-transaction [txn db txn-pool]
   (mapcat (fn [[validation message]]
-            (if-not (validation txn chain txn-pool)
+            (if-not (validation txn db txn-pool)
               [message]
               []))
           txn-validations))

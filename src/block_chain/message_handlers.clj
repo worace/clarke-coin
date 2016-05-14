@@ -57,8 +57,8 @@
 
 (defn get-block [msg sock-info]
   {:message "block_info"
-   :payload (bc/block-by-hash (:payload msg)
-                              @db/block-chain)})
+   :payload (q/get-block @db/db
+                         (:payload msg))})
 
 (defn get-transaction [msg sock-info]
   {:message "transaction_info"
@@ -82,7 +82,7 @@
 (defn submit-transaction [msg sock-info]
   (let [txn (:payload msg)
         validation-errors (txn-v/validate-transaction txn
-                                                      (q/longest-chain @db/db)
+                                                      @db/db
                                                       @db/transaction-pool)]
     (if (empty? validation-errors)
       (do
@@ -93,8 +93,9 @@
 
 (defn submit-block [msg sock-info]
   (let [b (:payload msg)
-        validation-errors (block-v/validate-block b (q/longest-chain @db/db))]
-    (if (empty? validation-errors)
+        validation-errors (block-v/validate-block b @db/db)]
+    (if (and (empty? validation-errors)
+             (q/new-block? @db/db b))
       (do
         (miner/stop-miner!)
         (swap! db/db q/add-block b)

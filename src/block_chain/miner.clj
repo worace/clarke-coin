@@ -114,34 +114,6 @@
 (defonce mine? (atom true))
 (defn stop-miner! [] (reset! mine? false))
 
-(defn mine-and-commit
-  ([] (mine-and-commit db/block-chain))
-  ([chain]
-   (let [txns (into [(coinbase (:address wallet/keypair)
-                               @db/transaction-pool)]
-                    @db/transaction-pool)]
-     (reset! db/transaction-pool #{})
-     (mine-and-commit chain
-                    (blocks/generate-block
-                     txns
-                     {:blocks @chain}))))
-  ([chain pending]
-   (reset! mine? true)
-   (if-let [b (mine pending mine?)]
-     (let [errors (block-v/validate-block b @chain)]
-       (if-not (empty? errors)
-         (println "MINED INVALID BLOCK: " errors))
-       (do
-         (swap! chain conj b)
-         (peers/block-received! b)))
-     (println "didn't find coin, exiting"))))
-
-(defn run-miner! []
-  (reset! mine? true)
-  (async/go
-    (while @mine?
-      (mine-and-commit))))
-
 (defn mine-and-commit-db
   ([] (mine-and-commit-db db/db))
   ([db-ref]
@@ -157,13 +129,18 @@
   ([db-ref pending]
    (reset! mine? true)
    (if-let [b (mine pending mine?)]
-     (let [errors (block-v/validate-block b (vec (reverse (q/chain @db-ref (q/highest-block @db-ref)))))]
+     (let [errors (block-v/validate-block b @db-ref)]
        (if-not (empty? errors)
-         (println "MINED INVALID BLOCK: " errors)
-         db-ref)
+         (println "MINED INVALID BLOCK: " errors))
        (do
          (swap! db-ref q/add-block b)
          (peers/block-received! b)
          db-ref))
      (do (println "didn't find coin, exiting")
          db-ref))))
+
+(defn run-miner! []
+  (reset! mine? true)
+  (async/go
+    (while @mine?
+      (mine-and-commit-db))))

@@ -19,20 +19,20 @@
 (def key-a wallet/keypair)
 (def key-b (wallet/generate-keypair 512))
 
-(miner/mine-and-commit-db)
-(def db-snapshot @db/db)
+(def starting-db (-> (atom db/empty-db)
+                     (miner/mine-and-commit-db)
+                     (deref)))
 
-(def sample-block (last (q/longest-chain @db/db)))
+(def sample-block (first (q/longest-chain starting-db)))
 (def next-block (miner/mine
                  (blocks/generate-block [(miner/coinbase (:address wallet/keypair))]
-                                        {:blocks (q/longest-chain @db/db)})))
+                                        {:blocks (q/longest-chain starting-db)})))
 
 ;; A pays B 5
 (def sample-transaction (miner/generate-payment key-a
                                          (:address key-b)
                                          15
-                                         (q/longest-chain @db/db)))
-
+                                         (q/longest-chain starting-db)))
 
 (defn post-req [path data]
   (update
@@ -55,10 +55,10 @@
   (server/stop!))
 
 (defn with-db [f]
-  (reset! db/db db-snapshot)
+  (reset! db/db starting-db)
   (reset! db/transaction-pool #{})
   (f)
-  (reset! db/db db-snapshot)
+  (reset! db/db starting-db)
   (reset! db/transaction-pool #{}))
 
 (use-fixtures :once with-server)
@@ -95,10 +95,10 @@
           (:body (get-req "/pending_transactions")))))
 
 (deftest test-get-block-info
-  (is  (= {:message "block_info" :payload sample-block}
-          (:body (get-req (str "/blocks/" (get-in sample-block [:header :hash])))))))
+  (is (= {:message "block_info" :payload sample-block}
+         (:body (get-req (str "/blocks/" (q/bhash sample-block)))))))
 
-(deftest test-get-latest-block (swap! db/block-chain conj sample-block)
+(deftest test-get-latest-block
   (is  (= {:message "latest_block" :payload sample-block}
           (:body (get-req "/latest_block")))))
 
