@@ -51,6 +51,29 @@
     :else (throw (IllegalArgumentException.
                   "with-open only allows Symbols in bindings"))))
 
+(def peer-requests (atom {}))
+(defn peer-handler [req]
+  (swap! peer-requests
+         update
+         (:uri req)
+         conj
+         (update req :body slurp))
+  {:status 200})
+
+(def test-port-2 9001)
+(defn with-peer
+  [f]
+  (let [p (jetty/run-jetty (routes peer-handler)
+                           {:port test-port-2 :join? false})]
+    (try
+      (f)
+      (finally (.stop p)))))
+
+(defn with-peer-reqs [f]
+  (reset! peer-requests {})
+  (f)
+  (reset! peer-requests {}))
+
 (defn with-db [f]
   (reset! db/db db/empty-db)
   (reset! db/transaction-pool #{})
@@ -58,7 +81,7 @@
   (reset! db/transaction-pool #{})
   (reset! db/db db/empty-db))
 
-(use-fixtures :each with-db)
+(use-fixtures :each with-db with-peer with-peer-reqs)
 
 (deftest test-echo
   (let [msg {:message "echo"
@@ -73,12 +96,12 @@
 (deftest test-getting-adding-and-removing-peers
   (is (= [] (response {:message "get_peers"})))
   (handler {:message "add_peer"
-            :payload {:port 8335}}
+            :payload {:port test-port}}
            sock-info)
-  (is (= [{:host "127.0.0.1" :port 8335}]
+  (is (= [{:host "127.0.0.1" :port test-port}]
          (response {:message "get_peers"})))
   (handler {:message "remove_peer"
-            :payload {:port 8335}}
+            :payload {:port test-port}}
            sock-info)
   (is (= [] (response {:message "get_peers"}))))
 
@@ -148,33 +171,30 @@
         (is (= 24 (bc/balance (:address key-b) (q/longest-chain @db/db))))))))
 
 (deftest test-only-forwards-new-transactions
-  (let [reqs (atom [])]
-    (with-test-handler [peer (fn [req] (swap! reqs conj req))]
-      (miner/mine-and-commit-db)
-      (is (= 0 (count @db/transaction-pool)))
-      (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 (q/longest-chain @db/db))]
-        (handler {:message "add_peer" :payload {:port test-port}} sock-info)
-        ;; send same txn twice but should only get forwarded once
-        (is (= {:message "transaction-accepted" :payload txn}
-               (handler {:message "submit_transaction" :payload txn} sock-info)))
-        (handler {:message "submit_transaction" :payload txn} sock-info)
-        (is (= 1 (get (frequencies (map :uri @reqs)) "/pending_transactions")))
-        (let [req (first (filter #(= "/pending_transactions" (:uri %)) @reqs))]
-          (is (= :post (:request-method req)))
-          (is (= txn (read-json (:body req)))))))))
+  (miner/mine-and-commit-db)
+  (is (= 0 (count @db/transaction-pool)))
+  (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 (q/longest-chain @db/db))]
+    (handler {:message "add_peer" :payload {:port test-port-2}} sock-info)
+    ;; send same txn twice but should only get forwarded once
+    (is (= {:message "transaction-accepted" :payload txn}
+           (handler {:message "submit_transaction" :payload txn} sock-info)))
+    (handler {:message "submit_transaction" :payload txn} sock-info)
+    (is (= 1 (count (@peer-requests "/pending_transactions"))))
+    (let [req (first (@peer-requests "/pending_transactions"))]
+      (is (= :post (:request-method req)))
+      (is (= txn (read-json (:body req)))))))
 
 (defn json-body [req] (read-json (:body req)))
 (deftest test-forwarding-mined-blocks-to-peers
-  (let [reqs (atom [])]
-    (with-test-handler [peer (fn [req] (swap! reqs conj req))]
-      (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-      (miner/mine-and-commit-db)
-      (is (= 1 (q/chain-length @db/db)))
-      (is (= 1 (count @reqs)))
-      (is (= "/blocks" (:uri (first @reqs))))
-      (is (= :post (:request-method (first @reqs))))
-      (is (= (q/highest-block @db/db)
-             (json-body (first @reqs)))))))
+  (q/add-peer! db/db {:port test-port-2 :host "127.0.0.1"})
+  (miner/mine-and-commit-db)
+  (is (= 1 (q/chain-length @db/db)))
+  (is (= 1 (count (mapcat val @peer-requests))))
+  (is (= (list "/blocks") (keys @peer-requests)))
+  (let [req (first (@peer-requests "/blocks"))]
+    (is (= :post (:request-method req)))
+    (is (= (q/highest-block @db/db)
+           (json-body req)))))
 
 (deftest test-receiving-new-block-adds-to-block-chain
   (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
@@ -182,30 +202,31 @@
     (is (= 1 (q/chain-length @db/db)))))
 
 (deftest test-forwarding-received-blocks-to-peers
-  (let [reqs (atom [])]
-    (with-test-handler [peer (fn [req] (swap! reqs conj req))]
-      (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-      (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
-        (handler {:message "submit_block" :payload b} sock-info)
-        (is (= 1 (q/chain-length @db/db)))
-        (is (= "/blocks" (:uri (first @reqs))))
-        (is (= :post (:request-method (first @reqs))))
-        (is (= b (json-body (first @reqs))))
-        (is (= 1 (count @reqs)))))))
+  (q/add-peer! db/db {:port test-port-2 :host "127.0.0.1"})
+  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
+    (handler {:message "submit_block" :payload b} sock-info)
+    (is (= 1 (q/chain-length @db/db)))
+    (is (= (list "/blocks") (keys @peer-requests)))
+    (let [req (first (@peer-requests "/blocks"))]
+      (is (= :post (:request-method req)))
+      (is (= b (json-body req)))
+
+      (is (= (q/highest-block @db/db)
+             (json-body req))))))
 
 (deftest test-forwards-received-block-to-peers-only-if-new
-  (let [reqs (atom [])]
-    (with-test-handler [peer (fn [req] (swap! reqs conj req))]
-      (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-      (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
-        (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
-        (is (= 1 (q/chain-length @db/db)))
-        (handler {:message "submit_block" :payload b} sock-info)
-        (is (= 1 (q/chain-length @db/db)))
-        (is (= "/blocks" (:uri (first @reqs))))
-        (is (= :post (:request-method (first @reqs))))
-        (is (= b (json-body (first @reqs))))
-        (is (= 1 (count @reqs)))))))
+  (q/add-peer! db/db {:port test-port-2 :host "127.0.0.1"})
+  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
+    (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
+    (is (= 1 (q/chain-length @db/db)))
+    (handler {:message "submit_block" :payload b} sock-info)
+    (is (= 1 (q/chain-length @db/db)))
+    (let [req (first (@peer-requests "/blocks"))]
+      (is (= :post (:request-method req)))
+      (is (= b (json-body req)))
+      (is (= 1 (count (mapcat val @peer-requests))))
+      (is (= (q/highest-block @db/db)
+             (json-body req))))))
 
 (deftest test-receiving-block-clears-txn-pool
   (miner/mine-and-commit-db)
@@ -236,17 +257,16 @@
              (:message (handler {:message "submit_transaction" :payload txn} sock-info)))))))
 
 (deftest test-blocks-since
-  (with-redefs [db/block-chain (atom [])]
-    (miner/mine-and-commit)
-    (miner/mine-and-commit)
-    (miner/mine-and-commit)
-    (is (= {:message "blocks_since" :payload (map bc/bhash (drop 1 @db/block-chain)) }
-           (handler
-                 {:message "get_blocks_since" :payload (bc/bhash (first @db/block-chain))}
-                 sock-info)))
+  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db)
+  (is (= {:message "blocks_since" :payload (map q/bhash (drop 1 (reverse (q/longest-chain @db/db)))) }
+         (handler
+          {:message "get_blocks_since" :payload (q/bhash (last (q/longest-chain @db/db)))}
+          sock-info)))
     (is (= {:message "blocks_since" :payload []}
            (handler
                  {:message "get_blocks_since" :payload "pizza"}
-                 sock-info)))))
+                 sock-info))))
 
 (deftest test-validating-incoming-blocks)

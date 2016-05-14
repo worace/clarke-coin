@@ -104,10 +104,10 @@
       {:message "block-rejected" :payload validation-errors})))
 
 (defn get-blocks-since [msg sock-info]
-  (let [start-pos (bc/block-index (:payload msg) @db/block-chain)]
-    (if start-pos
-      {:message "blocks_since" :payload (map bc/bhash (drop (inc start-pos) @db/block-chain))}
-      {:message "blocks_since" :payload []})))
+  (if-let [b (q/get-block @db/db (:payload msg))]
+    {:message "blocks_since"
+     :payload (map q/bhash (q/blocks-since @db/db (:payload msg)))}
+    {:message "blocks_since" :payload []}))
 
 (def message-handlers
   {"echo" echo

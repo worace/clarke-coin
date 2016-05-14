@@ -156,14 +156,14 @@
              (sort (:payload (:body resp))))))))
 
 (deftest test-getting-blocks-since-height
-  (miner/mine-and-commit)
-  (miner/mine-and-commit)
-  (is (= 3 (count @db/block-chain)))
-  (is (= (map #(get-in % [:header :hash]) (drop 1 @db/block-chain))
-         (:payload (:body (get-req (str "/blocks_since/" (get-in (first @db/block-chain)
-                                                       [:header :hash]))))))))
-
-#_(deftest test-generating-payment-transaction
-  (post-req "/pending_transactions" sample-transaction)
-  (is  (= {:message "" :payload [sample-transaction]}
-          (:body (get-req "/pending_transactions")))))
+  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db)
+  (is (= (map q/bhash (drop 1 (reverse (q/longest-chain @db/db))))
+         (->> @db/db
+              q/longest-chain
+              last
+              q/bhash
+              (str "/blocks_since/")
+              get-req
+              :body
+              :payload))))
