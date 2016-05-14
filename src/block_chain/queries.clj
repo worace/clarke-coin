@@ -42,6 +42,7 @@
       (assoc-in [:chains hash] (inc (chain-length db parent-hash)))))
 
 (defn add-peer [db peer] (update-in db [:peers] conj peer))
+(defn add-peer! [db-ref peer] (swap! db-ref add-peer peer))
 (defn remove-peer [db peer]
   (clojure.set/difference (:peers db) #{peer}))
 (defn peers [db] (into [] (:peers db)))

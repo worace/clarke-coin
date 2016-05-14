@@ -81,7 +81,9 @@
 
 (defn submit-transaction [msg sock-info]
   (let [txn (:payload msg)
-        validation-errors (txn-v/validate-transaction txn (q/longest-chain @db/db) @db/transaction-pool)]
+        validation-errors (txn-v/validate-transaction txn
+                                                      (q/longest-chain @db/db)
+                                                      @db/transaction-pool)]
     (if (empty? validation-errors)
       (do
         (swap! db/transaction-pool conj txn)

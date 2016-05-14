@@ -28,6 +28,12 @@
                  :address address}]
       :timestamp (current-time-millis)}))))
 
+(defn block-transactions [db coinbase-addr txn-pool]
+  (into [(coinbase coinbase-addr
+                   txn-pool
+                   (q/longest-chain db))]
+        txn-pool))
+
 (defn raw-payment-txn
   [amount address sources]
   (let [inputs (into [] (map (fn [s]
