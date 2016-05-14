@@ -60,13 +60,16 @@
   (f)
   (server/stop!))
 
+(def init-db (-> db/empty-db
+                 (q/add-block sample-block)))
+
 (defn with-db [f]
-  (reset! db/db db/empty-db)
+  (reset! db/db init-db)
   (reset! db/peers #{})
   (reset! db/transaction-pool #{})
   (reset! db/block-chain @chain)
   (f)
-  (reset! db/db db/empty-db)
+  (reset! db/db init-db)
   (reset! db/peers #{})
   (reset! db/transaction-pool #{})
   (reset! db/block-chain @chain))
@@ -137,13 +140,12 @@
            (sort (:payload (:body resp)))))))
 
 (deftest test-submit-valid-block
-  (with-redefs [target/default easy-difficulty]
-    (let [resp (post-req "/blocks" next-block)]
-      (is (= 200 (:status resp)))
-      (is (= "block-accepted" (:message (:body resp))))
-      (is (= next-block (:payload (:body resp)))))
-    (is  (= {:message "blocks" :payload [sample-block next-block]}
-            (:body (get-req "/blocks"))))))
+  (let [resp (post-req "/blocks" next-block)]
+    (is (= 200 (:status resp)))
+    (is (= "block-accepted" (:message (:body resp))))
+    (is (= next-block (:payload (:body resp)))))
+  (is  (= {:message "blocks" :payload [sample-block next-block]}
+          (:body (get-req "/blocks")))))
 
 (deftest test-submitting-invalid-block-returns-validation-errors
   (with-redefs [target/default easy-difficulty]

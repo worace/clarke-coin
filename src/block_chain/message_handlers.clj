@@ -35,7 +35,7 @@
 
 (defn get-balance [msg sock-info]
   (let [address (:payload msg)
-        balance (bc/balance address @db/block-chain)]
+        balance (bc/balance address (q/longest-chain @db/db))]
     {:message "balance"
      :payload {:address address :balance balance}}))
 
@@ -45,7 +45,7 @@
 
 (defn get-block-height [msg sock-info]
   {:message "block_height"
-   :payload (count @db/block-chain)})
+   :payload (q/chain-length @db/db)})
 
 (defn get-latest-block [msg sock-info]
   {:message "latest_block"
@@ -53,7 +53,7 @@
 
 (defn get-blocks [msg sock-info]
   {:message "blocks"
-   :payload @db/block-chain})
+   :payload (into [] (reverse (q/longest-chain @db/db)))})
 
 (defn get-block [msg sock-info]
   {:message "block_info"
@@ -81,7 +81,7 @@
 
 (defn submit-transaction [msg sock-info]
   (let [txn (:payload msg)
-        validation-errors (txn-v/validate-transaction txn @db/block-chain @db/transaction-pool)]
+        validation-errors (txn-v/validate-transaction txn (q/longest-chain @db/db) @db/transaction-pool)]
     (if (empty? validation-errors)
       (do
         (swap! db/transaction-pool conj txn)
@@ -91,11 +91,11 @@
 
 (defn submit-block [msg sock-info]
   (let [b (:payload msg)
-        validation-errors (block-v/validate-block b @db/block-chain)]
+        validation-errors (block-v/validate-block b (q/longest-chain @db/db))]
     (if (empty? validation-errors)
       (do
         (miner/stop-miner!)
-        (swap! db/block-chain conj b)
+        (swap! db/db q/add-block b)
         (reset! db/transaction-pool #{})
         (peers/block-received! b)
         {:message "block-accepted" :payload b})

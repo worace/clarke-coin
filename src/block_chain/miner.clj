@@ -17,8 +17,8 @@
    where the address of the output is the address provided and the
    amount of the output is "
   ([] (coinbase (:address wallet/keypair)))
-  ([address] (coinbase address [] @db/block-chain))
-  ([address txn-pool] (coinbase address txn-pool @db/block-chain))
+  ([address] (coinbase address [] (q/longest-chain @db/db)))
+  ([address txn-pool] (coinbase address txn-pool (q/longest-chain @db/db)))
   ([address txn-pool chain]
    (txn/tag-coords
     (txn/hash-txn
