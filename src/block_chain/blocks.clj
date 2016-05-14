@@ -1,5 +1,8 @@
 (ns block-chain.blocks
   (:require [block-chain.chain :as chain]
+            [block-chain.queries :as q]
+            [block-chain.db :as db]
+            [block-chain.target :as target]
             [block-chain.utils :refer :all]))
 
 (defn transactions-hash [transactions]
@@ -22,6 +25,17 @@
                               (chain/latest-block-hash blocks))
              :transactions-hash (transactions-hash transactions)
              :target (or target (chain/next-target blocks))
+             :timestamp (or timestamp (current-time-millis))
+             :nonce (or nonce 0)}
+    :transactions transactions}))
+
+(defn generate-block-db
+  ;; ([transactions] (generate-block transactions {:blocks db/empty-db}))
+  ([transactions {:keys [parent-hash target timestamp nonce db]}]
+   {:header {:parent-hash (or parent-hash (q/highest-hash db))
+             :transactions-hash (transactions-hash transactions)
+             :target (or target
+                         (target/next-target (take 10 (q/longest-chain db))))
              :timestamp (or timestamp (current-time-millis))
              :nonce (or nonce 0)}
     :transactions transactions}))

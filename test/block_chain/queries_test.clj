@@ -24,6 +24,7 @@
 (deftest test-highest-hash (is (= (bhash (last sample-chain)) (highest-hash sample-db))))
 
 (deftest test-longest-chain
+  (is (= (list) (longest-chain db/empty-db)))
   (is (= (reverse (map bhash sample-chain)) (map bhash (longest-chain sample-db)))))
 
 (deftest test-adding-block

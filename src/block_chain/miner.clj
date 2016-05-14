@@ -146,7 +146,7 @@
      (mine-and-commit-db db-ref
                     (blocks/generate-block
                      txns
-                     {:blocks (reverse (take 10 (q/chain @db-ref (q/highest-block @db-ref))))
+                     {:blocks (reverse (take 10 (q/longest-chain @db-ref)))
                       :parent-hash (q/highest-hash @db-ref)}))))
   ([db-ref pending]
    (reset! mine? true)

@@ -4,18 +4,20 @@
 
 (defn phash [b] (get-in b [:header :parent-hash]))
 
-(defn chain [db block]
-  (if block
-    (lazy-seq (cons block
-                    (chain db (get-in db [:blocks (get-in block [:header :parent-hash])]))))
-    nil))
-
 (defn get-block [db hash] (get-in db [:blocks hash]))
 
 (defn get-parent [db block] (get-block db (phash block)))
 
-(defn highest-hash [db]
-  (key (apply max-key val (:chains db))))
+(defn chain [db block]
+  (if block
+    (lazy-seq (cons block
+                    (chain db (get-parent db block))))
+    (list)))
+
+(defn highest-hash [{chains :chains}]
+  (if (empty? chains)
+    nil
+    (key (apply max-key val chains))))
 
 (defn highest-block [db]
   (get-block db (highest-hash db)))
