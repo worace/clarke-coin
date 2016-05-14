@@ -16,19 +16,9 @@
           db
           (recur next-batch db)))
       (let [next-block (pc/block peer (first this-batch))]
-        (println "*********NEXT BLOCK**********")
-        (println "PARENT:")
-        (println (q/get-parent db next-block))
-        (println "******HASHES**********")
-        (println (reverse (map q/bhash
-                               (q/chain db
-                                        (q/get-parent db next-block)))))
         (do
-          (println "*****VALIDATIONS*****")
-          (println (bv/validate-block next-block
-                                             (reverse (q/chain db (q/get-parent db next-block)))))
-          (assert (empty? (bv/validate-block next-block
-                                             (reverse (q/chain db (q/get-parent db next-block))))))
+          (let [chain (->> next-block (q/get-parent db) (q/chain db) (reverse))]
+            (assert (empty? (bv/validate-block next-block chain))))
           (recur (rest this-batch) (q/add-block db next-block)))
         ))))
 
