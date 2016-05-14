@@ -31,48 +31,20 @@
    :local-port test-port
    :outgoing-port 51283})
 
-(defn test-server
-  ([port message-fn]
-   (let [handler (routes (fn [req]
-                           (message-fn (update req :body slurp))
-                           {:status 200}))]
-     (jetty/run-jetty handler {:port port :join? false}))))
-
-(defmacro with-test-handler
-  [bindings & body]
-  (cond
-    (= (count bindings) 0) `(do ~@body)
-    (symbol? (bindings 0)) `(let [~(bindings 0) (test-server test-port ~(bindings 1))]
-                              (try
-                                (. ~(bindings 0) start)
-                                (with-test-handler ~(subvec bindings 2) ~@body)
-                                (finally
-                                  (. ~(bindings 0) stop))))
-    :else (throw (IllegalArgumentException.
-                  "with-open only allows Symbols in bindings"))))
-
 (def peer-requests (atom {}))
 (defn peer-handler [req]
-  (swap! peer-requests
-         update
-         (:uri req)
-         conj
-         (update req :body slurp))
-  {:status 200})
+  (let [req (update req :body slurp)]
+    (swap! peer-requests update (:uri req) conj req)
+    {:status 200}))
 
-(def test-port-2 9001)
-(defn with-peer
-  [f]
+(defn with-peer [f]
+  (reset! peer-requests {})
   (let [p (jetty/run-jetty (routes peer-handler)
-                           {:port test-port-2 :join? false})]
+                           {:port test-port :join? false})]
     (try
       (f)
-      (finally (.stop p)))))
-
-(defn with-peer-reqs [f]
-  (reset! peer-requests {})
-  (f)
-  (reset! peer-requests {}))
+      (finally (do (.stop p)
+                   (reset! peer-requests {}))))))
 
 (defn with-db [f]
   (reset! db/db db/empty-db)
@@ -81,7 +53,7 @@
   (reset! db/transaction-pool #{})
   (reset! db/db db/empty-db))
 
-(use-fixtures :each with-db with-peer with-peer-reqs)
+(use-fixtures :each with-db with-peer)
 
 (deftest test-echo
   (let [msg {:message "echo"
@@ -174,7 +146,7 @@
   (miner/mine-and-commit-db)
   (is (= 0 (count @db/transaction-pool)))
   (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 (q/longest-chain @db/db))]
-    (handler {:message "add_peer" :payload {:port test-port-2}} sock-info)
+    (handler {:message "add_peer" :payload {:port test-port}} sock-info)
     ;; send same txn twice but should only get forwarded once
     (is (= {:message "transaction-accepted" :payload txn}
            (handler {:message "submit_transaction" :payload txn} sock-info)))
@@ -186,7 +158,7 @@
 
 (defn json-body [req] (read-json (:body req)))
 (deftest test-forwarding-mined-blocks-to-peers
-  (q/add-peer! db/db {:port test-port-2 :host "127.0.0.1"})
+  (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
   (miner/mine-and-commit-db)
   (is (= 1 (q/chain-length @db/db)))
   (is (= 1 (count (mapcat val @peer-requests))))
@@ -202,7 +174,7 @@
     (is (= 1 (q/chain-length @db/db)))))
 
 (deftest test-forwarding-received-blocks-to-peers
-  (q/add-peer! db/db {:port test-port-2 :host "127.0.0.1"})
+  (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
   (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
     (handler {:message "submit_block" :payload b} sock-info)
     (is (= 1 (q/chain-length @db/db)))
@@ -215,7 +187,7 @@
              (json-body req))))))
 
 (deftest test-forwards-received-block-to-peers-only-if-new
-  (q/add-peer! db/db {:port test-port-2 :host "127.0.0.1"})
+  (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
   (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= 1 (q/chain-length @db/db)))
