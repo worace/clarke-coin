@@ -100,33 +100,28 @@
   (responds 1 {:message "get_block_height"}))
 
 (deftest test-getting-latest-block
-  (with-redefs [db/block-chain (atom [])]
-    (responds nil {:message "get_latest_block"})
-    (swap! db/block-chain conj {:some "block"})
-    (responds {:some "block"} {:message "get_latest_block"})))
+  (responds nil {:message "get_latest_block"})
+  (miner/mine-and-commit-db)
+  (responds (q/highest-block @db/db)
+            {:message "get_latest_block"}))
 
 (deftest test-generating-transaction
-  (let [chain (atom [])
-        key-a (wallet/generate-keypair 512)
-        key-b (wallet/generate-keypair 512)
-        easy-difficulty (hex-string (math/expt 2 248))
-        block (blocks/generate-block
-               [(miner/coinbase (:address key-a))]
-               {:target easy-difficulty})]
-    (miner/mine-and-commit chain block)
-    (with-redefs [db/block-chain chain]
-      (let [utxn (:payload (handler {:message "generate_payment"
-                                     :payload {:amount 15
-                                               :from-address (:address key-a)
-                                               :to-address (:address key-b)
-                                               :fee 3}}
-                                    sock-info))]
-        (is (= 1 (count (:inputs utxn))))
-        ;; verify diff b/t inputs and outputs accounts for fee?
-        ;; (is (= 3 (- (:amount (first (:inputs utxn)))
-        ;;             (reduce + (map :amount (:outputs utxn))))))
-        (is (nil? (get-in utxn [:inputs 0 :signature])))
-        (is (= 2 (count (:outputs utxn))))))))
+  (miner/mine-and-commit-db)
+  (let [key-b (wallet/generate-keypair 512)
+        utxn (:payload (handler {:message "generate_payment"
+                                 :payload {:amount 15
+                                           :from-address (:address wallet/keypair)
+                                           :to-address (:address key-b)
+                                           :fee 3}}
+                                sock-info))]
+    (is (= 1 (count (:inputs utxn))))
+    (is (nil? (get-in utxn [:inputs 0 :signature])))
+    (is (= 2 (count (:outputs utxn))))
+    ;; verify diff b/t inputs and outputs accounts for fee
+    (let [source (bc/source-output (q/longest-chain @db/db)
+                                   (-> utxn :inputs first))]
+      (is (= 3 (- (:amount source)
+                  (reduce + (map :amount (:outputs utxn)))))))))
 
 (deftest test-submitting-transaction
   (let [chain (atom [])
@@ -159,48 +154,34 @@
         ;; (is (= 1 (count (:outputs payment))))
         ))))
 
-;; TODO
-#_(deftest test-submitting-transaction-with-txn-fee
-  (let [chain (atom [])
-        pool (atom #{})
-        key-a (wallet/generate-keypair 512)
-        key-b (wallet/generate-keypair 512)
-        block (blocks/generate-block
-               [(miner/coinbase (:address key-a))]
-               {:target easy-difficulty})]
-    (miner/mine-and-commit chain block)
-    (with-redefs [db/block-chain chain
-                  db/transaction-pool pool
-                  target/default (hex-string (math/expt 2 248) )]
-      (let [payment (miner/generate-payment key-a (:address key-b) 24 @chain 1)]
-        (handler {:message "submit_transaction"
-                  :payload payment}
-                 sock-info)
-        (miner/mine-and-commit)
-        (let [miner-addr (get-in (last @chain) [:transactions 0 :outputs 0 :address])]
-          ;; miner should have 25 from coinbase and 1 from allotted txn fee
-          (is (= 26 (bc/balance miner-addr @chain))))))))
+(deftest test-submitting-transaction-with-txn-fee
+  (let [key-b (wallet/generate-keypair 512)]
+    (miner/mine-and-commit-db)
+    (with-redefs [db/transaction-pool (atom #{})]
+      (let [payment (miner/generate-payment wallet/keypair (:address key-b) 24 (q/longest-chain @db/db) 1)]
+        (handler {:message "submit_transaction" :payload payment} sock-info)
+        (miner/mine-and-commit-db)
+        ;; miner should have 25 from coinbase and 1 from allotted txn fee
+        (is (= 26 (bc/balance (:address wallet/keypair) (q/longest-chain @db/db))))
+        ;; B should have 24 from the payment
+        (is (= 24 (bc/balance (:address key-b) (q/longest-chain @db/db))))))))
 
-;; TODO
-#_(deftest test-only-forwards-new-transactions
+(deftest test-only-forwards-new-transactions
   (let [reqs (atom [])]
     (with-test-handler [peer (fn [req] (swap! reqs conj req))]
-      (with-redefs [db/block-chain (atom [])
-                    db/transaction-pool (atom #{})
-                    db/peers (atom #{})
-                    target/default (hex-string (math/expt 2 248))]
-        (miner/mine-and-commit)
+      (with-redefs [db/transaction-pool (atom #{})]
+        (miner/mine-and-commit-db)
         (is (= 0 (count @db/transaction-pool)))
-        (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 @db/block-chain)]
+        (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 (q/longest-chain @db/db))]
           (handler {:message "add_peer" :payload {:port test-port}} sock-info)
           ;; send same txn twice but should only get forwarded once
-          (is (= {:message "transaction-accepted" :payload txn} (handler {:message "submit_transaction" :payload txn} sock-info)))
+          (is (= {:message "transaction-accepted" :payload txn}
+                 (handler {:message "submit_transaction" :payload txn} sock-info)))
           (handler {:message "submit_transaction" :payload txn} sock-info)
           (is (= 1 (get (frequencies (map :uri @reqs)) "/pending_transactions")))
           (let [req (first (filter #(= "/pending_transactions" (:uri %)) @reqs))]
             (is (= :post (:request-method req)))
-            (is (= txn (read-json (:body req)))))
-          )))))
+            (is (= txn (read-json (:body req))))))))))
 
 (defn json-body [req] (read-json (:body req)))
 (deftest test-forwarding-mined-blocks-to-peers

@@ -49,7 +49,7 @@
 
 (defn get-latest-block [msg sock-info]
   {:message "latest_block"
-   :payload (last @db/block-chain)})
+   :payload (q/highest-block @db/db)})
 
 (defn get-blocks [msg sock-info]
   {:message "blocks"
@@ -76,7 +76,7 @@
              (:from-address (:payload msg))
              (:to-address (:payload msg))
              (:amount (:payload msg))
-             @db/block-chain
+             (q/longest-chain @db/db)
              (or (:fee (:payload msg)) 0))})
 
 (defn submit-transaction [msg sock-info]
