@@ -136,14 +136,14 @@
     (while @mine?
       (mine-and-commit))))
 
-(defn mine-and-commit2
-  ([] (mine-and-commit2 db/db))
+(defn mine-and-commit-db
+  ([] (mine-and-commit-db db/db))
   ([db-ref]
    (let [txns (into [(coinbase (:address wallet/keypair)
                                @db/transaction-pool)]
                     @db/transaction-pool)]
      (reset! db/transaction-pool #{})
-     (mine-and-commit2 db-ref
+     (mine-and-commit-db db-ref
                     (blocks/generate-block
                      txns
                      {:blocks (reverse (take 10 (q/chain @db-ref (q/highest-block @db-ref))))

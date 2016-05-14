@@ -32,3 +32,8 @@
     (is (= db/genesis-block (get-in updated [:blocks (bhash db/genesis-block)])))
     (is (= 1 (get-in updated [:chains (bhash db/genesis-block)])))
     (is (= (list (bhash db/genesis-block)) (get-in updated [:children (phash db/genesis-block)])))))
+
+(deftest test-blocks-since
+  (is (= 4 (count (blocks-since sample-db (bhash db/genesis-block)))))
+  (is (= (map bhash (drop 1 (reverse (longest-chain sample-db))))
+         (map bhash (blocks-since sample-db (bhash db/genesis-block))))))
