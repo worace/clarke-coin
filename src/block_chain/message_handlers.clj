@@ -24,7 +24,7 @@
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
     (swap! db/db q/add-peer {:host host :port port})
-    (block-sync/sync-if-needed! db/block-chain {:host host :port port})
+    (block-sync/sync-if-needed! db/db {:host host :port port})
     {:message "peers" :payload @db/peers}))
 
 (defn remove-peer [msg sock-info]
@@ -63,7 +63,7 @@
 (defn get-transaction [msg sock-info]
   {:message "transaction_info"
    :payload (bc/txn-by-hash (:payload msg)
-                              @db/block-chain)})
+                            (q/longest-chain @db/db))})
 
 (defn generate-payment
   "Generates an _unsigned_ payment transaction for supplied from-address,

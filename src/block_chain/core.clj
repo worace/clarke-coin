@@ -19,7 +19,7 @@
   (if peer
     (do
       (println "Will bootstrap from peer node: " peer)
-      (bsync/sync-if-needed! db/block-chain peer)))
+      (bsync/sync-if-needed! db/db peer)))
   (miner/run-miner!)
   (http/start! port)
   (start-repl! repl-port))

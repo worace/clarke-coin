@@ -106,9 +106,8 @@
   (is (= 1 (pc/block-height {:host "localhost" :port "9292"}))))
 
 (deftest test-get-block-info
-  (swap! db/block-chain conj sample-block)
   (is  (= {:message "block_info" :payload sample-block}
-          (:body (get-req (str "/blocks/" (get-in sample-block [:header :hash])))))))
+          (:body (get-req (str "/blocks/" (q/bhash sample-block)))))))
 
 (deftest test-submit-transaction
   (post-req "/pending_transactions" sample-transaction)

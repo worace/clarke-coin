@@ -25,23 +25,8 @@
 
 (def genesis-block (read-json (slurp "./genesis.json")))
 
-(defonce block-chain (atom [genesis-block]))
-
 (def chain-path (str (System/getProperty "user.home")
                      "/.block_chain.json"))
-
-(defn read-stored-chain
-  [path] (if (.exists (io/as-file path))
-           (into [] (read-json (slurp path)))
-           []))
-
-(defn load-block-chain!
-  ([] (load-block-chain! chain-path))
-  ([path] (reset! block-chain (read-stored-chain path))))
-
-(defn write-block-chain!
-  ([] (write-block-chain! chain-path @block-chain))
-  ([path blocks] (spit path (write-json blocks))))
 
 (def peers (atom #{}))
 (defonce transaction-pool (atom #{}))
