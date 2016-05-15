@@ -10,12 +10,12 @@
 (defn txn-signable [txn]
   (apply str (concat (map input-signable (:inputs txn))
                      (map output-signable (:outputs txn))
-                     )))
+                     [(:min-height txn) (:timestamp txn)])))
 
 (defn txn-hashable [txn]
   (apply str (concat (map input-hashable (:inputs txn))
                      (map output-hashable (:outputs txn))
-                     [(:timestamp txn)])))
+                     [(:min-height txn) (:timestamp txn)])))
 
 (defn serialize-txn [txn]
   (write-json txn))

@@ -3,6 +3,7 @@
             [clojure.tools.namespace.repl :refer [refresh]]
             [clojure.math.numeric-tower :as math]
             [block-chain.chain :as bc]
+            [clojure.pprint :refer [pprint]]
             [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
             [block-chain.key-serialization :as ks]
@@ -24,7 +25,7 @@
 
 (deftest generating-coinbase
   (let [cb (miner/coinbase address-a)]
-    (is (= [:inputs :outputs :timestamp :hash] (keys cb)))
+    (is (= #{:inputs :outputs :timestamp :hash :min-height} (into #{} (keys cb))))
     (is (= (:hash cb)
            (get-in cb [:outputs 0 :coords :transaction-id])))))
 
@@ -54,6 +55,11 @@
            (q/bhash (second (drop 2 (q/longest-chain @db))))))))
 
 (deftest test-checking-balances
+  (let [db (atom db/empty-db)]
+    (dotimes [n 3] (miner/mine-and-commit-db! db))
+    (is (= 3 (q/chain-length @db)))
+    (is (= 3 (count (bc/unspent-outputs-db address-a @db))))
+    (is (= 75 (bc/balance-db address-a @db))))
   (let [db (atom db/empty-db)]
     (dotimes [n 3] (miner/mine-and-commit-db! db))
     (is (= 3 (q/chain-length @db)))
@@ -170,4 +176,20 @@
               (txn/txn-signable signed)
               (:public key-a))))))
 
+;; (defn make-big-db [n-blocks]
+;;   (reduce (fn [db _]
+;;             (miner/mine-and-commit-db db))
+;;           db/initial-db
+;;           (range n-blocks)))
+
+;; (def big-db (reduce (fn [db _]
+;;                       (miner/mine-and-commit-db db))
+;;                     db/initial-db
+;;                     (range 10)))
 (deftest test-utxos-on-big-chain)
+#_(let [db (atom db/empty-db)]
+    (println "\n\n~~~~~~~~~~~~~~~\n\n")
+    (time (dotimes [n 2500] (miner/mine-and-commit-db! db)))
+    (time (bc/balance-db address-a @db))
+    ;; (time (bc/balance address-a (q/longest-chain @db)))
+    )

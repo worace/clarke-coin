@@ -77,7 +77,7 @@
             consumed-sources (->> (:inputs txn)
                                   (map (partial source-output db))
                                   (into #{}))]
-        (recur (rest txns)
+        (recur txns
                (-> unspent
                    (clojure.set/union new-outputs)
                    (clojure.set/difference consumed-sources)))))))

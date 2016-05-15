@@ -23,6 +23,7 @@
    (txn/tag-coords
     (txn/hash-txn
      {:inputs []
+      :min-height (count chain)
       :outputs [{:amount (+ bc/coinbase-reward
                             (bc/txn-fees txn-pool chain))
                  :address address}]
@@ -75,6 +76,7 @@
          sources (select-sources (+ amount fee) output-pool)
          txn (raw-payment-txn amount to-address sources)]
      (-> txn
+         (assoc :min-height (count chain))
          (add-change from-address sources (+ amount fee))
          (txn/hash-txn)
          (txn/tag-coords)))))
@@ -114,7 +116,6 @@
 (defonce mine? (atom true))
 (defn stop-miner! [] (reset! mine? false))
 
-;; (defn block-transactions [db coinbase-addr txn-pool]
 (defn next-block [db]
   (let [txn-pool (->> (q/transaction-pool db)
                       (block-transactions db (:address wallet/keypair)))]

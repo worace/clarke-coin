@@ -60,9 +60,8 @@
 ;;     (not-any? spends-output? inputs)))
 
 (defn unspent-outputs-db [key db]
-  (->> (outputs (q/longest-chain db))
-       (filter (partial assigned-to-key? key))
-       (filter (partial unspent? (q/longest-chain db)))))
+  (->> (q/utxos db)
+       (filter (partial assigned-to-key? key))))
 
 (defn balance-db [address db]
   (->> (unspent-outputs-db address db)

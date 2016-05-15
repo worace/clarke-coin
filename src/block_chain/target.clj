@@ -3,8 +3,10 @@
             [environ.core :refer [env]]
             [clojure.math.numeric-tower :as math]))
 
-(def default (env :default-target))
-(def frequency 300000)
+(def default "1100000000000000000000000000000000000000000000000000000000000000")
+;; (def default (env :default-target))
+(def frequency 10)
+;; (def frequency 300000)
 
 (defn avg-spacing
   "Finds average time spacing in seconds of a series of times"
@@ -49,6 +51,7 @@
   "Calculate the appropriate next target based on the time frequency
    of recent blocks."
   [blocks]
-  (if (> (count blocks) 8)
+  default
+  #_(if (> (count blocks) 8)
     (adjusted-target blocks frequency)
     default))
