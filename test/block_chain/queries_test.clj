@@ -30,13 +30,17 @@
   (is (= (reverse (map bhash sample-chain)) (map bhash (longest-chain sample-db)))))
 
 (deftest test-adding-block
-  (is (= {:chains {} :blocks {} :children {} :peers #{}} db/empty-db))
   (let [updated (add-block db/empty-db db/genesis-block)]
     (is (= db/genesis-block (get-in updated [:blocks (bhash db/genesis-block)])))
     (is (= 1 (get-in updated [:chains (bhash db/genesis-block)])))
+    (is (= 1 (count (:transactions updated))))
     (is (= (list (bhash db/genesis-block)) (get-in updated [:children (phash db/genesis-block)])))))
 
 (deftest test-blocks-since
   (is (= 4 (count (blocks-since sample-db (bhash db/genesis-block)))))
   (is (= (map bhash (drop 1 (reverse (longest-chain sample-db))))
          (map bhash (blocks-since sample-db (bhash db/genesis-block))))))
+
+(deftest test-fetching-txn
+  (let [t (-> sample-db longest-chain last :transactions first)]
+    (is (= t (get-txn sample-db (:hash t))))))

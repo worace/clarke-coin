@@ -8,6 +8,8 @@
 
 (defn get-parent [db block] (get-block db (phash block)))
 
+(defn get-txn [db hash] (get-in db [:transactions hash]))
+
 (defn chain [db block]
   (if block
     (lazy-seq (cons block
@@ -38,11 +40,15 @@
        (take-while (fn [b] (not (= hash (bhash b)))))
        (reverse)))
 
+(defn add-transaction [db {hash :hash :as txn}]
+  (assoc-in db [:transactions hash] txn))
+
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
-  (-> db
-      (assoc-in [:blocks hash] block)
-      (update-in [:children parent-hash] conj hash)
-      (assoc-in [:chains hash] (inc (chain-length db parent-hash)))))
+  (as-> db db
+    (assoc-in db [:blocks hash] block)
+    (update-in db [:children parent-hash] conj hash)
+    (reduce add-transaction db (:transactions block))
+    (assoc-in db [:chains hash] (inc (chain-length db parent-hash)))))
 
 (defn add-peer [db peer] (update-in db [:peers] conj peer))
 (defn add-peer! [db-ref peer] (swap! db-ref add-peer peer))

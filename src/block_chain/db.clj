@@ -30,6 +30,10 @@
 
 (def peers (atom #{}))
 (defonce transaction-pool (atom #{}))
-(def empty-db {:blocks {} :children {} :chains {} :peers #{}})
+(def empty-db {:blocks {}
+               :children {}
+               :chains {}
+               :peers #{}
+               :transactions {}})
 (def initial-db (q/add-block empty-db genesis-block))
 (defonce db (atom initial-db))
