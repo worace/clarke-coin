@@ -1,5 +1,5 @@
 (ns block-chain.http
-  (:require [ring.adapter.jetty :as jetty]
+  (:require [org.httpkit.server :as httpkit]
             [compojure.api.sweet :as sweet]
             [ring.util.http-response :refer :all]
             [block-chain.message-handlers :as h]
@@ -135,7 +135,11 @@
 
 (defonce server (atom nil))
 
-(defn stop! [] (if-let [server @server] (.stop server)))
+(defn stop!
+  "When httpkit starts a server it returns a function that stops the server.
+   This function is what we store into the server atom in start!, so now we simply
+   retrieve this and invoke it."
+  ([] (if-let [server @server] (server))))
 
 (defn debug-logger [handler]
   (fn [request]
@@ -161,6 +165,4 @@
   ([port]
    (println "HTTP Starting with port: " port)
    (stop!)
-   (let [s (jetty/run-jetty #'with-middleware {:port port :join? false})]
-     (.start s)
-     (reset! server s))))
+   (reset! server (httpkit/run-server #'with-middleware {:port port}))))

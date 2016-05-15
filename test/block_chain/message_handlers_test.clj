@@ -5,7 +5,7 @@
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
             [block-chain.chain :as bc]
-            [ring.adapter.jetty :as jetty]
+            [org.httpkit.server :as httpkit]
             [compojure.core :refer [routes]]
             [block-chain.db :as db]
             [block-chain.queries :as q]
@@ -33,17 +33,19 @@
 
 (def peer-requests (atom {}))
 (defn peer-handler [req]
-  (let [req (update req :body slurp)]
+  (let [req (if (:body req)
+              (assoc req :body (-> req :body .bytes slurp))
+              req)]
     (swap! peer-requests update (:uri req) conj req)
     {:status 200}))
 
 (defn with-peer [f]
   (reset! peer-requests {})
-  (let [p (jetty/run-jetty (routes peer-handler)
-                           {:port test-port :join? false})]
+  (let [shutdown-fn (httpkit/run-server (routes peer-handler)
+                                        {:port test-port})]
     (try
       (f)
-      (finally (do (.stop p)
+      (finally (do (shutdown-fn)
                    (reset! peer-requests {}))))))
 
 (defn with-db [f]
