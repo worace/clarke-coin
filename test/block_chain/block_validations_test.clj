@@ -45,14 +45,14 @@
 ;;   (is (not (valid-hash? (assoc-in a-paid [:header :hash] "pizza") []))))
 
 (deftest test-valid-parent-hash
-  (is (valid-parent-hash? un-mined-block db))
+  (is (valid-parent-hash? db un-mined-block))
   ;; Genesis Blocks doesn't validate because its parent
   ;; is not in the DB
-  (is (not (valid-parent-hash? block-0 db))))
+  (is (not (valid-parent-hash? db block-0))))
 
 (deftest test-hash-meets-target
-  (is (hash-meets-target? block-0 []))
-  (is (not (hash-meets-target? un-mined-block []))))
+  (is (hash-meets-target? db block-0))
+  (is (not (hash-meets-target? db un-mined-block))))
 
 (defn hex-* [i hex]
   (-> hex
@@ -61,32 +61,28 @@
       hex-string))
 
 (deftest test-block-target-within-threshold
-  (is (valid-target? block-0 db))
-  (is (valid-target? un-mined-block db))
-  (is (valid-target? (update-in un-mined-block
+  (is (valid-target? db block-0))
+  (is (valid-target? db un-mined-block))
+  (is (valid-target? db (update-in un-mined-block
                                 [:header :target]
-                                (partial hex-* 1001/1000))
-                     db))
-  (is (not (valid-target? (update-in un-mined-block
-                                     [:header :target]
-                                     (partial hex-* 5))
-                          db))))
+                                (partial hex-* 1001/1000))))
+  (is (not (valid-target? db (update-in un-mined-block
+                                        [:header :target]
+                                        (partial hex-* 5))))))
 
 (deftest test-valid-txn-hash
-  (is (valid-txn-hash? un-mined-block db))
-  (is (not (valid-txn-hash? (assoc-in un-mined-block
+  (is (valid-txn-hash? db un-mined-block))
+  (is (not (valid-txn-hash? db (assoc-in un-mined-block
                                       [:transactions 0 :hash]
-                                      "pizza")
-                            db))))
+                                      "pizza")))))
 
 (deftest test-valid-coinbase
-  (is (valid-coinbase? un-mined-block db))
-  (is (not (valid-coinbase? (update-in un-mined-block
-                                       [:transactions 0 :outputs 0 :amount]
-                                       inc)
-                            db)))
+  (is (valid-coinbase? db un-mined-block))
+  (is (not (valid-coinbase? db (update-in un-mined-block
+                                          [:transactions 0 :outputs 0 :amount]
+                                          inc))))
   (with-redefs [c/coinbase-reward 15]
-    (is (not (valid-coinbase? un-mined-block db)))))
+    (is (not (valid-coinbase? db un-mined-block)))))
 
 (deftest test-valid-timestamp
   (let [b (blocks/hashed
@@ -94,31 +90,27 @@
             [(miner/coinbase (:address key-a) [a-pays-b-5] (q/longest-chain db))
              a-pays-b-5]
             {:blocks (q/longest-chain db)}))]
-    (is (valid-timestamp? b db))
-    (is (not (valid-timestamp? (assoc-in b
-                                         [:header :timestamp]
-                                         (+ (current-time-millis) 7000))
-                               [])))
-    (is (not (valid-timestamp? (assoc-in b
-                                         [:header :timestamp]
-                                         (- (current-time-millis)
-                                            70000))
-                               [])))))
+    (is (valid-timestamp? db b))
+    (is (not (valid-timestamp? db (assoc-in b
+                                            [:header :timestamp]
+                                            (+ (current-time-millis) 7000)))))
+    (is (not (valid-timestamp? db (assoc-in b
+                                            [:header :timestamp]
+                                            (- (current-time-millis)
+                                               70000)))))))
 
 (deftest test-all-txns-valid
-  (is (valid-transactions? un-mined-block db))
-  (is (not (valid-transactions? (update-in un-mined-block
-                                           [:transactions 1 :outputs 0 :amount]
-                                           inc)
-                                db))))
+  (is (valid-transactions? db un-mined-block))
+  (is (not (valid-transactions? db (update-in un-mined-block
+                                              [:transactions 1 :outputs 0 :amount]
+                                              inc)))))
 
 (deftest test-no-transactions-spend-same-inputs
-  (is (unique-txn-inputs? un-mined-block db))
+  (is (unique-txn-inputs? db un-mined-block))
   (let [duped-txn (get-in un-mined-block [:transactions 1])]
-    (is (not (unique-txn-inputs? (update-in un-mined-block
+    (is (not (unique-txn-inputs? db (update-in un-mined-block
                                             [:transactions]
-                                            #(conj % duped-txn))
-                                 db)))))
+                                            #(conj % duped-txn)))))))
 
 (deftest test-validate-whole-block
-  (is (empty? (validate-block (miner/mine un-mined-block) db))))
+  (is (empty? (validate-block db (miner/mine un-mined-block)))))

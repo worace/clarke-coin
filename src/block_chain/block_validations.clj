@@ -6,27 +6,27 @@
             [block-chain.transaction-validations :as txn-v]
             [block-chain.utils :refer :all]))
 
-(defn valid-hash? [block _]
+(defn valid-hash? [_ block]
   (= (q/bhash block)
      (b/block-hash block)))
 
-(defn valid-parent-hash? [block db]
+(defn valid-parent-hash? [db block]
   (not (nil? (q/get-block db (q/phash block)))))
 
-(defn hash-meets-target? [block _]
+(defn hash-meets-target? [_ block]
   (b/meets-target? block))
 
-(defn valid-target? [block db]
+(defn valid-target? [db block]
   (let [expected (hex->int (t/next-target (take 10 (q/longest-chain db))))
         received (hex->int (get-in block [:header :target]))
         threshold (/ expected 1000)]
     (in-delta? expected received threshold)))
 
-(defn valid-txn-hash? [block _]
+(defn valid-txn-hash? [_ block]
   (= (get-in block [:header :transactions-hash])
      (b/transactions-hash (:transactions block))))
 
-(defn valid-coinbase? [block db]
+(defn valid-coinbase? [db block]
   (let [cb (first (:transactions block))]
     (and
      (= 1 (count (:outputs cb)))
@@ -43,15 +43,15 @@
   ;; don't really mind if there is a gap between 2 blocks
   "Require timestamp between 10 mins ago and 1 min from now.
    Timestamps are in millis."
-  [{{ts :timestamp} :header} _]
+  [db {{ts :timestamp} :header :as block}]
   (and (> ts (- (current-time-millis) 60000))
        (< ts (+ (current-time-millis) 6000))))
 
-(defn valid-transactions? [block db]
-  (empty? (mapcat #(txn-v/validate-transaction % db #{})
+(defn valid-transactions? [db block]
+  (empty? (mapcat #(txn-v/validate-transaction db %)
                   (rest (:transactions block)))))
 
-(defn unique-txn-inputs? [block _]
+(defn unique-txn-inputs? [_ block]
   (let [inputs (mapcat :inputs (:transactions block))]
     (= (count inputs)
        (count (into #{} inputs)))))
@@ -67,9 +67,9 @@
    valid-transactions? "One or more of the Block's non-coinbase transactions are invalid."
    unique-txn-inputs? "One or more of the Block's transactions attempt to spend the same sources."})
 
-(defn validate-block [block db]
+(defn validate-block [db block]
   (mapcat (fn [[validation message]]
-            (if-not (validation block db)
+            (if-not (validation db block)
               [message]
               []))
           block-validations))

@@ -17,7 +17,7 @@
           (recur next-batch db)))
       (let [next-block (pc/block peer (first this-batch))]
         (do
-          (assert (empty? (bv/validate-block next-block db)))
+          (assert (empty? (bv/validate-block db next-block)))
           (recur (rest this-batch) (q/add-block db next-block)))
         ))))
 

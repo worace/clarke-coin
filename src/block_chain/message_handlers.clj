@@ -81,25 +81,24 @@
 
 (defn submit-transaction [msg sock-info]
   (let [txn (:payload msg)
-        validation-errors (txn-v/validate-transaction txn
-                                                      @db/db
-                                                      @db/transaction-pool)]
-    (if (empty? validation-errors)
-      (do
-        (swap! db/transaction-pool conj txn)
-        (peers/transaction-received! txn)
-        {:message "transaction-accepted" :payload txn})
-      {:message "transaction-rejected" :payload validation-errors})))
+        validation-errors (txn-v/validate-transaction @db/db
+                                                      txn)]
+    (cond
+      (not (txn-v/new-transaction? @db/db txn)) {:message "transaction-rejected" :payload ["Transaction already in this node's pool."]}
+      (not (empty? validation-errors)) {:message "transaction-rejected" :payload validation-errors}
+      :else (do
+              (q/add-transaction-to-pool! db/db txn)
+              (peers/transaction-received! txn)
+              {:message "transaction-accepted" :payload txn}))))
 
 (defn submit-block [msg sock-info]
   (let [b (:payload msg)
-        validation-errors (block-v/validate-block b @db/db)]
+        validation-errors (block-v/validate-block @db/db b)]
     (if (and (empty? validation-errors)
              (q/new-block? @db/db b))
       (do
         (miner/stop-miner!)
         (swap! db/db q/add-block b)
-        (reset! db/transaction-pool #{})
         (peers/block-received! b)
         {:message "block-accepted" :payload b})
       {:message "block-rejected" :payload validation-errors})))
