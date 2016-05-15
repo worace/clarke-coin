@@ -23,14 +23,14 @@
 (defn add-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (swap! db/db q/add-peer {:host host :port port})
+    (q/add-peer! db/db {:host host :port port})
     (block-sync/sync-if-needed! db/db {:host host :port port})
     {:message "peers" :payload @db/peers}))
 
 (defn remove-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (swap! db/db q/remove-peer {:host host :port port})
+    (q/remove-peer! db/db {:host host :port port})
     {:message "peers" :payload (q/peers @db/db)}))
 
 (defn get-balance [msg sock-info]
@@ -41,7 +41,7 @@
 
 (defn get-transaction-pool [msg sock-info]
   {:message "transaction_pool"
-   :payload (into [] @db/transaction-pool)})
+   :payload (into [] (q/transaction-pool @db/db))})
 
 (defn get-block-height [msg sock-info]
   {:message "block_height"

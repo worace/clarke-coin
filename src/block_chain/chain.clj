@@ -1,6 +1,7 @@
 (ns block-chain.chain
   (:require [clojure.java.io :as io]
             [clojure.math.numeric-tower :as math]
+            [block-chain.queries :as q]
             [block-chain.utils :refer :all]
             [block-chain.target :as target]))
 
@@ -47,6 +48,26 @@
   (->> (outputs blocks)
        (filter (partial assigned-to-key? key))
        (filter (partial unspent? blocks))))
+
+;; (defn unspent-db?
+;;   "takes a txn hash and output index identifying a
+;;    Transaction Output in the block chain. Searches the
+;;    chain to find if this output has been spent."
+;;   [db output]
+;;   (let [inputs (inputs blocks)
+;;         {:keys [transaction-id index]} (:coords output)
+;;         spends-output? (partial consumes-output? transaction-id index)]
+;;     (not-any? spends-output? inputs)))
+
+(defn unspent-outputs-db [key db]
+  (->> (outputs (q/longest-chain db))
+       (filter (partial assigned-to-key? key))
+       (filter (partial unspent? (q/longest-chain db)))))
+
+(defn balance-db [address db]
+  (->> (unspent-outputs-db address db)
+       (map :amount)
+       (reduce +)))
 
 (defn balance [address blocks]
   (->> (unspent-outputs address blocks)

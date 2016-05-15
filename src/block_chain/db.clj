@@ -34,6 +34,7 @@
                :children {}
                :chains {}
                :peers #{}
+               :transaction-pool #{}
                :transactions {}})
 (def initial-db (q/add-block empty-db genesis-block))
 (defonce db (atom initial-db))

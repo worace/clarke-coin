@@ -18,7 +18,7 @@
 (def address-b (:address key-b))
 
 (defn db-with-blocks [n]
-  (reduce (fn [db _] (miner/mine-and-commit-db db))
+  (reduce (fn [db _] (miner/mine-and-commit-db! db))
           (atom db/empty-db)
           (range n)))
 
@@ -37,7 +37,7 @@
 (deftest test-committing-block-to-chain
   (let [db (atom db/empty-db)]
     (is (= 0 (q/chain-length @db)))
-    (miner/mine-and-commit-db db
+    (miner/mine-and-commit-db! db
                               (blocks/generate-block-db
                                [(miner/coinbase address-a)]
                                {:db @db}))
@@ -55,7 +55,7 @@
 
 (deftest test-checking-balances
   (let [db (atom db/empty-db)]
-    (dotimes [n 3] (miner/mine-and-commit-db db))
+    (dotimes [n 3] (miner/mine-and-commit-db! db))
     (is (= 3 (q/chain-length @db)))
     (is (= 3 (count (bc/unspent-outputs address-a (q/longest-chain @db)))))
     (is (= 75 (bc/balance address-a (q/longest-chain @db))))))
@@ -124,7 +124,7 @@
       (is (= 24 (reduce + (map :amount (:outputs p)))))
       (is (= 25 (->> p
                      :inputs
-                     (map (partial bc/source-output (q/longest-chain @db)))
+                     (map (partial q/source-output @db))
                      (map :amount)
                      (reduce +))))
       (is (wallet/verify sig (txn/txn-signable p) (:public key-a)))))
@@ -169,3 +169,5 @@
         (is (wallet/verify (:signature (first (:inputs signed)))
               (txn/txn-signable signed)
               (:public key-a))))))
+
+(deftest test-utxos-on-big-chain)

@@ -114,33 +114,31 @@
 (defonce mine? (atom true))
 (defn stop-miner! [] (reset! mine? false))
 
+;; (defn block-transactions [db coinbase-addr txn-pool]
+(defn next-block [db]
+  (let [txn-pool (->> (q/transaction-pool db)
+                      (block-transactions db (:address wallet/keypair)))]
+    (blocks/generate-block txn-pool
+                           {:blocks (reverse (take 10 (q/longest-chain db)))
+                            :parent-hash (q/highest-hash db)})))
+
 (defn mine-and-commit-db
-  ([] (mine-and-commit-db db/db))
-  ([db-ref]
-   (let [txns (into [(coinbase (:address wallet/keypair)
-                               @db/transaction-pool)]
-                    @db/transaction-pool)]
-     (reset! db/transaction-pool #{})
-     (mine-and-commit-db db-ref
-                    (blocks/generate-block
-                     txns
-                     {:blocks (reverse (take 10 (q/longest-chain @db-ref)))
-                      :parent-hash (q/highest-hash @db-ref)}))))
-  ([db-ref pending]
-   (reset! mine? true)
-   (if-let [b (mine pending mine?)]
-     (let [errors (block-v/validate-block b @db-ref)]
-       (if-not (empty? errors)
-         (println "MINED INVALID BLOCK: " errors))
-       (do
-         (swap! db-ref q/add-block b)
-         (peers/block-received! b)
-         db-ref))
-     (do (println "didn't find coin, exiting")
-         db-ref))))
+  ([db] (mine-and-commit-db db (next-block db)))
+  ([db candidate]
+   (if-let [b (mine candidate)]
+     (q/add-block db b)
+     db)))
+
+(defn mine-and-commit-db!
+  ([] (mine-and-commit-db! db/db))
+  ([db-ref] (mine-and-commit-db! db-ref
+                                 (next-block @db-ref)))
+  ([db-ref pending] (do (swap! db-ref mine-and-commit-db pending)
+                        (peers/block-received! (q/highest-block @db-ref))
+                        db-ref)))
 
 (defn run-miner! []
   (reset! mine? true)
   (async/go
     (while @mine?
-      (mine-and-commit-db))))
+      (mine-and-commit-db!))))

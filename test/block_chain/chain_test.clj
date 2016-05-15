@@ -9,7 +9,7 @@
             [clojure.tools.namespace.repl :refer [refresh]]))
 
 (def test-db (atom db/empty-db))
-(miner/mine-and-commit-db test-db)
+(miner/mine-and-commit-db! test-db)
 
 (def sample-txn (-> (q/highest-block @test-db) :transactions first) )
 

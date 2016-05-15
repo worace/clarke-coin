@@ -12,12 +12,12 @@
 (def peer-db (atom db/initial-db))
 
 ;; A: 25
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
 
 (def our-db (atom db/initial-db))
 

@@ -48,9 +48,7 @@
 
 (defn with-db [f]
   (reset! db/db db/initial-db)
-  (reset! db/transaction-pool #{})
   (f)
-  (reset! db/transaction-pool #{})
   (reset! db/db db/initial-db))
 
 (use-fixtures :each with-db with-peer)
@@ -78,23 +76,23 @@
   (is (= [] (response {:message "get_peers"}))))
 
 (deftest test-getting-balance-for-key
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
   (responds {:balance 25 :address (:address wallet/keypair)}
             {:message "get_balance" :payload (:address wallet/keypair)}))
 
 (deftest test-getting-block-height
   (responds 1 {:message "get_block_height"})
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
   (responds 2 {:message "get_block_height"}))
 
 (deftest test-getting-latest-block
   (responds db/genesis-block {:message "get_latest_block"})
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
   (responds (q/highest-block @db/db)
             {:message "get_latest_block"}))
 
 (deftest test-generating-transaction
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
   (let [key-b (wallet/generate-keypair 512)
         utxn (:payload (handler {:message "generate_payment"
                                  :payload {:amount 15
@@ -112,7 +110,7 @@
                   (reduce + (map :amount (:outputs utxn)))))))))
 
 (deftest test-submitting-and-mining-transaction
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
   (let [key-b (wallet/generate-keypair 512)
         payment (miner/generate-payment wallet/keypair (:address key-b) 25 (q/longest-chain @db/db))]
     (is (= payment (s/validate Transaction payment)))
@@ -124,34 +122,34 @@
            (handler {:message "submit_transaction"
                      :payload payment}
                     sock-info)))
-    (is (= 1 (count @db/transaction-pool)))
-    (miner/mine-and-commit-db)
-    (is (empty? @db/transaction-pool))
+    (is (= 1 (count (q/transaction-pool @db/db))))
+    (miner/mine-and-commit-db!)
+    (is (empty? (q/transaction-pool @db/db)))
     (is (= 25 (bc/balance (:address wallet/keypair)
                           (q/longest-chain @db/db))))
     (is (= 25 (bc/balance (:address key-b) (q/longest-chain @db/db))))))
 
 (deftest test-submitting-transaction-with-txn-fee
   (let [key-b (wallet/generate-keypair 512)]
-    (miner/mine-and-commit-db)
-    (with-redefs [db/transaction-pool (atom #{})]
-      (let [payment (miner/generate-payment wallet/keypair (:address key-b) 24 (q/longest-chain @db/db) 1)]
-        (handler {:message "submit_transaction" :payload payment} sock-info)
-        (miner/mine-and-commit-db)
-        ;; miner should have 25 from coinbase and 1 from allotted txn fee
-        (is (= 26 (bc/balance (:address wallet/keypair) (q/longest-chain @db/db))))
-        ;; B should have 24 from the payment
-        (is (= 24 (bc/balance (:address key-b) (q/longest-chain @db/db))))))))
+    (miner/mine-and-commit-db!)
+    (let [payment (miner/generate-payment wallet/keypair (:address key-b) 24 (q/longest-chain @db/db) 1)]
+      (handler {:message "submit_transaction" :payload payment} sock-info)
+      (miner/mine-and-commit-db!)
+      ;; miner should have 25 from coinbase and 1 from allotted txn fee
+      (is (= 26 (bc/balance (:address wallet/keypair) (q/longest-chain @db/db))))
+      ;; B should have 24 from the payment
+      (is (= 24 (bc/balance (:address key-b) (q/longest-chain @db/db)))))))
 
 (deftest test-only-forwards-new-transactions
-  (miner/mine-and-commit-db)
-  (is (= 0 (count @db/transaction-pool)))
+  (miner/mine-and-commit-db!)
+  (is (empty? (q/transaction-pool @db/db)))
   (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 (q/longest-chain @db/db))]
     (handler {:message "add_peer" :payload {:port test-port}} sock-info)
     ;; send same txn twice but should only get forwarded once
     (is (= {:message "transaction-accepted" :payload txn}
            (handler {:message "submit_transaction" :payload txn} sock-info)))
-    (handler {:message "submit_transaction" :payload txn} sock-info)
+    (is (= "transaction-rejected"
+           (:message (handler {:message "submit_transaction" :payload txn} sock-info))))
     (is (= 1 (count (@peer-requests "/pending_transactions"))))
     (let [req (first (@peer-requests "/pending_transactions"))]
       (is (= :post (:request-method req)))
@@ -160,7 +158,7 @@
 (defn json-body [req] (read-json (:body req)))
 (deftest test-forwarding-mined-blocks-to-peers
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
   (is (= 2 (q/chain-length @db/db)))
   (is (= 1 (count (mapcat val @peer-requests))))
   (is (= (list "/blocks") (keys @peer-requests)))
@@ -205,7 +203,7 @@
              (json-body req))))))
 
 (deftest test-receiving-block-clears-txn-pool
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
   (let [chain (q/longest-chain @db/db)
         addr (:address wallet/keypair)
         txn (miner/generate-payment wallet/keypair addr 25 chain)
@@ -213,14 +211,15 @@
               (blocks/generate-block {:blocks chain})
               (miner/mine))]
     (handler {:message "submit_transaction" :payload txn} sock-info)
-    (is (= 1 (count @db/transaction-pool)))
-    (responds {:balance 25 :address (:address wallet/keypair)} {:message "get_balance" :payload (:address wallet/keypair)})
+    (is (= 1 (count (q/transaction-pool @db/db))))
+    (responds {:balance 25 :address (:address wallet/keypair)}
+              {:message "get_balance" :payload (:address wallet/keypair)})
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
-    (is (= 0 (count @db/transaction-pool)))))
+    (is (= 0 (count (q/transaction-pool @db/db))))))
 
 (deftest test-validating-incoming-transactions
   (let [alt-db (atom db/empty-db)]
-    (miner/mine-and-commit-db alt-db)
+    (miner/mine-and-commit-db! alt-db)
     (let [txn (miner/generate-payment wallet/keypair
                                       (:address wallet/keypair)
                                       25
@@ -229,9 +228,9 @@
              (:message (handler {:message "submit_transaction" :payload txn} sock-info)))))))
 
 (deftest test-blocks-since
-  (miner/mine-and-commit-db)
-  (miner/mine-and-commit-db)
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
+  (miner/mine-and-commit-db!)
+  (miner/mine-and-commit-db!)
   (is (= {:message "blocks_since" :payload (map q/bhash (drop 1 (reverse (q/longest-chain @db/db)))) }
          (handler
           {:message "get_blocks_since" :payload (q/bhash (last (q/longest-chain @db/db)))}

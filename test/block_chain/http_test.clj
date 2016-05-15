@@ -19,9 +19,8 @@
 (def key-a wallet/keypair)
 (def key-b (wallet/generate-keypair 512))
 
-(def starting-db (-> (atom db/empty-db)
-                     (miner/mine-and-commit-db)
-                     (deref)))
+(def starting-db (-> db/empty-db
+                     (miner/mine-and-commit-db)))
 
 (def sample-block (first (q/longest-chain starting-db)))
 (def next-block (miner/mine
@@ -56,10 +55,8 @@
 
 (defn with-db [f]
   (reset! db/db starting-db)
-  (reset! db/transaction-pool #{})
   (f)
-  (reset! db/db starting-db)
-  (reset! db/transaction-pool #{}))
+  (reset! db/db starting-db))
 
 (use-fixtures :once with-server)
 (use-fixtures :each with-db)
@@ -90,7 +87,7 @@
           (:body (get-req "/blocks")))))
 
 (deftest test-get-transaction-pool
-  (swap! db/transaction-pool conj sample-transaction)
+  (q/add-transaction-to-pool! db/db sample-transaction)
   (is  (= {:message "transaction_pool" :payload [sample-transaction]}
           (:body (get-req "/pending_transactions")))))
 
@@ -139,8 +136,8 @@
            (sort (:payload (:body resp)))))))
 
 (deftest test-getting-blocks-since-height
-  (miner/mine-and-commit-db)
-  (miner/mine-and-commit-db)
+  (miner/mine-and-commit-db!)
+  (miner/mine-and-commit-db!)
   (is (= (map q/bhash (drop 1 (reverse (q/longest-chain @db/db))))
          (pc/blocks-since {:host "localhost" :port "9292"}
                           (q/bhash (last (q/longest-chain @db/db)))))))

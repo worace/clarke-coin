@@ -44,3 +44,30 @@
 (deftest test-fetching-txn
   (let [t (-> sample-db longest-chain last :transactions first)]
     (is (= t (get-txn sample-db (:hash t))))))
+
+(deftest test-source-output
+  (let [t (-> sample-db longest-chain last :transactions first)
+        i {:source-hash (:hash t) :source-index 0 :signature "pizza"}]
+    (is (= (-> t :outputs first)
+           (source-output sample-db i)))))
+
+(deftest test-utxos
+  (is (= (->> sample-db
+              :transactions
+              vals
+              (mapcat :outputs)
+              (into #{}))
+         (utxos sample-db))))
+
+(def big-chain (take 100000 (fake-chain)))
+(def big-db
+  (reduce add-block db/initial-db (drop 1 big-chain)))
+
+;; input: {source-hash "FFF.." source-index 0}
+;; output {address "pizza" amount "50"}
+
+;; UTXO:
+;; Map of...? Coords? Vector of txn hash and index?
+;; OR
+;; Set of Coords
+;; #{["txn-hash 1" 0] ["txn-hash 2" 0] }
