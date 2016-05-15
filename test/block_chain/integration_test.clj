@@ -32,8 +32,7 @@
   (let [block (-> (miner/coinbase address-a)
                   (blocks/generate-block-db {:db empty-db})
                   (miner/mine))]
-    (is (blocks/meets-target? block))
-    (is (> (get-in block [:header :nonce]) 0))))
+    (is (blocks/meets-target? block))))
 
 (deftest test-committing-block-to-chain
   (let [db (atom db/empty-db)]

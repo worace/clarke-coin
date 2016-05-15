@@ -6,24 +6,6 @@
 
 (def coinbase-reward 25)
 
-(defn bhash [block] (get-in block [:header :hash]))
-
-(defn block-by-hash
-  [hash blocks]
-  (first
-   (filter #(= hash (get-in % [:header :hash]))
-           blocks)))
-
-(defn index-of [predicate seq]
-  (loop [idx 0 items seq]
-    (cond
-      (empty? items) nil
-      (predicate (first items)) idx
-      :else (recur (inc idx) (rest items)))))
-
-(defn block-index [hash blocks]
-  (index-of (fn [b] (= hash (bhash b))) blocks))
-
 (defn transactions [blocks] (mapcat :transactions blocks))
 (defn inputs [blocks] (mapcat :inputs (transactions blocks)))
 (defn outputs [blocks] (mapcat :outputs (transactions blocks)))
@@ -42,23 +24,6 @@
   (into {}
         (map (fn [i] [i (source-output chain i)])
              inputs)))
-
-(defn latest-block-hash
-  "Look up the hash of the latest block in the provided chain.
-   Useful for getting parent hash for new blocks."
-  [chain]
-  (if-let [parent (last chain)]
-    (get-in parent [:header :hash])
-    (hex-string 0)))
-
-(defn next-target
-  "Calculate the appropriate next target based on the time frequency
-   of recent blocks."
-  [blocks]
-  (let [recent-blocks (take-last 10 blocks)]
-    (if (> (count recent-blocks) 1)
-      (target/adjusted-target recent-blocks target/frequency)
-      target/default)))
 
 (defn consumes-output?
   [source-hash source-index input]
@@ -84,9 +49,9 @@
        (filter (partial unspent? blocks))))
 
 (defn balance [address blocks]
-  (reduce +
-          (map :amount
-               (unspent-outputs address blocks))))
+  (->> (unspent-outputs address blocks)
+       (map :amount)
+       (reduce +)))
 
 (defn unspent-output-coords [key blocks]
   (mapcat (fn [txn]
