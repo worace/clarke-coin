@@ -131,13 +131,13 @@
       txn)))
 
 (defn unsigned-payment
-  ([from-address to-address amount chain] (unsigned-payment from-address to-address amount chain 0))
-  ([from-address to-address amount chain fee]
-   (let [output-pool (bc/unspent-outputs from-address chain)
+  ([from-address to-address amount db] (unsigned-payment from-address to-address amount db 0))
+  ([from-address to-address amount db fee]
+   (let [output-pool (bc/unspent-outputs-db from-address db)
          sources (select-sources (+ amount fee) output-pool)
          txn (raw-txn amount to-address sources)]
      (-> txn
-         (assoc :min-height (count chain))
+         (assoc :min-height (q/chain-length db))
          (add-change from-address sources (+ amount fee))
          (hash-txn)
          (tag-coords)))))
@@ -154,5 +154,5 @@
     key."
   ([key address amount db] (payment key address amount db 0))
   ([key address amount db fee]
-   (-> (unsigned-payment (:address key) address amount (q/longest-chain db) fee)
+   (-> (unsigned-payment (:address key) address amount db fee)
        (sign-txn (:private key)))))

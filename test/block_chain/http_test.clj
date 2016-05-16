@@ -23,7 +23,7 @@
 (def starting-db (-> db/empty-db
                      (miner/mine-and-commit-db)))
 
-(def sample-block (first (q/longest-chain starting-db)))
+(def sample-block (q/highest-block starting-db))
 (def next-block (miner/mine (miner/next-block starting-db)))
 
 ;; A pays B 5

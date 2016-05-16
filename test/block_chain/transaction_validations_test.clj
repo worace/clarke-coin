@@ -20,9 +20,9 @@
 (def a-coinbase (txn/coinbase (:address key-a) @db))
 (def b-coinbase (txn/coinbase (:address key-b) @db))
 
-(def a-paid (blocks/generate-block [a-coinbase]))
+(def a-paid (blocks/generate-block [a-coinbase] @db))
 (miner/mine-and-commit-db! db a-paid)
-(def b-paid (blocks/generate-block [b-coinbase] {:blocks (q/longest-chain @db)}))
+(def b-paid (blocks/generate-block [b-coinbase] @db))
 ;; A and B both start with 25
 ;; A: 25 B: 25
 (miner/mine-and-commit-db! db b-paid)
@@ -33,7 +33,7 @@
 
 ;; B pays A 5
 ;; A: 30, B: 20
-(swap! db q/add-block (miner/mine (blocks/generate-block [b-pays-a-5] {:blocks (q/longest-chain @db)})))
+(swap! db q/add-block (miner/mine (blocks/generate-block [b-pays-a-5] @db)))
 (assert (= 3 (q/chain-length @db)))
 ;; Pending payment transactions:
 (def a-pays-b-15 (txn/payment key-a

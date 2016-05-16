@@ -177,28 +177,27 @@
 
 (deftest test-receiving-new-block-adds-to-block-chain
   (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
-                                             {:blocks (q/longest-chain @db/db)}))]
+                                             @db/db))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= 2 (q/chain-length @db/db)))))
 
 (deftest test-forwarding-received-blocks-to-peers
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
   (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
-                                             {:blocks (q/longest-chain @db/db)}))]
+                                             @db/db))]
     (handler {:message "submit_block" :payload b} sock-info)
     (is (= 2 (q/chain-length @db/db)))
     (is (= (list "/blocks") (keys @peer-requests)))
     (let [req (first (@peer-requests "/blocks"))]
       (is (= :post (:request-method req)))
       (is (= b (json-body req)))
-
       (is (= (q/highest-block @db/db)
              (json-body req))))))
 
 (deftest test-forwards-received-block-to-peers-only-if-new
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
   (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
-                                             {:blocks (q/longest-chain @db/db)}))]
+                                             @db/db))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= 2 (q/chain-length @db/db)))
     (handler {:message "submit_block" :payload b} sock-info)
@@ -216,7 +215,7 @@
         addr (:address wallet/keypair)
         txn (txn/payment wallet/keypair addr 25 @db/db)
         b (-> (txn/txns-for-next-block @db/db addr [txn])
-              (blocks/generate-block {:blocks chain})
+              (blocks/generate-block @db/db)
               (miner/mine))]
     (handler {:message "submit_transaction" :payload txn} sock-info)
     (is (= 1 (count (q/transaction-pool @db/db))))

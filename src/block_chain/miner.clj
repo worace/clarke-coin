@@ -30,8 +30,7 @@
   (let [txn-pool (txn/txns-for-next-block db
                                           (:address wallet/keypair))]
     (blocks/generate-block txn-pool
-                           {:blocks (reverse (take 10 (q/longest-chain db)))
-                            :parent-hash (q/highest-hash db)})))
+                           db)))
 
 (defn mine-and-commit-db
   ([db] (mine-and-commit-db db (next-block db)))

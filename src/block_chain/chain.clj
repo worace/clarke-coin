@@ -31,11 +31,6 @@
 (defn assigned-to-key? [key output]
   (= key (:address output)))
 
-(defn unspent-outputs [key blocks]
-  (->> (outputs blocks)
-       (filter (partial assigned-to-key? key))
-       (filter (partial unspent? blocks))))
-
 (defn unspent-outputs-db [key db]
   (->> (q/utxos db)
        (filter (partial assigned-to-key? key))))

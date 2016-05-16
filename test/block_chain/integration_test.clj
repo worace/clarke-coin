@@ -31,7 +31,7 @@
 
 (deftest test-mining-block
   (let [block (-> (txn/coinbase address-a)
-                  (blocks/generate-block-db {:db empty-db})
+                  (blocks/generate-block empty-db)
                   (miner/mine))]
     (is (blocks/meets-target? block))))
 
@@ -39,9 +39,9 @@
   (let [db (atom db/empty-db)]
     (is (= 0 (q/chain-length @db)))
     (miner/mine-and-commit-db! db
-                              (blocks/generate-block-db
+                              (blocks/generate-block
                                [(txn/coinbase address-a)]
-                               {:db @db}))
+                               @db))
     (is (= 1 (q/chain-length @db)))))
 
 (deftest test-mining-multiple-blocks
@@ -74,7 +74,7 @@
 (deftest test-generating-payment-fails-without-sufficient-funds
   (let [db (db-with-blocks 1)]
     (is (= 1 (count (q/longest-chain @db))))
-    (is (= 1 (count (bc/unspent-outputs address-a (q/longest-chain @db)))))
+    (is (= 1 (count (bc/unspent-outputs-db address-a @db))))
     (is (= 25 (bc/balance-db address-a @db)))
     (is (thrown? AssertionError
                  (txn/payment key-a
@@ -150,7 +150,7 @@
 
 (deftest test-generating-unsigned-payment
   (let [db (db-with-blocks 1)
-        p (txn/unsigned-payment address-a address-b 15 (q/longest-chain @db) 3)
+        p (txn/unsigned-payment address-a address-b 15 @db 3)
         sig (:signature (first (:inputs p)))]
       (is (= 1 (count (:inputs p))))
       (is (= 2 (count (:outputs p))))

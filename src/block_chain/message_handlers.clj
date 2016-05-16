@@ -75,7 +75,7 @@
              (:from-address (:payload msg))
              (:to-address (:payload msg))
              (:amount (:payload msg))
-             (q/longest-chain @db/db)
+             @db/db
              (or (:fee (:payload msg)) 0))})
 
 (defn submit-transaction [msg sock-info]

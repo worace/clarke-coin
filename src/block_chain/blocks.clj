@@ -19,21 +19,9 @@
   (sha256 (block-hashable header)))
 
 (defn generate-block
-  ([transactions] (generate-block transactions {:blocks []}))
-  ([transactions {:keys [parent-hash target timestamp nonce blocks]}]
-   {:header {:parent-hash (or parent-hash
-                              (or (q/bhash (first blocks))
-                                  (hex-string 0)))
-             :transactions-hash (transactions-hash transactions)
-             :target (or target (target/next-target blocks))
-             :timestamp (or timestamp (current-time-millis))
-             :nonce (or nonce 0)}
-    :transactions transactions}))
-
-(defn generate-block-db
-  ;; ([transactions] (generate-block transactions {:blocks db/empty-db}))
-  ([transactions {:keys [parent-hash target timestamp nonce db]}]
-   {:header {:parent-hash (or parent-hash (q/highest-hash db))
+  ([txns db] (generate-block txns db {}))
+  ([transactions db {:keys [parent-hash target timestamp nonce]}]
+   {:header {:parent-hash (or parent-hash (q/highest-hash db) (hex-string 0))
              :transactions-hash (transactions-hash transactions)
              :target (or target
                          (target/next-target (take 10 (q/longest-chain db))))
