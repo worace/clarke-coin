@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
+            [block-chain.transactions :as txn]
             [block-chain.chain :as bc]
             [org.httpkit.server :as httpkit]
             [compojure.core :refer [routes]]
@@ -175,14 +176,14 @@
            (json-body req)))))
 
 (deftest test-receiving-new-block-adds-to-block-chain
-  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
                                              {:blocks (q/longest-chain @db/db)}))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= 2 (q/chain-length @db/db)))))
 
 (deftest test-forwarding-received-blocks-to-peers
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
                                              {:blocks (q/longest-chain @db/db)}))]
     (handler {:message "submit_block" :payload b} sock-info)
     (is (= 2 (q/chain-length @db/db)))
@@ -196,7 +197,7 @@
 
 (deftest test-forwards-received-block-to-peers-only-if-new
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (let [b (miner/mine (blocks/generate-block [(miner/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
                                              {:blocks (q/longest-chain @db/db)}))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= 2 (q/chain-length @db/db)))

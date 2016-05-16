@@ -2,7 +2,8 @@
   (:require [block-chain.blocks :as b]
             [block-chain.chain :as c]
             [block-chain.queries :as q]
-            [block-chain.target :as t]
+            [block-chain.target :as target]
+            [block-chain.transactions :as txn]
             [block-chain.transaction-validations :as txn-v]
             [block-chain.utils :refer :all]))
 
@@ -17,7 +18,7 @@
   (b/meets-target? block))
 
 (defn valid-target? [db block]
-  (let [expected (hex->int (t/next-target (take 10 (q/longest-chain db))))
+  (let [expected (hex->int (target/next-target (take 10 (q/longest-chain db))))
         received (hex->int (get-in block [:header :target]))
         threshold (/ expected 1000)]
     (in-delta? expected received threshold)))
@@ -31,8 +32,8 @@
     (and
      (= 1 (count (:outputs cb)))
      (= 0 (count (:inputs cb)))
-     (= (+ c/coinbase-reward
-           (c/txn-fees (rest (:transactions block))
+     (= (+ txn/coinbase-reward
+           (txn/txn-fees (rest (:transactions block))
                        db))
         (:amount (first (:outputs cb)))))))
 

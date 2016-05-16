@@ -5,8 +5,6 @@
             [block-chain.utils :refer :all]
             [block-chain.target :as target]))
 
-(def coinbase-reward 25)
-
 (defn transactions [blocks] (mapcat :transactions blocks))
 (defn inputs [blocks] (mapcat :inputs (transactions blocks)))
 (defn outputs [blocks] (mapcat :outputs (transactions blocks)))
@@ -46,13 +44,3 @@
   (->> (unspent-outputs-db address db)
        (map :amount)
        (reduce +)))
-
-(defn txn-fees
-  "Finds available txn-fees from a pool of txns by finding the diff
-   between cumulative inputs and cumulative outputs"
-  [txns db]
-  (let [sources (map (partial q/source-output db)
-                     (mapcat :inputs txns))
-        outputs (mapcat :outputs txns)]
-    (- (reduce + (map :amount sources))
-       (reduce + (map :amount outputs)))))

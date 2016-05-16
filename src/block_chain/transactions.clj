@@ -1,8 +1,11 @@
 (ns block-chain.transactions
   (:require [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
+            [block-chain.queries :as q]
+            [block-chain.db :as db]
             [cheshire.core :as json]))
 
+(def coinbase-reward 25)
 (def input-signable (partial cat-keys [:source-hash :source-index]))
 (def input-hashable (partial cat-keys [:source-hash :source-index]))
 (def output-signable (partial cat-keys [:amount :address]))
@@ -57,3 +60,30 @@
            :inputs
            (into [] (map (fn [i] (assoc i :signature (wallet/sign signable private-key)))
                          (:inputs txn))))))
+
+(defn txn-fees
+  "Finds available txn-fees from a pool of txns by finding the diff
+   between cumulative inputs and cumulative outputs"
+  [txns db]
+  (let [sources (map (partial q/source-output db)
+                     (mapcat :inputs txns))
+        outputs (mapcat :outputs txns)]
+    (- (reduce + (map :amount sources))
+       (reduce + (map :amount outputs)))))
+
+(defn coinbase
+  "Generate new 'coinbase' mining reward transaction for the given
+   address and txn pool. Coinbase includes no inputs and 1 output,
+   where the address of the output is the address provided and the
+   amount of the output is "
+  ([] (coinbase (:address wallet/keypair)))
+  ([address] (coinbase address @db/db))
+  ([address db]
+   (tag-coords
+    (hash-txn
+     {:inputs []
+      :min-height (q/chain-length db)
+      :outputs [{:amount (+ coinbase-reward
+                            (txn-fees (q/transaction-pool db) db))
+                 :address address}]
+      :timestamp (current-time-millis)}))))

@@ -24,13 +24,13 @@
           (range n)))
 
 (deftest generating-coinbase
-  (let [cb (miner/coinbase address-a)]
+  (let [cb (txn/coinbase address-a)]
     (is (= #{:inputs :outputs :timestamp :hash :min-height} (into #{} (keys cb))))
     (is (= (:hash cb)
            (get-in cb [:outputs 0 :coords :transaction-id])))))
 
 (deftest test-mining-block
-  (let [block (-> (miner/coinbase address-a)
+  (let [block (-> (txn/coinbase address-a)
                   (blocks/generate-block-db {:db empty-db})
                   (miner/mine))]
     (is (blocks/meets-target? block))))
@@ -40,7 +40,7 @@
     (is (= 0 (q/chain-length @db)))
     (miner/mine-and-commit-db! db
                               (blocks/generate-block-db
-                               [(miner/coinbase address-a)]
+                               [(txn/coinbase address-a)]
                                {:db @db}))
     (is (= 1 (q/chain-length @db)))))
 
@@ -83,8 +83,8 @@
                                          (q/longest-chain @db))))))
 
 (deftest test-generating-raw-payment-txn
-  (let [sources (concat (:outputs (miner/coinbase address-a))
-                        (:outputs (miner/coinbase address-b)))
+  (let [sources (concat (:outputs (txn/coinbase address-a @db/db))
+                        (:outputs (txn/coinbase address-b @db/db)))
         raw-p (miner/raw-payment-txn 50 "addr" sources)]
     (is (= 2 (count (:inputs raw-p))))
     (is (= (into #{} (vals (:coords (first sources))))

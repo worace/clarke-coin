@@ -11,26 +11,8 @@
             [block-chain.peer-notifications :as peers]
             [block-chain.wallet :as wallet]))
 
-(defn coinbase
-  "Generate new 'coinbase' mining reward transaction for the given
-   address and txn pool. Coinbase includes no inputs and 1 output,
-   where the address of the output is the address provided and the
-   amount of the output is "
-  ([] (coinbase (:address wallet/keypair)))
-  ([address] (coinbase address [] @db/db))
-  ([address txn-pool] (coinbase address txn-pool @db/db))
-  ([address txn-pool db]
-   (txn/tag-coords
-    (txn/hash-txn
-     {:inputs []
-      :min-height (q/chain-length db)
-      :outputs [{:amount (+ bc/coinbase-reward
-                            (bc/txn-fees txn-pool db))
-                 :address address}]
-      :timestamp (current-time-millis)}))))
-
 (defn block-transactions [db coinbase-addr txn-pool]
-  (into [(coinbase coinbase-addr txn-pool db)]
+  (into [(txn/coinbase coinbase-addr db)]
         txn-pool))
 
 (defn raw-payment-txn

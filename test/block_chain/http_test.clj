@@ -23,9 +23,7 @@
                      (miner/mine-and-commit-db)))
 
 (def sample-block (first (q/longest-chain starting-db)))
-(def next-block (miner/mine
-                 (blocks/generate-block [(miner/coinbase (:address wallet/keypair))]
-                                        {:blocks (q/longest-chain starting-db)})))
+(def next-block (miner/mine (miner/next-block starting-db)))
 
 ;; A pays B 5
 (def sample-transaction (miner/generate-payment key-a

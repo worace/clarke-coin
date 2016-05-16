@@ -7,6 +7,7 @@
             [block-chain.chain :as c]
             [block-chain.queries :as q]
             [clojure.math.numeric-tower :as math]
+            [block-chain.transactions :as txn]
             [block-chain.miner :as miner]
             [block-chain.blocks :as blocks]
             [block-chain.transaction-validations :refer :all]))
@@ -16,8 +17,8 @@
 (def key-a (wallet/generate-keypair 512))
 (def key-b (wallet/generate-keypair 512))
 
-(def a-coinbase (miner/coinbase (:address key-a)))
-(def b-coinbase (miner/coinbase (:address key-b)))
+(def a-coinbase (txn/coinbase (:address key-a) @db))
+(def b-coinbase (txn/coinbase (:address key-b) @db))
 
 (def a-paid (blocks/generate-block [a-coinbase]))
 (miner/mine-and-commit-db! db a-paid)
