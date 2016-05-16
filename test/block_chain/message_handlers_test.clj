@@ -299,37 +299,7 @@
     ;; PeerDb - A - D - E - F
     ;;            \
     ;;             B - C - G - H
-;; N1 - A -   B - C
-;;           /     \
-;; N2 - A - B   -  C
-;; Block Chain: [B1 B2 B3 B4]
-;; Block Chain: [B1 B2* B3 B4]
-;; N1 - A - C XXXX
-;; N1 - A - B - D
-;;            B  D
-;;            / /
-;; N2 - A - B - D
-;; "A" -> <Block A>
-;; "B" -> <Block B>
-;; "C" -> <Block C>
-;; A -> 0
-;; B -> 1
-;; C -> 1
-;; "block hash" -> <Block>
-;; chains: "block hash" -> 3
 
     (is (= 4 (q/chain-length @db/db)))
     (is (= (q/highest-block @peer-db)
            (q/highest-block @db/db)))))
-
-
-
-
-
-
-
-
-
-
-
-
