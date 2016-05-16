@@ -81,3 +81,14 @@
                (-> unspent
                    (clojure.set/union new-outputs)
                    (clojure.set/difference consumed-sources)))))))
+
+(defn assigned-to-key? [key txo] (= key (:address txo)))
+
+(defn unspent-outputs [key db]
+  (->> (utxos db)
+       (filter (partial assigned-to-key? key))))
+
+(defn balance [address db]
+  (->> (unspent-outputs address db)
+       (map :amount)
+       (reduce +)))

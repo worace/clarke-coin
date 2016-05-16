@@ -1,7 +1,6 @@
 (ns block-chain.miner
   (:require [clojure.math.numeric-tower :as math]
             [block-chain.utils :refer :all]
-            [block-chain.chain :as bc]
             [block-chain.db :as db]
             [block-chain.queries :as q]
             [block-chain.blocks :as blocks]

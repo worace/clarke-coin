@@ -4,7 +4,6 @@
             [clojure.pprint :refer [pprint]]
             [block-chain.utils :refer :all]
             [block-chain.db :refer [empty-db]]
-            [block-chain.chain :as c]
             [block-chain.queries :as q]
             [clojure.math.numeric-tower :as math]
             [block-chain.transactions :as txn]

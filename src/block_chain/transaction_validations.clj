@@ -1,6 +1,5 @@
 (ns block-chain.transaction-validations
   (:require [schema.core :as s]
-            [block-chain.chain :as c]
             [block-chain.transactions :as t]
             [block-chain.queries :as q]
             [block-chain.key-serialization :as ks]
@@ -27,7 +26,7 @@
     false))
 
 (defn signatures-valid? [db txn]
-  (let [inputs-sources (c/inputs-to-sources (:inputs txn) db)]
+  (let [inputs-sources (t/inputs-to-sources (:inputs txn) db)]
     (every? (fn [[input source]]
               (verify-input-signature input source txn))
             inputs-sources)))
@@ -39,7 +38,7 @@
         false)))
 
 (defn inputs-properly-sourced? [db txn]
-  (let [inputs-sources (c/inputs-to-sources (:inputs txn)
+  (let [inputs-sources (t/inputs-to-sources (:inputs txn)
                                             db)]
     (and (every? identity (keys inputs-sources))
          (every? identity (vals inputs-sources))
@@ -47,9 +46,9 @@
             (count (into #{} (vals inputs-sources)))))))
 
 (defn inputs-unspent? [db txn]
-  (let [sources (vals (c/inputs-to-sources (:inputs txn)
+  (let [sources (vals (t/inputs-to-sources (:inputs txn)
                                            db))]
-    (every? (partial c/unspent? (q/longest-chain db)) sources)))
+    (every? (partial t/unspent? (q/longest-chain db)) sources)))
 
 (defn valid-hash? [db txn]
   (= (:hash txn) (t/txn-hash txn)))

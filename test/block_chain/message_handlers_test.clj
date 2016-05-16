@@ -5,7 +5,6 @@
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
             [block-chain.transactions :as txn]
-            [block-chain.chain :as bc]
             [org.httpkit.server :as httpkit]
             [compojure.core :refer [routes]]
             [block-chain.db :as db]

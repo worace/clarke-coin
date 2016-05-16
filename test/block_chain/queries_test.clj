@@ -17,6 +17,8 @@
 (def sample-chain (take 5 (fake-chain)))
 (def sample-db
   (reduce add-block db/initial-db (drop 1 sample-chain)))
+(def sample-txn (-> (highest-block sample-db) :transactions first) )
+(def utxo (-> sample-txn :outputs first))
 
 (deftest test-highest-block
   (is (= (last sample-chain)) (highest-block sample-db)))
@@ -71,3 +73,7 @@
 ;; OR
 ;; Set of Coords
 ;; #{["txn-hash 1" 0] ["txn-hash 2" 0] }
+
+(deftest test-output-assigned-to-key
+  (is (assigned-to-key? (:address utxo) utxo))
+  (is (not (assigned-to-key? "pizza" utxo))))

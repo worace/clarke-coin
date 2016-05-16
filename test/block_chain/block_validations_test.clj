@@ -8,7 +8,6 @@
             [block-chain.queries :as q]
             [block-chain.miner :as miner]
             [block-chain.blocks :as blocks]
-            [block-chain.chain :as c]
             [block-chain.block-validations :refer :all]))
 
 (def key-a (wallet/generate-keypair 512))

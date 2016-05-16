@@ -27,11 +27,10 @@ crypto currency?
 * [X] 164 test/block_chain/http_test.clj
 * [X] 130 test/block_chain/block_validations_test.clj
 * [X]  83 test/block_chain/transaction_validations_test.clj
-* [ ]  16 test/block_chain/blocks_test.clj
-* [ ]  83 test/block_chain/chain_test.clj
-* [ ]  28 test/block_chain/miner_test.clj
-* [ ]  81 test/block_chain/target_test.clj
-* [ ]  33 test/block_chain/transactions_test.clj
+* [X]  16 test/block_chain/blocks_test.clj
+* [X]  28 test/block_chain/miner_test.clj
+* [X]  81 test/block_chain/target_test.clj
+* [x]  33 test/block_chain/transactions_test.clj
 
 ### Payment Generation Workflow
 

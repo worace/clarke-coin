@@ -2,7 +2,6 @@
   (:require [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
             [block-chain.queries :as q]
-            [block-chain.chain :as bc]
             [block-chain.db :as db]
             [cheshire.core :as json]))
 
@@ -133,7 +132,7 @@
 (defn unsigned-payment
   ([from-address to-address amount db] (unsigned-payment from-address to-address amount db 0))
   ([from-address to-address amount db fee]
-   (let [output-pool (bc/unspent-outputs-db from-address db)
+   (let [output-pool (q/unspent-outputs from-address db)
          sources (select-sources (+ amount fee) output-pool)
          txn (raw-txn amount to-address sources)]
      (-> txn
@@ -156,3 +155,26 @@
   ([key address amount db fee]
    (-> (unsigned-payment (:address key) address amount db fee)
        (sign-txn (:private key)))))
+
+(defn transactions [blocks] (mapcat :transactions blocks))
+(defn inputs [blocks] (mapcat :inputs (transactions blocks)))
+(defn outputs [blocks] (mapcat :outputs (transactions blocks)))
+
+(defn inputs-to-sources [inputs db]
+  (zipmap inputs
+          (map (partial q/source-output db) inputs)))
+
+(defn consumes-output?
+  [source-hash source-index input]
+  (and (= source-hash (:source-hash input))
+       (= source-index (:source-index input))))
+
+(defn unspent?
+  "takes a txn hash and output index identifying a
+   Transaction Output in the block chain. Searches the
+   chain to find if this output has been spent."
+  [blocks output]
+  (let [inputs (inputs blocks)
+        {:keys [transaction-id index]} (:coords output)
+        spends-output? (partial consumes-output? transaction-id index)]
+    (not-any? spends-output? inputs)))

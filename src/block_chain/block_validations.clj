@@ -1,6 +1,5 @@
 (ns block-chain.block-validations
   (:require [block-chain.blocks :as b]
-            [block-chain.chain :as c]
             [block-chain.queries :as q]
             [block-chain.target :as target]
             [block-chain.transactions :as txn]

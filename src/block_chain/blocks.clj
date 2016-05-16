@@ -1,6 +1,5 @@
 (ns block-chain.blocks
-  (:require [block-chain.chain :as chain]
-            [block-chain.queries :as q]
+  (:require [block-chain.queries :as q]
             [block-chain.db :as db]
             [block-chain.target :as target]
             [block-chain.utils :refer :all]))

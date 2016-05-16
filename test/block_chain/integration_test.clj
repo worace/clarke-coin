@@ -2,7 +2,6 @@
   (:require [clojure.test :refer :all]
             [clojure.tools.namespace.repl :refer [refresh]]
             [clojure.math.numeric-tower :as math]
-            [block-chain.chain :as bc]
             [clojure.pprint :refer [pprint]]
             [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
@@ -58,8 +57,8 @@
   (let [db (atom db/empty-db)]
     (dotimes [n 3] (miner/mine-and-commit-db! db))
     (is (= 3 (q/chain-length @db)))
-    (is (= 3 (count (bc/unspent-outputs-db address-a @db))))
-    (is (= 75 (bc/balance-db address-a @db)))))
+    (is (= 3 (count (q/unspent-outputs address-a @db))))
+    (is (= 75 (q/balance address-a @db)))))
 
 (deftest test-selecting-sources-from-output-pool
   (let [pool [{:amount 25 :address 1234}
@@ -74,8 +73,8 @@
 (deftest test-generating-payment-fails-without-sufficient-funds
   (let [db (db-with-blocks 1)]
     (is (= 1 (count (q/longest-chain @db))))
-    (is (= 1 (count (bc/unspent-outputs-db address-a @db))))
-    (is (= 25 (bc/balance-db address-a @db)))
+    (is (= 1 (count (q/unspent-outputs address-a @db))))
+    (is (= 25 (q/balance address-a @db)))
     (is (thrown? AssertionError
                  (txn/payment key-a
                               address-b

@@ -1,6 +1,5 @@
 (ns block-chain.message-handlers
   (:require [block-chain.utils :refer :all]
-            [block-chain.chain :as bc]
             [clojure.pprint :refer [pprint]]
             [block-chain.db :as db]
             [block-chain.queries :as q]
@@ -35,7 +34,7 @@
 
 (defn get-balance [msg sock-info]
   (let [address (:payload msg)
-        balance (bc/balance-db address @db/db)]
+        balance (q/balance address @db/db)]
     {:message "balance"
      :payload {:address address :balance balance}}))
 
