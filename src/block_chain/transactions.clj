@@ -2,6 +2,7 @@
   (:require [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
             [block-chain.queries :as q]
+            [block-chain.chain :as bc]
             [block-chain.db :as db]
             [cheshire.core :as json]))
 
@@ -87,3 +88,75 @@
                             (txn-fees (q/transaction-pool db) db))
                  :address address}]
       :timestamp (current-time-millis)}))))
+
+(defn txns-for-next-block
+  ([db coinbase-addr] (txns-for-next-block db
+                                           coinbase-addr
+                                           (q/transaction-pool db)))
+  ([db coinbase-addr txn-pool] (into [(coinbase coinbase-addr db)]
+                                     txn-pool)))
+
+(defn raw-txn
+  [amount address sources]
+  (let [inputs (into [] (map (fn [s]
+                               {:source-hash (get-in s [:coords :transaction-id])
+                                :source-index (get-in s [:coords :index])})
+                             sources))]
+    {:inputs inputs
+     :outputs [{:amount amount :address address}]
+     :timestamp (current-time-millis)}))
+
+(defn select-sources
+  [amount output-pool]
+  (let [avail (reduce + (map :amount output-pool))]
+    (assert (>= avail amount) (str "Only found " avail " to fund " amount ".")))
+  (let [greaters (filter #(>= (:amount %) amount) output-pool)
+        lessers (filter #(< (:amount %) amount) output-pool)]
+    (if (first greaters)
+      (take 1 greaters)
+      (loop [sources []
+             pool lessers]
+        (if (>= (reduce + (map :amount sources)) amount)
+          sources
+          (recur (conj sources (first pool))
+                 (rest pool)))))))
+
+(defn add-change [txn change-address sources total]
+  (let [change (- (apply + (map :amount sources)) total)]
+    (if (> change 0)
+      (update-in txn
+                 [:outputs]
+                 conj
+                 {:address change-address :amount change})
+      txn)))
+
+(defn unsigned-payment
+  ([from-address to-address amount chain] (unsigned-payment from-address to-address amount chain 0))
+  ([from-address to-address amount chain fee]
+   (let [output-pool (bc/unspent-outputs from-address chain)
+         sources (select-sources (+ amount fee) output-pool)
+         txn (raw-txn amount to-address sources)]
+     (-> txn
+         (assoc :min-height (count chain))
+         (add-change from-address sources (+ amount fee))
+         (hash-txn)
+         (tag-coords)))))
+
+(defn payment
+  "Generates a transaction to pay the specified amount to the
+    specified address using provided key. Sources inputs from the
+    unspent outputs available to the provided key. If a transaction
+    fee is provided, it will be included in the value of inputs
+    that are sourced, but not in the value of outputs that are
+    spent. (i.e. the fee is the difference between input value
+    and output value). Additionally, will roll any remaining
+    value into an additional 'change' output back to the paying
+    key."
+  ([key address amount chain] (payment key address amount chain 0))
+  ([key address amount chain fee]
+   (sign-txn (unsigned-payment (:address key)
+                                        address
+                                        amount
+                                        chain
+                                        fee)
+             (:private key))))

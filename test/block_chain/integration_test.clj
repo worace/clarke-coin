@@ -64,11 +64,11 @@
 (deftest test-selecting-sources-from-output-pool
   (let [pool [{:amount 25 :address 1234}
               {:amount 14 :address 1234}]
-        sources (miner/select-sources 25 pool)]
+        sources (txn/select-sources 25 pool)]
     (is (= (take 1 pool) sources)))
   (let [pool [{:amount 11 :address 1234}
               {:amount 14 :address 1234}]
-        sources (miner/select-sources 25 pool)]
+        sources (txn/select-sources 25 pool)]
     (is (= pool sources))))
 
 (deftest test-generating-payment-fails-without-sufficient-funds
@@ -77,15 +77,15 @@
     (is (= 1 (count (bc/unspent-outputs address-a (q/longest-chain @db)))))
     (is (= 25 (bc/balance-db address-a @db)))
     (is (thrown? AssertionError
-                 (miner/generate-payment key-a
-                                         address-b
-                                         26
-                                         (q/longest-chain @db))))))
+                 (txn/payment key-a
+                              address-b
+                              26
+                              (q/longest-chain @db))))))
 
 (deftest test-generating-raw-payment-txn
   (let [sources (concat (:outputs (txn/coinbase address-a @db/db))
                         (:outputs (txn/coinbase address-b @db/db)))
-        raw-p (miner/raw-payment-txn 50 "addr" sources)]
+        raw-p (txn/raw-txn 50 "addr" sources)]
     (is (= 2 (count (:inputs raw-p))))
     (is (= (into #{} (vals (:coords (first sources))))
            (into #{} (vals (first (:inputs raw-p))))))
@@ -94,7 +94,7 @@
 
 (deftest test-generating-payment-produces-valid-txn
   (let [db (db-with-blocks 1)
-        p (miner/generate-payment key-a
+        p (txn/payment key-a
                                   address-b
                                   25
                                   (q/longest-chain @db))
@@ -106,7 +106,7 @@
 
 (deftest test-generating-payment-from-multiple-inputs
   (let [db (db-with-blocks 2)
-        p (miner/generate-payment key-a
+        p (txn/payment key-a
                                   address-b
                                   50
                                   (q/longest-chain @db))
@@ -118,7 +118,7 @@
 
 (deftest test-generating-payment-with-transaction-fee
   (let [db (db-with-blocks 1)
-        p (miner/generate-payment key-a address-b 24 (q/longest-chain @db) 1)
+        p (txn/payment key-a address-b 24 (q/longest-chain @db) 1)
         sig (-> p :inputs first :signature)]
       (is (= 1 (count (:inputs p))))
       (is (= 1 (count (:outputs p))))
@@ -132,7 +132,7 @@
 
 (deftest test-generating-payment-with-change
   (let [db (db-with-blocks 1)
-        p (miner/generate-payment key-a address-b 15 (q/longest-chain @db) 3)
+        p (txn/payment key-a address-b 15 (q/longest-chain @db) 3)
         sig (:signature (first (:inputs p)))]
     (is (= 1 (count (:inputs p))))
     (is (= 2 (count (:outputs p))))
@@ -150,7 +150,7 @@
 
 (deftest test-generating-unsigned-payment
   (let [db (db-with-blocks 1)
-        p (miner/generate-unsigned-payment address-a address-b 15 (q/longest-chain @db) 3)
+        p (txn/unsigned-payment address-a address-b 15 (q/longest-chain @db) 3)
         sig (:signature (first (:inputs p)))]
       (is (= 1 (count (:inputs p))))
       (is (= 2 (count (:outputs p))))

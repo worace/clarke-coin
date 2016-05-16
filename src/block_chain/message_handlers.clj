@@ -11,7 +11,7 @@
             [block-chain.key-serialization :as ks]
             [block-chain.miner :as miner]
             [block-chain.peer-notifications :as peers]
-            [block-chain.transactions :as txns]))
+            [block-chain.transactions :as txn]))
 
 (defn echo [msg sock-info] msg)
 
@@ -71,7 +71,7 @@
    and return to the full node for inclusion in the block chain."
   [msg sock-info]
   {:message "unsigned_transaction"
-   :payload (miner/generate-unsigned-payment
+   :payload (txn/unsigned-payment
              (:from-address (:payload msg))
              (:to-address (:payload msg))
              (:amount (:payload msg))

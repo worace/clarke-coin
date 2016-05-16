@@ -6,6 +6,7 @@
             [block-chain.queries :as q]
             [block-chain.peer-client :as pc]
             [block-chain.blocks :as blocks]
+            [block-chain.transactions :as txn]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
             [block-chain.utils :refer :all]
@@ -26,10 +27,10 @@
 (def next-block (miner/mine (miner/next-block starting-db)))
 
 ;; A pays B 5
-(def sample-transaction (miner/generate-payment key-a
-                                         (:address key-b)
-                                         15
-                                         (q/longest-chain starting-db)))
+(def sample-transaction (txn/payment key-a
+                                     (:address key-b)
+                                     15
+                                     (q/longest-chain starting-db)))
 
 (defn post-req [path data]
   (update

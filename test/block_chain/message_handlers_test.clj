@@ -151,7 +151,7 @@
 (deftest test-only-forwards-new-transactions
   (miner/mine-and-commit-db!)
   (is (empty? (q/transaction-pool @db/db)))
-  (let [txn (miner/generate-payment wallet/keypair (:address wallet/keypair) 25 (q/longest-chain @db/db))]
+  (let [txn (txn/payment wallet/keypair (:address wallet/keypair) 25 (q/longest-chain @db/db))]
     (handler {:message "add_peer" :payload {:port test-port}} sock-info)
     ;; send same txn twice but should only get forwarded once
     (is (= {:message "transaction-accepted" :payload txn}
@@ -214,8 +214,8 @@
   (miner/mine-and-commit-db!)
   (let [chain (q/longest-chain @db/db)
         addr (:address wallet/keypair)
-        txn (miner/generate-payment wallet/keypair addr 25 chain)
-        b (-> (miner/block-transactions @db/db addr [txn])
+        txn (txn/payment wallet/keypair addr 25 chain)
+        b (-> (txn/txns-for-next-block @db/db addr [txn])
               (blocks/generate-block {:blocks chain})
               (miner/mine))]
     (handler {:message "submit_transaction" :payload txn} sock-info)
@@ -228,10 +228,10 @@
 (deftest test-validating-incoming-transactions
   (let [alt-db (atom db/empty-db)]
     (miner/mine-and-commit-db! alt-db)
-    (let [txn (miner/generate-payment wallet/keypair
-                                      (:address wallet/keypair)
-                                      25
-                                      (q/longest-chain @alt-db))]
+    (let [txn (txn/payment wallet/keypair
+                           (:address wallet/keypair)
+                           25
+                           (q/longest-chain @alt-db))]
       (is (= "transaction-rejected"
              (:message (handler {:message "submit_transaction" :payload txn} sock-info)))))))
 

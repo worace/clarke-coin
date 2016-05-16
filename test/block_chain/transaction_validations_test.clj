@@ -26,20 +26,20 @@
 ;; A and B both start with 25
 ;; A: 25 B: 25
 (miner/mine-and-commit-db! db b-paid)
-(def b-pays-a-5 (miner/generate-payment key-b
-                                        (:address key-a)
-                                        5
-                                        (q/longest-chain @db)))
+(def b-pays-a-5 (txn/payment key-b
+                             (:address key-a)
+                             5
+                             (q/longest-chain @db)))
 
 ;; B pays A 5
 ;; A: 30, B: 20
 (swap! db q/add-block (miner/mine (blocks/generate-block [b-pays-a-5] {:blocks (q/longest-chain @db)})))
 (assert (= 3 (q/chain-length @db)))
 ;; Pending payment transactions:
-(def a-pays-b-15 (miner/generate-payment key-a
-                                         (:address key-b)
-                                         15
-                                         (q/longest-chain @db)))
+(def a-pays-b-15 (txn/payment key-a
+                              (:address key-b)
+                              15
+                              (q/longest-chain @db)))
 
 (def a-pays-b-50 (assoc-in a-pays-b-15 [:outputs 0 :amount] 50))
 
