@@ -21,11 +21,6 @@
   (is (assigned-to-key? (:address utxo) utxo))
   (is (not (assigned-to-key? "pizza" utxo))))
 
-(deftest find-txn-by-hash
-  (is (= sample-txn
-         (txn-by-hash (:hash sample-txn)
-                      (q/longest-chain @test-db)))))
-
 #_(deftest tells-if-txo-is-unspent
   (let [txn-hash (get-in chain [0 :transactions :hash])]
     (is (unspent? txn-hash 0 chain))

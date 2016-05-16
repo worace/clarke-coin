@@ -12,7 +12,7 @@
   (not (contains? (q/transaction-pool db) txn)))
 
 (defn sufficient-inputs? [db txn]
-  (let [sources (compact (map (partial c/source-output (q/longest-chain db))
+  (let [sources (compact (map (partial q/source-output db)
                               (:inputs txn)))
         outputs (:outputs txn)]
     (>= (reduce + (map :amount sources))
@@ -27,7 +27,7 @@
     false))
 
 (defn signatures-valid? [db txn]
-  (let [inputs-sources (c/inputs-to-sources (:inputs txn) (q/longest-chain db))]
+  (let [inputs-sources (c/inputs-to-sources (:inputs txn) db)]
     (every? (fn [[input source]]
               (verify-input-signature input source txn))
             inputs-sources)))
@@ -40,7 +40,7 @@
 
 (defn inputs-properly-sourced? [db txn]
   (let [inputs-sources (c/inputs-to-sources (:inputs txn)
-                                            (q/longest-chain db))]
+                                            db)]
     (and (every? identity (keys inputs-sources))
          (every? identity (vals inputs-sources))
          (= (count (vals inputs-sources))
@@ -48,7 +48,7 @@
 
 (defn inputs-unspent? [db txn]
   (let [sources (vals (c/inputs-to-sources (:inputs txn)
-                                           (q/longest-chain db)))]
+                                           db))]
     (every? (partial c/unspent? (q/longest-chain db)) sources)))
 
 (defn valid-hash? [db txn]

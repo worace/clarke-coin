@@ -17,22 +17,20 @@
    where the address of the output is the address provided and the
    amount of the output is "
   ([] (coinbase (:address wallet/keypair)))
-  ([address] (coinbase address [] (q/longest-chain @db/db)))
-  ([address txn-pool] (coinbase address txn-pool (q/longest-chain @db/db)))
-  ([address txn-pool chain]
+  ([address] (coinbase address [] @db/db))
+  ([address txn-pool] (coinbase address txn-pool @db/db))
+  ([address txn-pool db]
    (txn/tag-coords
     (txn/hash-txn
      {:inputs []
-      :min-height (count chain)
+      :min-height (q/chain-length db)
       :outputs [{:amount (+ bc/coinbase-reward
-                            (bc/txn-fees txn-pool chain))
+                            (bc/txn-fees txn-pool db))
                  :address address}]
       :timestamp (current-time-millis)}))))
 
 (defn block-transactions [db coinbase-addr txn-pool]
-  (into [(coinbase coinbase-addr
-                   txn-pool
-                   (q/longest-chain db))]
+  (into [(coinbase coinbase-addr txn-pool db)]
         txn-pool))
 
 (defn raw-payment-txn

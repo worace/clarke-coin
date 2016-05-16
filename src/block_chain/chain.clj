@@ -11,20 +11,9 @@
 (defn inputs [blocks] (mapcat :inputs (transactions blocks)))
 (defn outputs [blocks] (mapcat :outputs (transactions blocks)))
 
-(defn txn-by-hash
-  [hash blocks]
-  (first (filter #(= hash (get % :hash))
-                 (transactions blocks))))
-
-(defn source-output [blocks input]
-  (if-let [t (txn-by-hash (:source-hash input)
-                          blocks)]
-    (get (:outputs t) (:source-index input))))
-
-(defn inputs-to-sources [inputs chain]
-  (into {}
-        (map (fn [i] [i (source-output chain i)])
-             inputs)))
+(defn inputs-to-sources [inputs db]
+  (zipmap inputs
+          (map (partial q/source-output db) inputs)))
 
 (defn consumes-output?
   [source-hash source-index input]
@@ -49,16 +38,6 @@
        (filter (partial assigned-to-key? key))
        (filter (partial unspent? blocks))))
 
-;; (defn unspent-db?
-;;   "takes a txn hash and output index identifying a
-;;    Transaction Output in the block chain. Searches the
-;;    chain to find if this output has been spent."
-;;   [db output]
-;;   (let [inputs (inputs blocks)
-;;         {:keys [transaction-id index]} (:coords output)
-;;         spends-output? (partial consumes-output? transaction-id index)]
-;;     (not-any? spends-output? inputs)))
-
 (defn unspent-outputs-db [key db]
   (->> (q/utxos db)
        (filter (partial assigned-to-key? key))))
@@ -68,26 +47,11 @@
        (map :amount)
        (reduce +)))
 
-(defn balance [address blocks]
-  (->> (unspent-outputs address blocks)
-       (map :amount)
-       (reduce +)))
-
-(defn unspent-output-coords [key blocks]
-  (mapcat (fn [txn]
-            (mapcat (fn [output index]
-                      (if (assigned-to-key? key output)
-                        [{:source-hash (:hash txn) :source-index index}]
-                        nil))
-                    (:outputs txn)
-                    (range (count (:outputs txn)))))
-          (transactions blocks)))
-
 (defn txn-fees
   "Finds available txn-fees from a pool of txns by finding the diff
    between cumulative inputs and cumulative outputs"
-  [txns chain]
-  (let [sources (map (partial source-output chain)
+  [txns db]
+  (let [sources (map (partial q/source-output db)
                      (mapcat :inputs txns))
         outputs (mapcat :outputs txns)]
     (- (reduce + (map :amount sources))

@@ -59,12 +59,7 @@
     (dotimes [n 3] (miner/mine-and-commit-db! db))
     (is (= 3 (q/chain-length @db)))
     (is (= 3 (count (bc/unspent-outputs-db address-a @db))))
-    (is (= 75 (bc/balance-db address-a @db))))
-  (let [db (atom db/empty-db)]
-    (dotimes [n 3] (miner/mine-and-commit-db! db))
-    (is (= 3 (q/chain-length @db)))
-    (is (= 3 (count (bc/unspent-outputs address-a (q/longest-chain @db)))))
-    (is (= 75 (bc/balance address-a (q/longest-chain @db))))))
+    (is (= 75 (bc/balance-db address-a @db)))))
 
 (deftest test-selecting-sources-from-output-pool
   (let [pool [{:amount 25 :address 1234}
@@ -80,7 +75,7 @@
   (let [db (db-with-blocks 1)]
     (is (= 1 (count (q/longest-chain @db))))
     (is (= 1 (count (bc/unspent-outputs address-a (q/longest-chain @db)))))
-    (is (= 25 (bc/balance address-a (q/longest-chain @db))))
+    (is (= 25 (bc/balance-db address-a @db)))
     (is (thrown? AssertionError
                  (miner/generate-payment key-a
                                          address-b
@@ -148,7 +143,7 @@
     (is (= 22 (reduce + (map :amount (:outputs p)))))
     (is (= 25 (->> p
                    :inputs
-                   (map (partial bc/source-output (q/longest-chain @db)))
+                   (map (partial q/source-output @db))
                    (map :amount)
                    (reduce +))))
     (is (wallet/verify sig (txn/txn-signable p) (:public key-a)))))
@@ -166,7 +161,7 @@
       (is (= 22 (reduce + (map :amount (:outputs p)))))
       (is (= 25 (->> p
                      :inputs
-                     (map (partial bc/source-output (q/longest-chain @db)))
+                     (map (partial q/source-output @db))
                      (map :amount)
                      (reduce +))))
       (is (= nil sig))

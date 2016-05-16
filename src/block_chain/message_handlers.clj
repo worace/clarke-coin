@@ -35,7 +35,7 @@
 
 (defn get-balance [msg sock-info]
   (let [address (:payload msg)
-        balance (bc/balance address (q/longest-chain @db/db))]
+        balance (bc/balance-db address @db/db)]
     {:message "balance"
      :payload {:address address :balance balance}}))
 
@@ -62,8 +62,7 @@
 
 (defn get-transaction [msg sock-info]
   {:message "transaction_info"
-   :payload (bc/txn-by-hash (:payload msg)
-                            (q/longest-chain @db/db))})
+   :payload (q/get-txn @db/db (:payload msg))})
 
 (defn generate-payment
   "Generates an _unsigned_ payment transaction for supplied from-address,

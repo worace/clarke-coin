@@ -33,7 +33,7 @@
      (= 0 (count (:inputs cb)))
      (= (+ c/coinbase-reward
            (c/txn-fees (rest (:transactions block))
-                       (q/longest-chain db)))
+                       db))
         (:amount (first (:outputs cb)))))))
 
 (defn valid-timestamp?
