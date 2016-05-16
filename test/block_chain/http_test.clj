@@ -30,7 +30,7 @@
 (def sample-transaction (txn/payment key-a
                                      (:address key-b)
                                      15
-                                     (q/longest-chain starting-db)))
+                                     starting-db))
 
 (defn post-req [path data]
   (update

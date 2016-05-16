@@ -80,7 +80,7 @@
                  (txn/payment key-a
                               address-b
                               26
-                              (q/longest-chain @db))))))
+                              @db)))))
 
 (deftest test-generating-raw-payment-txn
   (let [sources (concat (:outputs (txn/coinbase address-a @db/db))
@@ -95,9 +95,9 @@
 (deftest test-generating-payment-produces-valid-txn
   (let [db (db-with-blocks 1)
         p (txn/payment key-a
-                                  address-b
-                                  25
-                                  (q/longest-chain @db))
+                       address-b
+                       25
+                       @db)
         sig (-> p :inputs first :signature)]
     (is (= 1 (-> p :inputs count)))
     (is (= 1 (-> p :outputs count)))
@@ -107,9 +107,9 @@
 (deftest test-generating-payment-from-multiple-inputs
   (let [db (db-with-blocks 2)
         p (txn/payment key-a
-                                  address-b
-                                  50
-                                  (q/longest-chain @db))
+                       address-b
+                       50
+                       @db)
         sig (-> p :inputs first :signature)]
     (is (= 2 (-> p :inputs count)))
     (is (= 1 (-> p :outputs count)))
@@ -118,7 +118,7 @@
 
 (deftest test-generating-payment-with-transaction-fee
   (let [db (db-with-blocks 1)
-        p (txn/payment key-a address-b 24 (q/longest-chain @db) 1)
+        p (txn/payment key-a address-b 24 @db 1)
         sig (-> p :inputs first :signature)]
       (is (= 1 (count (:inputs p))))
       (is (= 1 (count (:outputs p))))
@@ -132,7 +132,7 @@
 
 (deftest test-generating-payment-with-change
   (let [db (db-with-blocks 1)
-        p (txn/payment key-a address-b 15 (q/longest-chain @db) 3)
+        p (txn/payment key-a address-b 15 @db 3)
         sig (:signature (first (:inputs p)))]
     (is (= 1 (count (:inputs p))))
     (is (= 2 (count (:outputs p))))

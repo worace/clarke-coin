@@ -29,7 +29,7 @@
 (def b-pays-a-5 (txn/payment key-b
                              (:address key-a)
                              5
-                             (q/longest-chain @db)))
+                             @db))
 
 ;; B pays A 5
 ;; A: 30, B: 20
@@ -39,7 +39,7 @@
 (def a-pays-b-15 (txn/payment key-a
                               (:address key-b)
                               15
-                              (q/longest-chain @db)))
+                              @db))
 
 (def a-pays-b-50 (assoc-in a-pays-b-15 [:outputs 0 :amount] 50))
 

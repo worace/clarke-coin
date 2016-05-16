@@ -11,7 +11,6 @@
             [block-chain.peer-notifications :as peers]
             [block-chain.wallet :as wallet]))
 
-
 (defn mine
   ([block] (mine block (atom true)))
   ([block switch]

@@ -152,11 +152,7 @@
     and output value). Additionally, will roll any remaining
     value into an additional 'change' output back to the paying
     key."
-  ([key address amount chain] (payment key address amount chain 0))
-  ([key address amount chain fee]
-   (sign-txn (unsigned-payment (:address key)
-                                        address
-                                        amount
-                                        chain
-                                        fee)
-             (:private key))))
+  ([key address amount db] (payment key address amount db 0))
+  ([key address amount db fee]
+   (-> (unsigned-payment (:address key) address amount (q/longest-chain db) fee)
+       (sign-txn (:private key)))))
