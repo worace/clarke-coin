@@ -1,5 +1,6 @@
 (ns block-chain.transactions
   (:require [block-chain.utils :refer :all]
+            [block-chain.wallet :as wallet]
             [cheshire.core :as json]))
 
 (def input-signable (partial cat-keys [:source-hash :source-index]))
@@ -46,9 +47,13 @@
                             (repeat (:hash txn)))]
     (assoc txn :outputs (into [] tagged-outputs))))
 
-(defn gather-transactions
-  "Gather pending transactions from the network and add our own coinbase
-   reward. (Currently just injecting the coinbase since we don't have other
-   txns available yet)"
-  []
-  [])
+(defn sign-txn
+  "Takes a transaction map consisting of :inputs and :outputs, where each input contains
+   a Source TXN Hash and Source Output Index. Signs each input by adding :signature
+   which contains an RSA-SHA256 signature of the JSON representation of all the outputs in the transaction."
+  [txn private-key]
+  (let [signable (txn-signable txn)]
+    (assoc txn
+           :inputs
+           (into [] (map (fn [i] (assoc i :signature (wallet/sign signable private-key)))
+                         (:inputs txn))))))

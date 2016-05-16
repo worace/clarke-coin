@@ -166,7 +166,7 @@
                      (reduce +))))
       (is (= nil sig))
       ;; verify that we can subsequently sign the txn as needed
-      (let [signed (wallet/sign-txn p (:private key-a))]
+      (let [signed (txn/sign-txn p (:private key-a))]
         (is (wallet/verify (:signature (first (:inputs signed)))
               (txn/txn-signable signed)
               (:public key-a))))))

@@ -2,7 +2,6 @@
   (:require [clojure.java.io :as io]
             [clojure.string :refer [join split]]
             [block-chain.key-serialization :as ks]
-            [block-chain.transactions :as transactions]
             [block-chain.encoding :refer :all]))
 
 ;; Thanks to http://nakkaya.com/2012/10/28/public-key-cryptography/
@@ -82,14 +81,3 @@
                (.initSign private-key (java.security.SecureRandom.))
                (.update msg-data))]
      (.sign sig))))
-
-(defn sign-txn
-  "Takes a transaction map consisting of :inputs and :outputs, where each input contains
-   a Source TXN Hash and Source Output Index. Signs each input by adding :signature
-   which contains an RSA-SHA256 signature of the JSON representation of all the outputs in the transaction."
-  [txn key]
-  (let [signable (transactions/txn-signable txn)]
-    (assoc txn
-           :inputs
-           (into [] (map (fn [i] (assoc i :signature (sign signable key)))
-                         (:inputs txn))))))

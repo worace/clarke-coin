@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [block-chain.transactions :refer :all]
             [block-chain.utils :refer :all]
+            [block-chain.wallet :as wallet]
             [cheshire.core :as json]))
 
 (def sample-transaction
@@ -31,3 +32,17 @@
   (let [tagged (tag-coords (hash-txn sample-transaction))]
     (is (= (:hash tagged) (get-in tagged [:outputs 0 :coords :transaction-id])))
     (is (= 0 (get-in tagged [:outputs 0 :coords :index])))))
+
+(def unsigned-txn
+  {:inputs [{:source-txn "9ed1515819dec61fd361d5fdabb57f41ecce1a5fe1fe263b98c0d6943b9b232e"
+             :source-output-index 0}]
+   :outputs [{:amount 5
+              :receiving-address "addr"}]})
+
+(def keypair (wallet/generate-keypair 512))
+(deftest test-signs-transaction-inputs
+  (is (= #{:source-txn :source-output-index}
+         (into #{} (keys (first (:inputs unsigned-txn))))))
+  (is (= #{:source-txn :source-output-index :signature}
+         (into #{} (keys (first (:inputs (sign-txn unsigned-txn
+                                                   (:private keypair)))))))))

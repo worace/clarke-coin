@@ -92,12 +92,12 @@
   ([key address amount chain]
    (generate-payment key address amount chain 0))
   ([key address amount chain fee]
-   (wallet/sign-txn (generate-unsigned-payment (:address key)
-                                               address
-                                               amount
-                                               chain
-                                               fee)
-                    (:private key))))
+   (txn/sign-txn (generate-unsigned-payment (:address key)
+                                            address
+                                            amount
+                                            chain
+                                            fee)
+                 (:private key))))
 
 (defn mine
   ([block] (mine block (atom true)))
