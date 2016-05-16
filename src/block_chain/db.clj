@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [block-chain.utils :refer :all]
             [block-chain.queries :as q]
+            [block-chain.wallet :as wallet]
             ))
 
 ;; DB namespace
@@ -31,6 +32,7 @@
 (def peers (atom #{}))
 (defonce transaction-pool (atom #{}))
 (def empty-db {:blocks {}
+               :default-key wallet/keypair
                :children {}
                :chains {}
                :peers #{}

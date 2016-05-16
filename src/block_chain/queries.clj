@@ -92,3 +92,5 @@
   (->> (unspent-outputs address db)
        (map :amount)
        (reduce +)))
+
+(defn wallet-addr [db] (get-in db [:default-key :address]))

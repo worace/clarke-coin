@@ -7,8 +7,7 @@
             [clojure.core.async :as async]
             [block-chain.transactions :as txn]
             [block-chain.block-validations :as block-v]
-            [block-chain.peer-notifications :as peers]
-            [block-chain.wallet :as wallet]))
+            [block-chain.peer-notifications :as peers]))
 
 (defn mine
   ([block] (mine block (atom true)))
@@ -27,7 +26,7 @@
 
 (defn next-block [db]
   (let [txn-pool (txn/txns-for-next-block db
-                                          (:address wallet/keypair))]
+                                          (q/wallet-addr db))]
     (blocks/generate-block txn-pool
                            db)))
 
