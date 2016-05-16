@@ -92,13 +92,14 @@
 (defn submit-block [msg sock-info]
   (let [b (:payload msg)
         validation-errors (block-v/validate-block @db/db b)]
-    (if (and (empty? validation-errors)
-             (q/new-block? @db/db b))
-      (do
-        (miner/stop-miner!)
-        (swap! db/db q/add-block b)
-        (peers/block-received! b)
-        {:message "block-accepted" :payload b})
+    (if (empty? validation-errors)
+      (if (q/new-block? @db/db b)
+        (do
+          (miner/stop-miner!)
+          (swap! db/db q/add-block b)
+          (peers/block-received! b)
+          {:message "block-accepted" :payload b})
+        {:message "block-rejected" :payload ["Block already known."]})
       {:message "block-rejected" :payload validation-errors})))
 
 (defn get-blocks-since [msg sock-info]
