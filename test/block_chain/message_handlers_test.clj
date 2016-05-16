@@ -260,3 +260,76 @@
       (is (= "block-accepted" (:message resp)))
       (is (= prev-head (q/highest-block @db/db)))
       (is (= 4 (q/chain-length @db/db))))))
+
+(deftest test-receiving-higher-blocks-moves-the-chain-forward
+  ;; Both Dbs start with 1 (shared genesis block)
+  (let [peer-db (atom (assoc @db/db :default-key (wallet/generate-keypair 512)))]
+    ;; Both db/db and peer-db have 1:
+
+    ;; DB     - A
+    ;; PeerDb - A
+    (is (= 1 (q/chain-length @db/db)))
+    (is (= 1 (q/chain-length @peer-db)))
+
+    (miner/mine-and-commit-db! db/db)
+    (miner/mine-and-commit-db! db/db) ;; db/db advances by 2
+    ;; DB     - A - B - C
+    ;; PeerDb - A
+
+    (is (= 3 (q/chain-length @db/db)))
+    (is (= 1 (q/chain-length @peer-db)))
+
+    (miner/mine-and-commit-db! peer-db)
+    (miner/mine-and-commit-db! peer-db)
+    (miner/mine-and-commit-db! peer-db) ;; peer-db advances by 3 -- now ahead
+
+    ;; DB     - A - B - C
+    ;; PeerDb - A - D - E - F
+
+    (is (= 4 (q/chain-length @peer-db)))
+
+    (doseq [b (drop 1 (reverse (q/longest-chain @peer-db)))]
+      (is (= {:message "block-accepted" :payload b}
+             (handler {:message "submit_block" :payload b} sock-info))))
+
+    ;;              B - C - G - H
+    ;;             /
+    ;; DB     - A - D - E - F
+    ;;
+    ;; PeerDb - A - D - E - F
+    ;;            \
+    ;;             B - C - G - H
+;; N1 - A -   B - C
+;;           /     \
+;; N2 - A - B   -  C
+;; Block Chain: [B1 B2 B3 B4]
+;; Block Chain: [B1 B2* B3 B4]
+;; N1 - A - C XXXX
+;; N1 - A - B - D
+;;            B  D
+;;            / /
+;; N2 - A - B - D
+;; "A" -> <Block A>
+;; "B" -> <Block B>
+;; "C" -> <Block C>
+;; A -> 0
+;; B -> 1
+;; C -> 1
+;; "block hash" -> <Block>
+;; chains: "block hash" -> 3
+
+    (is (= 4 (q/chain-length @db/db)))
+    (is (= (q/highest-block @peer-db)
+           (q/highest-block @db/db)))))
+
+
+
+
+
+
+
+
+
+
+
+
