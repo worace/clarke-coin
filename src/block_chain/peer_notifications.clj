@@ -1,23 +1,17 @@
 (ns block-chain.peer-notifications
   (:require [block-chain.db :as db]
             [block-chain.queries :as q]
-            [clj-http.client :as http]
-            [clojure.core.async
-             :as async
-             :refer [<! go go-loop chan]]))
+            [block-chain.peer-client :as pc]
+            [clj-http.client :as http]))
 
 (defn block-received!
   [block]
   (doseq [p (q/peers @db/db)]
     (println "Notifying peer of block: " p)
-    (http/post (str "http://" (:host p) ":" (:port p) "/blocks")
-                 {:content-type :json
-                  :form-params block})))
+    (pc/send-block p block)))
 
 (defn transaction-received!
   [txn]
   (doseq [p (q/peers @db/db)]
     (println "Notifying peer of txn: " p)
-    (http/post (str "http://" (:host p) ":" (:port p) "/pending_transactions")
-               {:content-type :json
-                :form-params txn})))
+    (pc/send-txn p txn)))

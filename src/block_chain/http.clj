@@ -3,6 +3,8 @@
             [compojure.api.sweet :as sweet]
             [ring.util.http-response :refer :all]
             [block-chain.message-handlers :as h]
+            [clojure.pprint :refer [pprint]]
+            [block-chain.log :as log]
             [schema.core :as s]
             [ring.logger :as logger]
             [block-chain.schemas :refer :all]
@@ -32,6 +34,13 @@
               :return {:message String :payload [Peer]}
               :summary "List all of the peers to which this node is currently connected."
               (ok (h/handler {:message "get_peers" :payload {}} {})))
+
+   (sweet/POST "/peers" request
+              :return {:message String :payload [Peer]}
+              :body-params [port :- s/Int]
+              :summary "Add a peer based on port they provided and their remote addr"
+              (ok (h/handler {:message "add_peer" :payload {:port port}}
+                             {:remote-address (:remote-addr request)})))
 
    (sweet/GET "/pending_transactions" []
               :return {:message String :payload [Transaction]}
@@ -143,7 +152,9 @@
 
 (defn debug-logger [handler]
   (fn [request]
-    (let [b (slurp (:body request))]
+    (log/info "HTTP REQ: " request)
+    (handler request)
+    #_(let [b (slurp (:body request))]
       (println "~~~~START Debug Logger~~~~")
       (println request)
       (println b)
@@ -157,7 +168,7 @@
 (def with-middleware
   (-> api
       (identity)
-      #_(debug-logger)
+      (debug-logger)
       #_(logger/wrap-with-logger)))
 
 (defn start!

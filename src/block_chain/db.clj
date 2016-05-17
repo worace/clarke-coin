@@ -29,7 +29,6 @@
 (def chain-path (str (System/getProperty "user.home")
                      "/.block_chain.json"))
 
-(def peers (atom #{}))
 (defonce transaction-pool (atom #{}))
 (def empty-db {:blocks {}
                :default-key wallet/keypair

@@ -1,4 +1,5 @@
-(ns block-chain.queries)
+(ns block-chain.queries
+  (:require [clojure.set]))
 
 (defn bhash [b] (get-in b [:header :hash]))
 

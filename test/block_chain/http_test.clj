@@ -140,3 +140,9 @@
   (is (= (map q/bhash (drop 1 (reverse (q/longest-chain @db/db))))
          (pc/blocks-since {:host "localhost" :port "9292"}
                           (q/bhash (last (q/longest-chain @db/db)))))))
+
+(deftest test-adding-peer-via-http
+  (pc/send-peer {:host "127.0.0.1" :port 9292} 3001)
+  ;; (pprint (post-req "/peers" {:port 3001}))
+  (is (= [{:host "127.0.0.1" :port 3001}]
+         (q/peers @db/db))))

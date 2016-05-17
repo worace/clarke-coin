@@ -3,8 +3,9 @@
             [block-chain.utils :refer :all]
             [block-chain.db :as db]
             [block-chain.queries :as q]
-            [block-chain.blocks :as blocks]
             [clojure.core.async :as async]
+            [block-chain.blocks :as blocks]
+            [block-chain.log :as log]
             [block-chain.transactions :as txn]
             [block-chain.block-validations :as block-v]
             [block-chain.peer-notifications :as peers]))
@@ -13,7 +14,8 @@
   ([block] (mine block (atom true)))
   ([block switch]
    (let [attempt (blocks/hashed block)]
-     #_(when (= 0 (mod (get-in attempt [:header :nonce]) 1000000)) (println "got to nonce: " (get-in attempt [:header :nonce])))
+     (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000))
+       (log/info "got to nonce: " (get-in attempt [:header :nonce])))
      (if (blocks/meets-target? attempt)
        attempt
        (if (not @switch)
@@ -34,7 +36,9 @@
   ([db] (mine-and-commit-db db (next-block db)))
   ([db candidate]
    (if-let [b (mine candidate)]
-     (q/add-block db b)
+     (do
+       (log/info "Miner mined new block" (q/bhash b))
+       (q/add-block db b))
      db)))
 
 (defn mine-and-commit-db!
@@ -48,5 +52,7 @@
 (defn run-miner! []
   (reset! mine? true)
   (async/go
-    (while @mine?
-      (mine-and-commit-db!))))
+      (while @mine?
+        (try
+          (mine-and-commit-db!)
+          (catch Exception e (log/info "\n\n*************\nError in Miner: " (.getMessage e)))))))

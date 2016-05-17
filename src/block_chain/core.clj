@@ -2,7 +2,10 @@
   (:gen-class)
   (:require [block-chain.miner :as miner]
             [block-chain.db :as db]
+            [block-chain.queries :as q]
+            [block-chain.peer-client :as pc]
             [block-chain.block-sync :as bsync]
+            [block-chain.log :as log]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.tools.nrepl.server :as repl]
             [block-chain.http :as http]))
@@ -15,17 +18,19 @@
   (reset! repl-server (repl/start-server :port port)))
 
 (defn start! [{port :port repl-port :repl-port peer :bootstrap-peer}]
-  (println "****** Starting Clarke Coin *******")
+  (log/info "****** Starting Clarke Coin *******")
   (if peer
     (do
-      (println "Will bootstrap from peer node: " peer)
+      (q/add-peer! db/db peer)
+      (pc/send-peer peer port)
+      (log/info "Will bootstrap from peer node: " peer)
       (bsync/sync-if-needed! db/db peer)))
   (miner/run-miner!)
   (http/start! port)
   (start-repl! repl-port))
 
 (defn stop! []
-  (println "****** Stopping Clarke Coin *******")
+  (log/info "****** Stopping Clarke Coin *******")
   (miner/stop-miner!)
   (http/stop!)
   (repl/stop-server @repl-server))
@@ -44,12 +49,10 @@
    ["-h" "--help"]])
 
 (defn -main [& args]
-  (println "STARTING WITH ARGS: " args)
   (let [opts (parse-opts args cli-options)]
     (if (not (empty? (:errors opts)))
       (println "Invalid CLI Options: " (:errors opts))
       (do
-        (println "WILL START WITH OPTS: " opts)
         (start! (:options opts))
         (.addShutdownHook
          (Runtime/getRuntime)

@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [block-chain.db :as db]
             [block-chain.queries :as q]
+            [block-chain.log :as log]
             [block-chain.transaction-validations :as txn-v]
             [block-chain.block-validations :as block-v]
             [block-chain.block-sync :as block-sync]
@@ -24,7 +25,7 @@
         port (:port (:payload msg))]
     (q/add-peer! db/db {:host host :port port})
     (block-sync/sync-if-needed! db/db {:host host :port port})
-    {:message "peers" :payload @db/peers}))
+    {:message "peers" :payload (q/peers @db/db)}))
 
 (defn remove-peer [msg sock-info]
   (let [host (:remote-address sock-info)
@@ -98,6 +99,8 @@
           (miner/stop-miner!)
           (swap! db/db q/add-block b)
           (peers/block-received! b)
+          (log/info "Received block" (q/bhash b))
+          (log/info "Current head" (q/bhash (q/highest-block @db/db)))
           {:message "block-accepted" :payload b})
         {:message "block-rejected" :payload ["Block already known."]})
       {:message "block-rejected" :payload validation-errors})))
@@ -128,10 +131,10 @@
 
 
 (defn handler [msg sock-info]
-  ;; (println "*****\n\n" "Message handler called with: " msg)
+  (log/info "*****\n\n" "Message handler called with: " msg)
   (let [handler-fn (get message-handlers
                         (:message msg)
                         echo)
         resp (handler-fn msg sock-info)]
-    ;; (println "######\n\n" "Message handler returning value: " resp)
+    (log/info "######\n\n" "Message handler returning value: " resp)
     resp))
