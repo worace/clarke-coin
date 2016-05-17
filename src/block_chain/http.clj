@@ -9,7 +9,11 @@
             [ring.logger :as logger]
             [block-chain.schemas :refer :all]
             [clojure.java.io :as io]
+            [compojure.core :refer [defroutes GET routes]]
             [compojure.route :as route]))
+
+(defroutes web-ui
+  (GET "/graph" [] (slurp (io/resource "graph.html"))))
 
 (def api
   (sweet/api
@@ -165,8 +169,9 @@
         (println "resp body: " resp-b)
         (assoc resp :body (io/input-stream (.getBytes resp-b)))))))
 
+(def print-mw (fn [h] (fn [r] (println r) (h r))))
 (def with-middleware
-  (-> api
+  (-> (routes web-ui api)
       (identity)
       (debug-logger)
       #_(logger/wrap-with-logger)))

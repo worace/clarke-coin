@@ -146,3 +146,9 @@
   ;; (pprint (post-req "/peers" {:port 3001}))
   (is (= [{:host "127.0.0.1" :port 3001}]
          (q/peers @db/db))))
+
+
+(deftest test-gets-static-html-route
+  (let [r (-> "http://localhost:9292/graph"
+              (http/get {:throw-exceptions false}))]
+    (is (= 200 (:status r)))))
