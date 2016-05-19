@@ -1,6 +1,5 @@
 (ns block-chain.integration-test
   (:require [clojure.test :refer :all]
-            [clojure.tools.namespace.repl :refer [refresh]]
             [clojure.math.numeric-tower :as math]
             [clojure.pprint :refer [pprint]]
             [block-chain.utils :refer :all]

@@ -1,8 +1,7 @@
 (ns block-chain.wallet-test
   (:require [clojure.test :refer :all]
             [block-chain.wallet :refer :all]
-            [block-chain.key-serialization :as ks]
-            [clojure.tools.namespace.repl :refer [refresh]]))
+            [block-chain.key-serialization :as ks]))
 
 (deftest test-encrypt-and-decrypt-with-fresh-keys
   (let [kp (generate-keypair 128)
