@@ -114,3 +114,7 @@
 
 (deftest test-validate-whole-block
   (is (empty? (validate-block @db (miner/mine un-mined-block)))))
+
+
+;; TODO
+#_(deftest test-validates-block-target-against-chain-up-to-that-block)

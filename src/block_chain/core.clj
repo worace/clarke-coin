@@ -19,6 +19,7 @@
 
 (defn start! [{port :port repl-port :repl-port peer :bootstrap-peer}]
   (log/info "****** Starting Clarke Coin *******")
+  (http/start! port)
   (if peer
     (do
       (q/add-peer! db/db peer)
@@ -26,8 +27,7 @@
       (log/info "Will bootstrap from peer node: " peer)
       (bsync/sync-if-needed! db/db peer)))
   (miner/run-miner!)
-  (http/start! port)
-  (start-repl! repl-port))
+  (when repl-port (start-repl! repl-port)))
 
 (defn stop! []
   (log/info "****** Stopping Clarke Coin *******")
@@ -40,7 +40,7 @@
     :default 3000
     :parse-fn #(Integer/parseInt %)]
    ["-r" "--repl-port PORT" "Port for embedded REPL Server"
-    :default 7888
+    :default nil
     :parse-fn #(Integer/parseInt %)]
    ["-b" "--bootstrap-peer PEER" "Peer host and port to bootstrap from"
     :default nil

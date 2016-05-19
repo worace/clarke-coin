@@ -28,7 +28,13 @@
 (defn sync-if-needed! [db-ref peer]
   (try
     (let [h (pc/block-height peer)]
-      (if (> h (q/chain-length @db-ref))
+      (println "Peer" peer)
+      (println "Height:" h)
+      (println "Our Length:" (q/chain-length @db-ref))
+      (if
+          (> h
+             (q/chain-length @db-ref))
         (do (log/info "Found longer block chain in peer" peer "-" h)
             (swap! db-ref synced-chain peer))))
-    (catch Exception e (println "Error syncing with peer: " peer ": " (.getMessage e)))))
+    (catch Exception e (do (println "Error syncing with peer: " peer ": " (.getMessage e))
+                           (clojure.stacktrace/print-stack-trace e)))))

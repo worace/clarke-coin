@@ -1,6 +1,7 @@
 (ns block-chain.peer-client
   (:require [clj-http.client :as http]
             [block-chain.log :as log]
+            [block-chain.queries :as q]
             [block-chain.utils :refer :all]))
 
 (defn url [peer & path-segments]
@@ -8,7 +9,8 @@
 
 (defn req
   ([verb url] (req verb url {}))
-  ([verb url params]
+  ([verb url params] (req verb url params {}))
+  ([verb url params default]
    (try
      (-> (case verb
            :get (http/get url)
@@ -19,10 +21,10 @@
          read-json
          :payload)
      (catch Exception e (do (log/info "PEER CLIENT ERROR: " (.getMessage e))
-                            {})))))
+                            default)))))
 
 (defn block-height [peer]
-  (req :get (url peer "block_height")))
+  (req :get (url peer "block_height") 0))
 
 (defn blocks-since [peer block-hash]
   (req :get (url peer "blocks_since" block-hash)))
@@ -34,7 +36,8 @@
   (req :post (url peer "peers") {:port port}))
 
 (defn send-block [peer block]
-  (req :post (url peer "blocks") block))
+  (log/info "Sending block" (q/bhash block) "to peer" peer)
+  (log/info (req :post (url peer "blocks") block)))
 
 (defn send-txn [peer txn]
   (req :post (url peer "pending_transactions") txn))

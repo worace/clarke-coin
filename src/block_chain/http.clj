@@ -5,6 +5,9 @@
             [block-chain.message-handlers :as h]
             [clojure.pprint :refer [pprint]]
             [block-chain.log :as log]
+            [block-chain.utils :refer :all]
+            [block-chain.db :as db]
+            [block-chain.queries :as q]
             [schema.core :as s]
             [ring.logger :as logger]
             [block-chain.schemas :refer :all]
@@ -12,8 +15,46 @@
             [compojure.core :refer [defroutes GET routes]]
             [compojure.route :as route]))
 
+;; {
+;;        "name": "flare",
+;;        "children": [
+;;          {
+;;            "name": "analytics",
+;;            "children": [
+;;              {
+;;                "name": "graph",
+;;                "children": [
+;;                  {"name": "Layer 2", "size": 3534,
+;;                   "children": [{"name": "layer 3", "size": 3534,
+;;                                 "children": [{"name": "layer 4", "size": 3534,
+;;                                 "children": []}]}]},
+;;                  {"name": "LinkDistance", "size": 5731},
+;;                  {"name": "MaxFlowMinCut", "size": 7840},
+;;                  {"name": "ShortestPaths", "size": 5914},
+;;                  {"name": "SpanningTree", "size": 3416}
+;;                ]
+;;              },
+;;              {
+;;                "name": "optimization",
+;;                "children": [
+;;                  {"name": "AspectRatioBanker", "size": 7074}
+;;                ]
+;;              }
+;;            ]
+;;          }
+;;        ]
+;;      }
+
+(defn children-tree
+  ([db] (children-tree db (-> db q/longest-chain last q/bhash)))
+  ([db hash]
+    {:hash hash :label (apply str (take-last 7 hash)) :children (map (partial children-tree db) (q/children db hash))}))
+
 (defroutes web-ui
-  (GET "/graph" [] (slurp (io/resource "graph.html"))))
+  (GET "/graph" [] (slurp (io/resource "graph.html")))
+  (GET "/tree" [] {:status 200
+                   :headers {"Content-Type" "application/json"}
+                   :body (write-json (children-tree @db/db))}))
 
 (def api
   (sweet/api
@@ -43,7 +84,7 @@
               :return {:message String :payload [Peer]}
               :body-params [port :- s/Int]
               :summary "Add a peer based on port they provided and their remote addr"
-              (ok (h/handler {:message "add_peer" :payload {:port port}}
+              (ok (h/handler {:message "add_peer" :payload {:port (str port)}}
                              {:remote-address (:remote-addr request)})))
 
    (sweet/GET "/pending_transactions" []
@@ -106,8 +147,10 @@
                :summary "Submit a new block to this node for inclusion in the chain."
                (let [resp (h/handler {:message "submit_block" :payload block} {})]
                      (if (= "block-accepted" (:message resp))
-                       (ok resp)
-                       (bad-request resp))))
+                       (do (log/info "Accepted new block" (q/bhash block))
+                           (ok resp))
+                       (do (log/info "Rejected block" (q/bhash block) "with errors" (:payload resp))
+                         (bad-request resp)))))
    ;; (ok (h/handler {:message "submit_block" :payload block} {}))
 
    (sweet/POST "/pending_transactions" req
@@ -156,7 +199,7 @@
 
 (defn debug-logger [handler]
   (fn [request]
-    (log/info "HTTP REQ: " request)
+    (log/info "HTTP REQ: " (:request-method request) (:uri request))
     (handler request)
     #_(let [b (slurp (:body request))]
       (println "~~~~START Debug Logger~~~~")

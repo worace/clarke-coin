@@ -95,3 +95,5 @@
        (reduce +)))
 
 (defn wallet-addr [db] (get-in db [:default-key :address]))
+
+(defn children [db hash] (get-in db [:children hash]))

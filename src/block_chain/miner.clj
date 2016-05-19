@@ -15,7 +15,7 @@
   ([block switch]
    (let [attempt (blocks/hashed block)]
      (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000))
-       (log/info "got to nonce: " (get-in attempt [:header :nonce])))
+       (log/info "got to nonce: " (get-in attempt [:header :nonce]) "against parent" (q/phash attempt)))
      (if (blocks/meets-target? attempt)
        attempt
        (if (not @switch)
