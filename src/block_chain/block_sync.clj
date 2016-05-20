@@ -28,9 +28,6 @@
 (defn sync-if-needed! [db-ref peer]
   (try
     (let [h (pc/block-height peer)]
-      (println "Peer" peer)
-      (println "Height:" h)
-      (println "Our Length:" (q/chain-length @db-ref))
       (if
           (> h
              (q/chain-length @db-ref))

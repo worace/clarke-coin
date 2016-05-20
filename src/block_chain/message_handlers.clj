@@ -24,8 +24,6 @@
 (defn add-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (println "msg: " msg)
-    (println "ADDING PEER:" host port)
     (q/add-peer! db/db {:host host :port port})
     (block-sync/sync-if-needed! db/db {:host host :port port})
     {:message "peers" :payload (q/peers @db/db)}))
