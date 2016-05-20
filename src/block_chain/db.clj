@@ -24,7 +24,7 @@
 ;; * miner.clj - mine? (atom true)
 ;; * net.clj - server - (atom nil)
 
-(def genesis-block (read-json (slurp "./genesis.json")))
+(def genesis-block (read-json (slurp (io/resource "genesis.json"))))
 
 (def chain-path (str (System/getProperty "user.home")
                      "/.block_chain.json"))
