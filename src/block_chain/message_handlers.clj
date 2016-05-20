@@ -4,6 +4,7 @@
             [block-chain.db :as db]
             [block-chain.queries :as q]
             [block-chain.log :as log]
+            [block-chain.blocks :as blocks]
             [block-chain.transaction-validations :as txn-v]
             [block-chain.block-validations :as block-v]
             [block-chain.block-sync :as block-sync]
@@ -113,6 +114,11 @@
      :payload (map q/bhash (q/blocks-since @db/db (:payload msg)))}
     {:message "blocks_since" :payload []}))
 
+(defn generate-unmined-block [msg sock-info]
+  (let [addr (or (:payload msg) (q/wallet-addr @db/db))]
+    {:message "unmined_block"
+     :payload (blocks/hashed (miner/next-block @db/db addr))}))
+
 (def message-handlers
   {"echo" echo
    "ping" ping
@@ -129,6 +135,7 @@
    "get_transaction" get-transaction
    "submit_transaction" submit-transaction
    "submit_block" submit-block
+   "generate_unmined_block" generate-unmined-block
    "generate_payment" generate-payment})
 
 

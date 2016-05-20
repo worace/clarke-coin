@@ -143,12 +143,19 @@
 
 (deftest test-adding-peer-via-http
   (pc/send-peer {:host "127.0.0.1" :port 9292} 3001)
-  ;; (pprint (post-req "/peers" {:port 3001}))
-  (is (= [{:host "127.0.0.1" :port 3001}]
+  (is (= [{:host "127.0.0.1" :port "3001"}]
          (q/peers @db/db))))
-
 
 (deftest test-gets-static-html-route
   (let [r (-> "http://localhost:9292/graph"
               (http/get {:throw-exceptions false}))]
     (is (= 200 (:status r)))))
+
+(deftest test-requests-unmined-block-for-key
+  (miner/mine-and-commit-db!)
+  (let [addr (:address (wallet/generate-keypair 512))
+        resp (pc/unmined-block {:host "localhost"
+                                :port "9292"}
+                               addr)]
+    (is (= ["Block's hash does not meet the specified target."]
+           (pc/send-block {:host "localhost" :port "9292"} resp)))))

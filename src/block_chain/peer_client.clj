@@ -37,7 +37,10 @@
 
 (defn send-block [peer block]
   (log/info "Sending block" (q/bhash block) "to peer" peer)
-  (log/info (req :post (url peer "blocks") block)))
+  (req :post (url peer "blocks") block))
 
 (defn send-txn [peer txn]
   (req :post (url peer "pending_transactions") txn))
+
+(defn unmined-block [peer addr]
+  (req :post (url peer "unmined_block") {:address addr}))

@@ -178,16 +178,13 @@
                  (if (= "transaction-accepted" (:message resp))
                    (ok resp)
                    (bad-request resp))))
-   (route/not-found {:status 404 :body {:error "not found"}})
-   ))
 
-;; {:message "unsigned_transaction"
-;;    :payload (miner/generate-unsigned-payment
-;;              (:from-address (:payload msg))
-;;              (:to-address (:payload msg))
-;;              (:amount (:payload msg))
-;;              @db/block-chain
-;;              (or (:fee (:payload msg)) 0))}
+   (sweet/POST "/unmined_block" req
+               :return {:message String :payload Block}
+               :body-params [address :- s/Str]
+               :summary "Request an unmined block from this node's Txn Pool with the coinbase assigned to the provided Addr."
+               (ok (h/handler {:message "generate_unmined_block" :payload address} {})))
+   (route/not-found {:status 404 :body {:error "not found"}})))
 
 (defonce server (atom nil))
 

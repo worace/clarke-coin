@@ -26,11 +26,11 @@
 (defonce mine? (atom true))
 (defn stop-miner! [] (reset! mine? false))
 
-(defn next-block [db]
-  (let [txn-pool (txn/txns-for-next-block db
-                                          (q/wallet-addr db))]
-    (blocks/generate-block txn-pool
-                           db)))
+(defn next-block
+  ([db] (next-block db (q/wallet-addr db)))
+  ([db coinbase-addr]
+   (let [txn-pool (txn/txns-for-next-block db coinbase-addr)]
+     (blocks/generate-block txn-pool db))))
 
 (defn mine-and-commit-db
   ([db] (mine-and-commit-db db (next-block db)))

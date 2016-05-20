@@ -36,5 +36,4 @@
              (q/chain-length @db-ref))
         (do (log/info "Found longer block chain in peer" peer "-" h)
             (swap! db-ref synced-chain peer))))
-    (catch Exception e (do (println "Error syncing with peer: " peer ": " (.getMessage e))
-                           (clojure.stacktrace/print-stack-trace e)))))
+    (catch Exception e (do (log/info "Error syncing with peer: " peer ": " (.getMessage e))))))
