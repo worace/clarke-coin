@@ -44,3 +44,11 @@
         ratio (/ (avg-spacing times) frequency)
         adjustment (capped ratio)]
     (hex-string (bigint (* adjustment latest-target)))))
+
+(defn next-target
+  "Calculate the appropriate next target based on the time frequency
+   of recent blocks."
+  [blocks]
+  (if (> (count blocks) 8)
+    (adjusted-target blocks frequency)
+    default))

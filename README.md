@@ -19,6 +19,19 @@ crypto currency?
 * [ ] DB Storage ?? put blocks into SQLite ?? should be much faster
 * [ ] DNS Server -- Static node others can connect to on boot to find peers
 
+### DB style conversion
+
+* [X]  55 test/block_chain/block_sync_test.clj
+* [X] 244 test/block_chain/integration_test.clj
+* [X] 328 test/block_chain/message_handlers_test.clj
+* [X] 164 test/block_chain/http_test.clj
+* [X] 130 test/block_chain/block_validations_test.clj
+* [X]  83 test/block_chain/transaction_validations_test.clj
+* [X]  16 test/block_chain/blocks_test.clj
+* [X]  28 test/block_chain/miner_test.clj
+* [X]  81 test/block_chain/target_test.clj
+* [x]  33 test/block_chain/transactions_test.clj
+
 ### Payment Generation Workflow
 
 1. User enters address, amount, and fee into wallet

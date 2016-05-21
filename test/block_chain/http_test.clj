@@ -3,8 +3,10 @@
             [clj-http.client :as http]
             [block-chain.http :as server]
             [block-chain.db :as db]
+            [block-chain.queries :as q]
+            [block-chain.peer-client :as pc]
             [block-chain.blocks :as blocks]
-            [clojure.math.numeric-tower :as math]
+            [block-chain.transactions :as txn]
             [block-chain.wallet :as wallet]
             [block-chain.miner :as miner]
             [block-chain.utils :refer :all]
@@ -15,29 +17,20 @@
 
 (def base-url "http://localhost:9292")
 
-(def easy-difficulty (hex-string (math/expt 2 248)))
-(def chain (atom []))
-
-(def key-a (wallet/generate-keypair 512))
+(def key-a wallet/keypair)
 (def key-b (wallet/generate-keypair 512))
 
-(def a-coinbase (miner/coinbase (:address key-a)))
-(def a-paid (blocks/generate-block [a-coinbase]
-                                  {:target easy-difficulty}))
-;; A: 25 B: 0
-(miner/mine-and-commit chain a-paid)
-(def sample-block (first @chain))
+(def starting-db (-> db/empty-db
+                     (miner/mine-and-commit-db)))
 
-(def next-block (miner/mine
-                 (blocks/generate-block [(miner/coinbase (:address key-a))]
-                                        {:target easy-difficulty
-                                         :blocks @chain})))
+(def sample-block (q/highest-block starting-db))
+(def next-block (miner/mine (miner/next-block starting-db)))
 
 ;; A pays B 5
-(def sample-transaction (miner/generate-payment key-a
-                                         (:address key-b)
-                                         15
-                                         @chain))
+(def sample-transaction (txn/payment key-a
+                                     (:address key-b)
+                                     15
+                                     starting-db))
 
 (defn post-req [path data]
   (update
@@ -60,13 +53,9 @@
   (server/stop!))
 
 (defn with-db [f]
-  (reset! db/peers #{})
-  (reset! db/transaction-pool #{})
-  (reset! db/block-chain @chain)
+  (reset! db/db starting-db)
   (f)
-  (reset! db/peers #{})
-  (reset! db/transaction-pool #{})
-  (reset! db/block-chain @chain))
+  (reset! db/db starting-db))
 
 (use-fixtures :once with-server)
 (use-fixtures :each with-db)
@@ -85,39 +74,36 @@
            (:body r)))))
 
 (deftest test-get-peers
-  (swap! db/peers conj {:host "192.168.0.1" :port "3000"})
-  (is (= {:message "peers" :payload [{:host "192.168.0.1" :port "3000"}]}
+  (q/add-peer! db/db {:host "127.0.0.1" :port "9999"})
+  (is (= {:message "peers" :payload [{:host "127.0.0.1" :port "9999"}]}
          (:body (get-req "/peers")))))
 
 (deftest test-get-balance
   (is (= {:message "balance" :payload {:address "pizza" :balance 0} } (:body (post-req "/balance" {:address "pizza"})))))
 
 (deftest test-get-blocks
-  (is  (= {:message "blocks" :payload @chain}
+  (is  (= {:message "blocks" :payload (vec (reverse (q/longest-chain @db/db)))}
           (:body (get-req "/blocks")))))
 
 (deftest test-get-transaction-pool
-  (swap! db/transaction-pool conj sample-transaction)
+  (q/add-transaction-to-pool! db/db sample-transaction)
   (is  (= {:message "transaction_pool" :payload [sample-transaction]}
           (:body (get-req "/pending_transactions")))))
 
 (deftest test-get-block-info
-  (is  (= {:message "block_info" :payload sample-block}
-          (:body (get-req (str "/blocks/" (get-in sample-block [:header :hash])))))))
+  (is (= {:message "block_info" :payload sample-block}
+         (:body (get-req (str "/blocks/" (q/bhash sample-block)))))))
 
 (deftest test-get-latest-block
-  (swap! db/block-chain conj sample-block)
   (is  (= {:message "latest_block" :payload sample-block}
           (:body (get-req "/latest_block")))))
 
 (deftest test-get-block-height
-  (is  (= {:message "block_height" :payload 1}
-          (:body (get-req "/block_height")))))
+  (is (= 1 (pc/block-height {:host "localhost" :port "9292"}))))
 
 (deftest test-get-block-info
-  (swap! db/block-chain conj sample-block)
   (is  (= {:message "block_info" :payload sample-block}
-          (:body (get-req (str "/blocks/" (get-in sample-block [:header :hash])))))))
+          (:body (get-req (str "/blocks/" (q/bhash sample-block)))))))
 
 (deftest test-submit-transaction
   (post-req "/pending_transactions" sample-transaction)
@@ -134,31 +120,59 @@
            (sort (:payload (:body resp)))))))
 
 (deftest test-submit-valid-block
-  (with-redefs [target/default easy-difficulty]
-    (let [resp (post-req "/blocks" next-block)]
-      (is (= 200 (:status resp)))
-      (is (= "block-accepted" (:message (:body resp))))
-      (is (= next-block (:payload (:body resp)))))
-    (is  (= {:message "blocks" :payload [sample-block next-block]}
-            (:body (get-req "/blocks"))))))
+  (let [resp (post-req "/blocks" next-block)]
+    (is (= 200 (:status resp)))
+    (is (= "block-accepted" (:message (:body resp))))
+    (is (= next-block (:payload (:body resp)))))
+  (is  (= {:message "blocks" :payload [sample-block next-block]}
+          (:body (get-req "/blocks")))))
 
 (deftest test-submitting-invalid-block-returns-validation-errors
-  (with-redefs [target/default easy-difficulty]
-    (let [resp (post-req "/blocks" (update-in next-block [:transactions 0 :outputs 0 :amount] inc))]
-      (is (= "block-rejected" (:message (:body resp))))
-      (is (= 400 (:status resp)))
-      (is (= (sort ["Block's coinbase transaction is malformed or has incorrect amount."])
-             (sort (:payload (:body resp))))))))
+  (let [resp (post-req "/blocks" (update-in next-block [:transactions 0 :outputs 0 :amount] inc))]
+    (is (= "block-rejected" (:message (:body resp))))
+    (is (= 400 (:status resp)))
+    (is (= (sort ["Block's coinbase transaction is malformed or has incorrect amount."])
+           (sort (:payload (:body resp)))))))
 
 (deftest test-getting-blocks-since-height
-  (miner/mine-and-commit)
-  (miner/mine-and-commit)
-  (is (= 3 (count @db/block-chain)))
-  (is (= (map #(get-in % [:header :hash]) (drop 1 @db/block-chain))
-         (:payload (:body (get-req (str "/blocks_since/" (get-in (first @db/block-chain)
-                                                       [:header :hash]))))))))
+  (miner/mine-and-commit-db!)
+  (miner/mine-and-commit-db!)
+  (is (= (map q/bhash (drop 1 (reverse (q/longest-chain @db/db))))
+         (pc/blocks-since {:host "localhost" :port "9292"}
+                          (q/bhash (last (q/longest-chain @db/db)))))))
 
-#_(deftest test-generating-payment-transaction
-  (post-req "/pending_transactions" sample-transaction)
-  (is  (= {:message "" :payload [sample-transaction]}
-          (:body (get-req "/pending_transactions")))))
+(deftest test-adding-peer-via-http
+  (pc/send-peer {:host "127.0.0.1" :port 9292} 3001)
+  (is (= [{:host "127.0.0.1" :port "3001"}]
+         (q/peers @db/db))))
+
+(deftest test-gets-static-html-route
+  (let [r (-> "http://localhost:9292/graph"
+              (http/get {:throw-exceptions false}))]
+    (is (= 200 (:status r)))))
+
+(deftest test-requests-unmined-block-for-key
+  (miner/mine-and-commit-db!)
+  (let [addr (:address (wallet/generate-keypair 512))
+        resp (pc/unmined-block {:host "localhost"
+                                :port "9292"}
+                               addr)]
+    (is (= addr (get-in resp [:transactions 0 :outputs 0 :address])))
+    (is (= ["Block's hash does not meet the specified target."]
+           (pc/send-block {:host "localhost" :port "9292"} resp)))))
+
+(deftest test-uses-default-key-if-none-provided
+  (miner/mine-and-commit-db!)
+  ;; send with explicit nil address
+  (let [resp (pc/unmined-block {:host "localhost"
+                                :port "9292"}
+                               nil)]
+    (is (= (q/wallet-addr @db/db) (get-in resp [:transactions 0 :outputs 0 :address])))
+    (is (= ["Block's hash does not meet the specified target."]
+           (pc/send-block {:host "localhost" :port "9292"} resp))))
+  ;; send with empty body
+  (let [resp (pc/unmined-block {:host "localhost"
+                                :port "9292"})]
+    (is (= (q/wallet-addr @db/db) (get-in resp [:transactions 0 :outputs 0 :address])))
+    (is (= ["Block's hash does not meet the specified target."]
+           (pc/send-block {:host "localhost" :port "9292"} resp)))))

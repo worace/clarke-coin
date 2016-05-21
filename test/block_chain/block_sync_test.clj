@@ -5,19 +5,19 @@
             [block-chain.miner :as miner]
             [block-chain.queries :as q]
             [block-chain.db :as db]
-            [ring.adapter.jetty :as jetty]
+            [org.httpkit.server :as httpkit]
             [compojure.core :refer [defroutes GET]]
             [block-chain.block-sync :refer :all]))
 
 (def peer-db (atom db/initial-db))
 
 ;; A: 25
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
-(miner/mine-and-commit-db peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
+(miner/mine-and-commit-db! peer-db)
 
 (def our-db (atom db/initial-db))
 
@@ -46,10 +46,10 @@
   (is (= (q/bhash db/genesis-block) (first (reverse (map q/bhash (q/longest-chain @peer-db)))))))
 
 (deftest test-synced-chain-adds-blocks-from-peer
-  (let [p (jetty/run-jetty peer-handler {:port 9292 :join? false})
+  (let [shutdown-fn (httpkit/run-server peer-handler {:port 9292})
         peer {:host "localhost" :port "9292"}]
     (try
       (is (= (q/bhash db/genesis-block) (q/bhash (last (q/longest-chain @peer-db)))))
       (is (= 6 (count (pc/blocks-since peer (q/bhash (last (q/longest-chain @peer-db)))))))
       (is (= @peer-db (synced-chain @our-db peer)))
-      (finally (.stop p)))))
+      (finally (shutdown-fn)))))

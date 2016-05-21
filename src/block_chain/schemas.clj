@@ -9,6 +9,7 @@
                                                           :index s/Int}})
 (s/defschema UnsignedTransaction
   {:hash s/Str
+   :min-height s/Int
    :timestamp s/Int
    :inputs [UnsignedTransactionInput]
    :outputs [TransactionOutput]})

@@ -1,8 +1,7 @@
 (ns block-chain.wallet-test
   (:require [clojure.test :refer :all]
             [block-chain.wallet :refer :all]
-            [block-chain.key-serialization :as ks]
-            [clojure.tools.namespace.repl :refer [refresh]]))
+            [block-chain.key-serialization :as ks]))
 
 (deftest test-encrypt-and-decrypt-with-fresh-keys
   (let [kp (generate-keypair 128)
@@ -34,21 +33,6 @@
         sig (sign "pizza" priv)]
     (is (verify sig "pizza" pub))
     (is (not (verify sig "lul" pub)))))
-
-(def unsigned-txn
-  {:inputs [{:source-txn "9ed1515819dec61fd361d5fdabb57f41ecce1a5fe1fe263b98c0d6943b9b232e"
-             :source-output-index 0}]
-   :outputs [{:amount 5
-              :receiving-address "addr"}]})
-
-(deftest test-signs-transaction-inputs
-  ;; first txn input contains source hash and index (2 items)
-  (is (= #{:source-txn :source-output-index}
-         (into #{} (keys (first (:inputs unsigned-txn))))))
-  ;; signing inputs adds new signature element
-  (is (= #{:source-txn :source-output-index :signature}
-         (into #{} (keys (first (:inputs (sign-txn unsigned-txn
-                                                   (:private keypair)))))))))
 
 
 (deftest test-serializing-and-deserializing-der-keys

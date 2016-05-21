@@ -1,40 +1,40 @@
 (ns block-chain.block-validations
   (:require [block-chain.blocks :as b]
-            [block-chain.chain :as c]
-            [block-chain.target :as t]
+            [block-chain.queries :as q]
+            [block-chain.target :as target]
+            [block-chain.transactions :as txn]
             [block-chain.transaction-validations :as txn-v]
             [block-chain.utils :refer :all]))
 
-(defn valid-hash? [block _]
-  (= (get-in block [:header :hash])
+(defn valid-hash? [_ block]
+  (= (q/bhash block)
      (b/block-hash block)))
 
-(defn valid-parent-hash? [block chain]
-  (= (get-in block [:header :parent-hash])
-     (c/latest-block-hash chain)))
+(defn valid-parent-hash? [db block]
+  (not (nil? (q/get-block db (q/phash block)))))
 
-(defn hash-meets-target? [block _]
+(defn hash-meets-target? [_ block]
   (b/meets-target? block))
 
-(defn valid-target? [block chain]
-  (let [expected (hex->int (c/next-target chain))
+(defn valid-target? [db block]
+  (let [expected (hex->int (target/next-target (take 10 (q/chain db (q/get-parent db block)))))
         received (hex->int (get-in block [:header :target]))
         threshold (/ expected 1000)]
     (in-delta? expected received threshold)))
 
-(defn valid-txn-hash? [block _]
+(defn valid-txn-hash? [_ block]
   (= (get-in block [:header :transactions-hash])
      (b/transactions-hash (:transactions block))))
 
-(defn valid-coinbase? [block chain]
+(defn valid-coinbase? [db block]
   (let [cb (first (:transactions block))]
     (and
      (= 1 (count (:outputs cb)))
      (= 0 (count (:inputs cb)))
-     (= (+ c/coinbase-reward
-           (c/txn-fees (rest (:transactions block)) chain))
-        (:amount (first (:outputs cb))))
-     )))
+     (= (+ txn/coinbase-reward
+           (txn/txn-fees (rest (:transactions block))
+                       db))
+        (:amount (first (:outputs cb)))))))
 
 (defn valid-timestamp?
   ;; TODO -- this is not quite right
@@ -43,22 +43,22 @@
   ;; don't really mind if there is a gap between 2 blocks
   "Require timestamp between 10 mins ago and 1 min from now.
    Timestamps are in millis."
-  [{{ts :timestamp} :header} _]
+  [db {{ts :timestamp} :header :as block}]
   (and (> ts (- (current-time-millis) 60000))
        (< ts (+ (current-time-millis) 6000))))
 
-(defn valid-transactions? [block chain]
-  (empty? (mapcat #(txn-v/validate-transaction % chain #{})
+(defn valid-transactions? [db block]
+  (empty? (mapcat #(txn-v/validate-transaction db %)
                   (rest (:transactions block)))))
 
-(defn unique-txn-inputs? [block chain]
+(defn unique-txn-inputs? [_ block]
   (let [inputs (mapcat :inputs (:transactions block))]
     (= (count inputs)
        (count (into #{} inputs)))))
 
 (def block-validations
   {valid-hash? "Block's hash does not match its contents."
-   valid-parent-hash? "Block's parent hash does not match most recent block on the chain."
+   valid-parent-hash? "Block's parent is not a known block."
    hash-meets-target? "Block's hash does not meet the specified target."
    valid-target? "Block's target does not match expectations based on time spread of recent blocks."
    valid-txn-hash? "Block's transaction-hash does not match the contents of its transactions."
@@ -67,9 +67,9 @@
    valid-transactions? "One or more of the Block's non-coinbase transactions are invalid."
    unique-txn-inputs? "One or more of the Block's transactions attempt to spend the same sources."})
 
-(defn validate-block [block chain]
+(defn validate-block [db block]
   (mapcat (fn [[validation message]]
-            (if-not (validation block chain)
+            (if-not (validation db block)
               [message]
               []))
           block-validations))

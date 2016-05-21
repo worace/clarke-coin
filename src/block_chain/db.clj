@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [block-chain.utils :refer :all]
             [block-chain.queries :as q]
+            [block-chain.wallet :as wallet]
             ))
 
 ;; DB namespace
@@ -23,28 +24,18 @@
 ;; * miner.clj - mine? (atom true)
 ;; * net.clj - server - (atom nil)
 
-(def genesis-block (read-json (slurp "./genesis.json")))
-
-(defonce block-chain (atom [genesis-block]))
+(def genesis-block (read-json (slurp (io/resource "genesis.json"))))
 
 (def chain-path (str (System/getProperty "user.home")
                      "/.block_chain.json"))
 
-(defn read-stored-chain
-  [path] (if (.exists (io/as-file path))
-           (into [] (read-json (slurp path)))
-           []))
-
-(defn load-block-chain!
-  ([] (load-block-chain! chain-path))
-  ([path] (reset! block-chain (read-stored-chain path))))
-
-(defn write-block-chain!
-  ([] (write-block-chain! chain-path @block-chain))
-  ([path blocks] (spit path (write-json blocks))))
-
-(def peers (atom #{}))
 (defonce transaction-pool (atom #{}))
-(def empty-db {:blocks {} :children {} :chains {}})
+(def empty-db {:blocks {}
+               :default-key wallet/keypair
+               :children {}
+               :chains {}
+               :peers #{}
+               :transaction-pool #{}
+               :transactions {}})
 (def initial-db (q/add-block empty-db genesis-block))
 (defonce db (atom initial-db))

@@ -1,157 +1,89 @@
 (ns block-chain.integration-test
   (:require [clojure.test :refer :all]
-            [clojure.tools.namespace.repl :refer [refresh]]
             [clojure.math.numeric-tower :as math]
-            [block-chain.chain :as bc]
+            [clojure.pprint :refer [pprint]]
             [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
             [block-chain.key-serialization :as ks]
             [block-chain.transactions :as txn]
             [block-chain.blocks :as blocks]
+            [block-chain.db :as db :refer [empty-db]]
+            [block-chain.queries :as q]
             [block-chain.miner :as miner]))
 
-
-(def key-a (wallet/generate-keypair 512))
-(def address-a (:address key-a))
+(def key-a wallet/keypair)
+(def address-a (:address wallet/keypair))
 (def key-b (wallet/generate-keypair 512))
 (def address-b (:address key-b))
 
-(def easy-difficulty-target (hex-string (math/expt 2 248)))
+(defn db-with-blocks [n]
+  (reduce (fn [db _] (miner/mine-and-commit-db! db))
+          (atom db/empty-db)
+          (range n)))
 
 (deftest generating-coinbase
-  (let [cb (miner/coinbase address-a)]
-    (is (= [:inputs :outputs :timestamp :hash] (keys cb)))
+  (let [cb (txn/coinbase address-a)]
+    (is (= #{:inputs :outputs :timestamp :hash :min-height} (into #{} (keys cb))))
     (is (= (:hash cb)
            (get-in cb [:outputs 0 :coords :transaction-id])))))
 
-(deftest test-generating-block
-  (let [cb (miner/coinbase address-a)
-        block (blocks/generate-block
-               [cb]
-               {:target easy-difficulty-target
-                :chain []})]
-    (is (= [:header :transactions] (keys block)))
-    (is (= [:parent-hash :transactions-hash
-            :target :timestamp :nonce] (keys (:header block))))
-    (is (nil? (:hash block)))
-    (is (= (hex-string 0) (get-in block [:header :parent-hash])))))
-
-(deftest test-hashing-block
-  (let [block (blocks/hashed
-               (blocks/generate-block
-                [(miner/coinbase address-a)]
-                {:target easy-difficulty-target}))]
-    (is (get-in block [:header :hash]))
-    (is (= 0 (get-in block [:header :nonce])))
-    (is (not (blocks/meets-target? block)))))
-
 (deftest test-mining-block
-  (let [block (miner/mine
-               (blocks/hashed
-                (blocks/generate-block
-                 [(miner/coinbase address-a)]
-                 {:target easy-difficulty-target})))]
-    (is (blocks/meets-target? block))
-    (is (> (get-in block [:header :nonce]) 0))))
+  (let [block (-> (txn/coinbase address-a)
+                  (blocks/generate-block empty-db)
+                  (miner/mine))]
+    (is (blocks/meets-target? block))))
 
 (deftest test-committing-block-to-chain
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (is (= 1 (count @chain)))))
-
+  (let [db (atom db/empty-db)]
+    (is (= 0 (q/chain-length @db)))
+    (miner/mine-and-commit-db! db
+                              (blocks/generate-block
+                               [(txn/coinbase address-a)]
+                               @db))
+    (is (= 1 (q/chain-length @db)))))
 
 (deftest test-mining-multiple-blocks
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (is (= 3 (count @chain)))
-    (is (= (get-in (get @chain 0) [:header :hash])
-           (get-in (get @chain 1) [:header :parent-hash])))
-    (is (= (get-in (get @chain 1) [:header :hash])
-           (get-in (get @chain 2) [:header :parent-hash])))))
-
+  (let [db (db-with-blocks 4)]
+    (is (= 4 (q/chain-length @db)))
+    (is (= (q/phash (first (q/longest-chain @db)))
+           (q/bhash (second (q/longest-chain @db)))))
+    (is (= (q/phash (first (drop 1 (q/longest-chain @db))))
+           (q/bhash (second (drop 1 (q/longest-chain @db))))))
+    (is (= (q/phash (first (drop 2 (q/longest-chain @db))))
+           (q/bhash (second (drop 2 (q/longest-chain @db))))))))
 
 (deftest test-checking-balances
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (is (= 3 (count (bc/unspent-outputs address-a @chain))))
-    (is (= 75 (bc/balance address-a @chain)))))
-
-#_(deftest test-transferring-outputs
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (is (= 1 (count (bc/unspent-outputs address-a @chain))))
-    (is (= 25 (bc/balance address-a @chain)))
-    (let [source (get-in (last @chain)
-                         [:transactions 0 :outputs 0])
-          payment (miner/payment (:private key-a) address-b source)]
-      (miner/mine-and-commit chain
-                             (blocks/generate-block
-                              [(miner/coinbase address-a)
-                               payment]
-                              {:target easy-difficulty-target :blocks @chain}))
-      ;; 2 blocks containing 3 transactions
-      ;; 2 coinbases for A and 1 txn transferring
-      ;; 1st coinbase to B
-      (is (= 2 (count @chain)))
-      (is (= 1 (count (bc/unspent-outputs address-a @chain))))
-      (is (= 3 (count (bc/transactions @chain) )))
-      (is (= 1 (count (bc/unspent-outputs address-b @chain))))
-      (is (= 25 (bc/balance address-a @chain)))
-      (is (= 25 (bc/balance address-b @chain))))))
+  (let [db (atom db/empty-db)]
+    (dotimes [n 3] (miner/mine-and-commit-db! db))
+    (is (= 3 (q/chain-length @db)))
+    (is (= 3 (count (q/unspent-outputs address-a @db))))
+    (is (= 75 (q/balance address-a @db)))))
 
 (deftest test-selecting-sources-from-output-pool
   (let [pool [{:amount 25 :address 1234}
               {:amount 14 :address 1234}]
-        sources (miner/select-sources 25 pool)]
+        sources (txn/select-sources 25 pool)]
     (is (= (take 1 pool) sources)))
   (let [pool [{:amount 11 :address 1234}
               {:amount 14 :address 1234}]
-        sources (miner/select-sources 25 pool)]
+        sources (txn/select-sources 25 pool)]
     (is (= pool sources))))
 
 (deftest test-generating-payment-fails-without-sufficient-funds
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (is (= 1 (count (bc/unspent-outputs address-a @chain))))
-    (is (= 25 (bc/balance address-a @chain)))
+  (let [db (db-with-blocks 1)]
+    (is (= 1 (count (q/longest-chain @db))))
+    (is (= 1 (count (q/unspent-outputs address-a @db))))
+    (is (= 25 (q/balance address-a @db)))
     (is (thrown? AssertionError
-                 (miner/generate-payment key-a address-b 26 @chain)))))
+                 (txn/payment key-a
+                              address-b
+                              26
+                              @db)))))
 
 (deftest test-generating-raw-payment-txn
-  (let [sources (concat (:outputs (miner/coinbase address-a))
-                        (:outputs (miner/coinbase address-b)))
-        raw-p (miner/raw-payment-txn 50 "addr" sources)]
+  (let [sources (concat (:outputs (txn/coinbase address-a @db/db))
+                        (:outputs (txn/coinbase address-b @db/db)))
+        raw-p (txn/raw-txn 50 "addr" sources)]
     (is (= 2 (count (:inputs raw-p))))
     (is (= (into #{} (vals (:coords (first sources))))
            (into #{} (vals (first (:inputs raw-p))))))
@@ -159,78 +91,65 @@
            (into #{} (vals (last (:inputs raw-p))))))))
 
 (deftest test-generating-payment-produces-valid-txn
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain
-                           (blocks/generate-block
-                            [(miner/coinbase address-a)]
-                            {:target easy-difficulty-target :blocks @chain}))
-    (let [p (miner/generate-payment key-a address-b 25 @chain)
-          sig (:signature (first (:inputs p)))]
-      (is (= 1 (count (:inputs p))))
-      (is (= 1 (count (:outputs p))))
-      (is (= 25 (reduce + (map :amount (:outputs p)))))
-      (is (wallet/verify
-           sig
-           (txn/txn-signable p)
-           (:public key-a))))))
+  (let [db (db-with-blocks 1)
+        p (txn/payment key-a
+                       address-b
+                       25
+                       @db)
+        sig (-> p :inputs first :signature)]
+    (is (= 1 (-> p :inputs count)))
+    (is (= 1 (-> p :outputs count)))
+    (is (= 25 (->> p :outputs (map :amount) (reduce +))))
+    (is (wallet/verify sig (txn/txn-signable p) (:public key-a)))))
 
 (deftest test-generating-payment-from-multiple-inputs
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase address-a)] {:target easy-difficulty-target :blocks @chain}))
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase address-a)] {:target easy-difficulty-target :blocks @chain}))
-    (let [p (miner/generate-payment key-a address-b 50 @chain)
-          sig (:signature (first (:inputs p)))]
-      (is (= 2 (count (:inputs p))))
-      (is (= 1 (count (:outputs p))))
-      (is (= 50 (reduce + (map :amount (:outputs p)))))
-      (is (wallet/verify
-           sig
-           (txn/txn-signable p)
-           (:public key-a))))))
+  (let [db (db-with-blocks 2)
+        p (txn/payment key-a
+                       address-b
+                       50
+                       @db)
+        sig (-> p :inputs first :signature)]
+    (is (= 2 (-> p :inputs count)))
+    (is (= 1 (-> p :outputs count)))
+    (is (= 50 (reduce + (map :amount (:outputs p)))))
+    (is (wallet/verify sig (txn/txn-signable p) (:public key-a)))))
 
 (deftest test-generating-payment-with-transaction-fee
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase address-a)] {:target easy-difficulty-target :blocks @chain}))
-    (let [p (miner/generate-payment key-a address-b 24 @chain 1)
-          sig (:signature (first (:inputs p)))]
+  (let [db (db-with-blocks 1)
+        p (txn/payment key-a address-b 24 @db 1)
+        sig (-> p :inputs first :signature)]
       (is (= 1 (count (:inputs p))))
       (is (= 1 (count (:outputs p))))
       (is (= 24 (reduce + (map :amount (:outputs p)))))
-      (let [sources (map (fn [i]
-                           (bc/source-output @chain i))
-                         (:inputs p))]
-        (is (= 25 (reduce + (map :amount sources)))))
-      (is (wallet/verify
-           sig
-           (txn/txn-signable p)
-           (:public key-a))))))
+      (is (= 25 (->> p
+                     :inputs
+                     (map (partial q/source-output @db))
+                     (map :amount)
+                     (reduce +))))
+      (is (wallet/verify sig (txn/txn-signable p) (:public key-a)))))
 
 (deftest test-generating-payment-with-change
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase address-a)] {:target easy-difficulty-target :blocks @chain}))
-    (let [p (miner/generate-payment key-a address-b 15 @chain 3)
-          sig (:signature (first (:inputs p)))]
-      (is (= 1 (count (:inputs p))))
-      (is (= 2 (count (:outputs p))))
-      (is (= 15 (:amount (first (:outputs p)))))
-      (is (= address-b (:address (first (:outputs p)))))
-      (is (= 7 (:amount (last (:outputs p)))))
-      (is (= address-a (:address (last (:outputs p)))))
-      (is (= 22 (reduce + (map :amount (:outputs p)))))
-      (let [sources (map (fn [i]
-                           (bc/source-output @chain i))
-                         (:inputs p))]
-        (is (= 25 (reduce + (map :amount sources)))))
-      (is (wallet/verify
-           sig
-           (txn/txn-signable p)
-           (:public key-a))))))
+  (let [db (db-with-blocks 1)
+        p (txn/payment key-a address-b 15 @db 3)
+        sig (:signature (first (:inputs p)))]
+    (is (= 1 (count (:inputs p))))
+    (is (= 2 (count (:outputs p))))
+    (is (= 15 (:amount (first (:outputs p)))))
+    (is (= address-b (:address (first (:outputs p)))))
+    (is (= 7 (:amount (last (:outputs p)))))
+    (is (= address-a (:address (last (:outputs p)))))
+    (is (= 22 (reduce + (map :amount (:outputs p)))))
+    (is (= 25 (->> p
+                   :inputs
+                   (map (partial q/source-output @db))
+                   (map :amount)
+                   (reduce +))))
+    (is (wallet/verify sig (txn/txn-signable p) (:public key-a)))))
 
 (deftest test-generating-unsigned-payment
-  (let [chain (atom [])]
-    (miner/mine-and-commit chain (blocks/generate-block [(miner/coinbase address-a)] {:target easy-difficulty-target :blocks @chain}))
-    (let [p (miner/generate-unsigned-payment address-a address-b 15 @chain 3)
-          sig (:signature (first (:inputs p)))]
+  (let [db (db-with-blocks 1)
+        p (txn/unsigned-payment address-a address-b 15 @db 3)
+        sig (:signature (first (:inputs p)))]
       (is (= 1 (count (:inputs p))))
       (is (= 2 (count (:outputs p))))
       (is (= 15 (:amount (first (:outputs p)))))
@@ -238,13 +157,32 @@
       (is (= 7 (:amount (last (:outputs p)))))
       (is (= address-a (:address (last (:outputs p)))))
       (is (= 22 (reduce + (map :amount (:outputs p)))))
-      (let [sources (map (fn [i]
-                           (bc/source-output @chain i))
-                         (:inputs p))]
-        (is (= 25 (reduce + (map :amount sources)))))
+      (is (= 25 (->> p
+                     :inputs
+                     (map (partial q/source-output @db))
+                     (map :amount)
+                     (reduce +))))
       (is (= nil sig))
       ;; verify that we can subsequently sign the txn as needed
-      (let [signed (wallet/sign-txn p (:private key-a))]
+      (let [signed (txn/sign-txn p (:private key-a))]
         (is (wallet/verify (:signature (first (:inputs signed)))
-                           (txn/txn-signable signed)
-                           (:public key-a)))))))
+              (txn/txn-signable signed)
+              (:public key-a))))))
+
+;; (defn make-big-db [n-blocks]
+;;   (reduce (fn [db _]
+;;             (miner/mine-and-commit-db db))
+;;           db/initial-db
+;;           (range n-blocks)))
+
+;; (def big-db (reduce (fn [db _]
+;;                       (miner/mine-and-commit-db db))
+;;                     db/initial-db
+;;                     (range 10)))
+(deftest test-utxos-on-big-chain)
+#_(let [db (atom db/empty-db)]
+    (println "\n\n~~~~~~~~~~~~~~~\n\n")
+    (time (dotimes [n 2500] (miner/mine-and-commit-db! db)))
+    (time (bc/balance-db address-a @db))
+    ;; (time (bc/balance address-a (q/longest-chain @db)))
+    )

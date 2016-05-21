@@ -1,7 +1,11 @@
 (ns block-chain.transactions
   (:require [block-chain.utils :refer :all]
+            [block-chain.wallet :as wallet]
+            [block-chain.queries :as q]
+            [block-chain.db :as db]
             [cheshire.core :as json]))
 
+(def coinbase-reward 25)
 (def input-signable (partial cat-keys [:source-hash :source-index]))
 (def input-hashable (partial cat-keys [:source-hash :source-index]))
 (def output-signable (partial cat-keys [:amount :address]))
@@ -10,12 +14,12 @@
 (defn txn-signable [txn]
   (apply str (concat (map input-signable (:inputs txn))
                      (map output-signable (:outputs txn))
-                     )))
+                     [(:min-height txn) (:timestamp txn)])))
 
 (defn txn-hashable [txn]
   (apply str (concat (map input-hashable (:inputs txn))
                      (map output-hashable (:outputs txn))
-                     [(:timestamp txn)])))
+                     [(:min-height txn) (:timestamp txn)])))
 
 (defn serialize-txn [txn]
   (write-json txn))
@@ -46,9 +50,131 @@
                             (repeat (:hash txn)))]
     (assoc txn :outputs (into [] tagged-outputs))))
 
-(defn gather-transactions
-  "Gather pending transactions from the network and add our own coinbase
-   reward. (Currently just injecting the coinbase since we don't have other
-   txns available yet)"
-  []
-  [])
+(defn sign-txn
+  "Takes a transaction map consisting of :inputs and :outputs, where each input contains
+   a Source TXN Hash and Source Output Index. Signs each input by adding :signature
+   which contains an RSA-SHA256 signature of the JSON representation of all the outputs in the transaction."
+  [txn private-key]
+  (let [signable (txn-signable txn)]
+    (assoc txn
+           :inputs
+           (into [] (map (fn [i] (assoc i :signature (wallet/sign signable private-key)))
+                         (:inputs txn))))))
+
+(defn txn-fees
+  "Finds available txn-fees from a pool of txns by finding the diff
+   between cumulative inputs and cumulative outputs"
+  [txns db]
+  (let [sources (map (partial q/source-output db)
+                     (mapcat :inputs txns))
+        outputs (mapcat :outputs txns)]
+    (- (reduce + (map :amount sources))
+       (reduce + (map :amount outputs)))))
+
+(defn coinbase
+  "Generate new 'coinbase' mining reward transaction for the given
+   address and txn pool. Coinbase includes no inputs and 1 output,
+   where the address of the output is the address provided and the
+   amount of the output is "
+  ([] (coinbase (:address wallet/keypair)))
+  ([address] (coinbase address @db/db))
+  ([address db]
+   (tag-coords
+    (hash-txn
+     {:inputs []
+      :min-height (q/chain-length db)
+      :outputs [{:amount (+ coinbase-reward
+                            (txn-fees (q/transaction-pool db) db))
+                 :address address}]
+      :timestamp (current-time-millis)}))))
+
+(defn txns-for-next-block
+  ([db coinbase-addr] (txns-for-next-block db
+                                           coinbase-addr
+                                           (q/transaction-pool db)))
+  ([db coinbase-addr txn-pool] (into [(coinbase coinbase-addr db)]
+                                     txn-pool)))
+
+(defn raw-txn
+  [amount address sources]
+  (let [inputs (into [] (map (fn [s]
+                               {:source-hash (get-in s [:coords :transaction-id])
+                                :source-index (get-in s [:coords :index])})
+                             sources))]
+    {:inputs inputs
+     :outputs [{:amount amount :address address}]
+     :timestamp (current-time-millis)}))
+
+(defn select-sources
+  [amount output-pool]
+  (let [avail (reduce + (map :amount output-pool))]
+    (assert (>= avail amount) (str "Only found " avail " to fund " amount ".")))
+  (let [greaters (filter #(>= (:amount %) amount) output-pool)
+        lessers (filter #(< (:amount %) amount) output-pool)]
+    (if (first greaters)
+      (take 1 greaters)
+      (loop [sources []
+             pool lessers]
+        (if (>= (reduce + (map :amount sources)) amount)
+          sources
+          (recur (conj sources (first pool))
+                 (rest pool)))))))
+
+(defn add-change [txn change-address sources total]
+  (let [change (- (apply + (map :amount sources)) total)]
+    (if (> change 0)
+      (update-in txn
+                 [:outputs]
+                 conj
+                 {:address change-address :amount change})
+      txn)))
+
+(defn unsigned-payment
+  ([from-address to-address amount db] (unsigned-payment from-address to-address amount db 0))
+  ([from-address to-address amount db fee]
+   (let [output-pool (q/unspent-outputs from-address db)
+         sources (select-sources (+ amount fee) output-pool)
+         txn (raw-txn amount to-address sources)]
+     (-> txn
+         (assoc :min-height (q/chain-length db))
+         (add-change from-address sources (+ amount fee))
+         (hash-txn)
+         (tag-coords)))))
+
+(defn payment
+  "Generates a transaction to pay the specified amount to the
+    specified address using provided key. Sources inputs from the
+    unspent outputs available to the provided key. If a transaction
+    fee is provided, it will be included in the value of inputs
+    that are sourced, but not in the value of outputs that are
+    spent. (i.e. the fee is the difference between input value
+    and output value). Additionally, will roll any remaining
+    value into an additional 'change' output back to the paying
+    key."
+  ([key address amount db] (payment key address amount db 0))
+  ([key address amount db fee]
+   (-> (unsigned-payment (:address key) address amount db fee)
+       (sign-txn (:private key)))))
+
+(defn transactions [blocks] (mapcat :transactions blocks))
+(defn inputs [blocks] (mapcat :inputs (transactions blocks)))
+(defn outputs [blocks] (mapcat :outputs (transactions blocks)))
+
+(defn inputs-to-sources [inputs db]
+  (zipmap inputs
+          (map (partial q/source-output db) inputs)))
+
+(defn consumes-output?
+  [source-hash source-index input]
+  (and (= source-hash (:source-hash input))
+       (= source-index (:source-index input))))
+
+(defn unspent?
+  "takes a txn hash and output index identifying a
+   Transaction Output in the block chain. Searches the
+   chain to find if this output has been spent."
+  [blocks output]
+  (let [inputs (inputs blocks)
+        {:keys [transaction-id index]} (:coords output)
+        spends-output? (partial consumes-output? transaction-id index)]
+    (not-any? spends-output? inputs)))

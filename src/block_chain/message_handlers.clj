@@ -1,8 +1,10 @@
 (ns block-chain.message-handlers
   (:require [block-chain.utils :refer :all]
-            [block-chain.chain :as bc]
             [clojure.pprint :refer [pprint]]
             [block-chain.db :as db]
+            [block-chain.queries :as q]
+            [block-chain.log :as log]
+            [block-chain.blocks :as blocks]
             [block-chain.transaction-validations :as txn-v]
             [block-chain.block-validations :as block-v]
             [block-chain.block-sync :as block-sync]
@@ -10,63 +12,58 @@
             [block-chain.key-serialization :as ks]
             [block-chain.miner :as miner]
             [block-chain.peer-notifications :as peers]
-            [block-chain.transactions :as txns]))
+            [block-chain.transactions :as txn]))
 
-(defn echo [msg sock-info]
-  msg)
+(defn echo [msg sock-info] msg)
 
-(defn ping [msg sock-info]
-  {:message "pong" :payload (:payload msg)})
+(defn ping [msg sock-info] {:message "pong" :payload (:payload msg)})
 
 (defn get-peers [msg sock-info]
-  {:message "peers" :payload (into [] @db/peers)})
+  {:message "peers" :payload (q/peers @db/db)})
 
 (defn add-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (swap! db/peers conj {:host host :port port})
-    (block-sync/sync-if-needed! db/block-chain {:host host :port port})
-    {:message "peers" :payload @db/peers}))
+    (q/add-peer! db/db {:host host :port port})
+    (block-sync/sync-if-needed! db/db {:host host :port port})
+    {:message "peers" :payload (q/peers @db/db)}))
 
 (defn remove-peer [msg sock-info]
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))]
-    (swap! db/peers
-           clojure.set/difference
-           #{{:host host :port port}})
-    {:message "peers" :payload @db/peers}))
+    (q/remove-peer! db/db {:host host :port port})
+    {:message "peers" :payload (q/peers @db/db)}))
 
 (defn get-balance [msg sock-info]
   (let [address (:payload msg)
-        balance (bc/balance address @db/block-chain)]
+        balance (q/balance address @db/db)]
     {:message "balance"
      :payload {:address address :balance balance}}))
 
 (defn get-transaction-pool [msg sock-info]
   {:message "transaction_pool"
-   :payload (into [] @db/transaction-pool)})
+   :payload (into [] (q/transaction-pool @db/db))})
 
 (defn get-block-height [msg sock-info]
   {:message "block_height"
-   :payload (count @db/block-chain)})
+   :payload (q/chain-length @db/db)})
 
 (defn get-latest-block [msg sock-info]
   {:message "latest_block"
-   :payload (last @db/block-chain)})
+   :payload (q/highest-block @db/db)})
 
 (defn get-blocks [msg sock-info]
   {:message "blocks"
-   :payload @db/block-chain})
+   :payload (into [] (reverse (q/longest-chain @db/db)))})
 
 (defn get-block [msg sock-info]
   {:message "block_info"
-   :payload (bc/block-by-hash (:payload msg)
-                              @db/block-chain)})
+   :payload (q/get-block @db/db
+                         (:payload msg))})
 
 (defn get-transaction [msg sock-info]
   {:message "transaction_info"
-   :payload (bc/txn-by-hash (:payload msg)
-                              @db/block-chain)})
+   :payload (q/get-txn @db/db (:payload msg))})
 
 (defn generate-payment
   "Generates an _unsigned_ payment transaction for supplied from-address,
@@ -75,40 +72,50 @@
    and return to the full node for inclusion in the block chain."
   [msg sock-info]
   {:message "unsigned_transaction"
-   :payload (miner/generate-unsigned-payment
+   :payload (txn/unsigned-payment
              (:from-address (:payload msg))
              (:to-address (:payload msg))
              (:amount (:payload msg))
-             @db/block-chain
+             @db/db
              (or (:fee (:payload msg)) 0))})
 
 (defn submit-transaction [msg sock-info]
   (let [txn (:payload msg)
-        validation-errors (txn-v/validate-transaction txn @db/block-chain @db/transaction-pool)]
-    (if (empty? validation-errors)
-      (do
-        (swap! db/transaction-pool conj txn)
-        (peers/transaction-received! txn)
-        {:message "transaction-accepted" :payload txn})
-      {:message "transaction-rejected" :payload validation-errors})))
+        validation-errors (txn-v/validate-transaction @db/db
+                                                      txn)]
+    (cond
+      (not (txn-v/new-transaction? @db/db txn)) {:message "transaction-rejected" :payload ["Transaction already in this node's pool."]}
+      (not (empty? validation-errors)) {:message "transaction-rejected" :payload validation-errors}
+      :else (do
+              (q/add-transaction-to-pool! db/db txn)
+              (peers/transaction-received! txn)
+              {:message "transaction-accepted" :payload txn}))))
 
 (defn submit-block [msg sock-info]
   (let [b (:payload msg)
-        validation-errors (block-v/validate-block b @db/block-chain)]
+        validation-errors (block-v/validate-block @db/db b)]
     (if (empty? validation-errors)
-      (do
-        (miner/stop-miner!)
-        (swap! db/block-chain conj b)
-        (reset! db/transaction-pool #{})
-        (peers/block-received! b)
-        {:message "block-accepted" :payload b})
+      (if (q/new-block? @db/db b)
+        (do
+          ;; (miner/stop-miner!)
+          (swap! db/db q/add-block b)
+          (peers/block-received! b)
+          (log/info "Received block" (q/bhash b))
+          (log/info "Current head" (q/bhash (q/highest-block @db/db)))
+          {:message "block-accepted" :payload b})
+        {:message "block-rejected" :payload ["Block already known."]})
       {:message "block-rejected" :payload validation-errors})))
 
 (defn get-blocks-since [msg sock-info]
-  (let [start-pos (bc/block-index (:payload msg) @db/block-chain)]
-    (if start-pos
-      {:message "blocks_since" :payload (map bc/bhash (drop (inc start-pos) @db/block-chain))}
-      {:message "blocks_since" :payload []})))
+  (if-let [b (q/get-block @db/db (:payload msg))]
+    {:message "blocks_since"
+     :payload (map q/bhash (q/blocks-since @db/db (:payload msg)))}
+    {:message "blocks_since" :payload []}))
+
+(defn generate-unmined-block [msg sock-info]
+  (let [addr (or (:payload msg) (q/wallet-addr @db/db))]
+    {:message "unmined_block"
+     :payload (blocks/hashed (miner/next-block @db/db addr))}))
 
 (def message-handlers
   {"echo" echo
@@ -126,14 +133,13 @@
    "get_transaction" get-transaction
    "submit_transaction" submit-transaction
    "submit_block" submit-block
+   "generate_unmined_block" generate-unmined-block
    "generate_payment" generate-payment})
 
 
 (defn handler [msg sock-info]
-  ;; (println "*****\n\n" "Message handler called with: " msg)
   (let [handler-fn (get message-handlers
                         (:message msg)
                         echo)
         resp (handler-fn msg sock-info)]
-    ;; (println "######\n\n" "Message handler returning value: " resp)
     resp))
