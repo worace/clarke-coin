@@ -15,36 +15,6 @@
             [compojure.core :refer [defroutes GET routes]]
             [compojure.route :as route]))
 
-;; {
-;;        "name": "flare",
-;;        "children": [
-;;          {
-;;            "name": "analytics",
-;;            "children": [
-;;              {
-;;                "name": "graph",
-;;                "children": [
-;;                  {"name": "Layer 2", "size": 3534,
-;;                   "children": [{"name": "layer 3", "size": 3534,
-;;                                 "children": [{"name": "layer 4", "size": 3534,
-;;                                 "children": []}]}]},
-;;                  {"name": "LinkDistance", "size": 5731},
-;;                  {"name": "MaxFlowMinCut", "size": 7840},
-;;                  {"name": "ShortestPaths", "size": 5914},
-;;                  {"name": "SpanningTree", "size": 3416}
-;;                ]
-;;              },
-;;              {
-;;                "name": "optimization",
-;;                "children": [
-;;                  {"name": "AspectRatioBanker", "size": 7074}
-;;                ]
-;;              }
-;;            ]
-;;          }
-;;        ]
-;;      }
-
 (defn children-tree
   ([db] (children-tree db (-> db q/longest-chain last q/bhash)))
   ([db hash]
@@ -151,7 +121,6 @@
                            (ok resp))
                        (do (log/info "Rejected block" (q/bhash block) "with errors" (:payload resp))
                          (bad-request resp)))))
-   ;; (ok (h/handler {:message "submit_block" :payload block} {}))
 
    (sweet/POST "/pending_transactions" req
                :return {:message String :payload Transaction}
@@ -161,8 +130,6 @@
                      (if (= "transaction-accepted" (:message resp))
                        (ok resp)
                        (bad-request resp))))
-
-   ;; (ok (h/handler {:message "submit_transaction" :payload transaction} {}))
 
    (sweet/POST "/unsigned_payment_transactions" req
                :return {:message String :payload UnsignedTransaction}
@@ -181,9 +148,11 @@
 
    (sweet/POST "/unmined_block" req
                :return {:message String :payload Block}
-               :body-params [address :- s/Str]
+               :body [data (s/maybe {:address s/Str})]
                :summary "Request an unmined block from this node's Txn Pool with the coinbase assigned to the provided Addr."
-               (ok (h/handler {:message "generate_unmined_block" :payload address} {})))
+               (ok (h/handler {:message "generate_unmined_block" :payload (if (:address data)
+                                                                            (:address data)
+                                                                            (q/wallet-addr @db/db))} {})))
    (route/not-found {:status 404 :body {:error "not found"}})))
 
 (defonce server (atom nil))
@@ -196,24 +165,20 @@
 
 (defn debug-logger [handler]
   (fn [request]
-    (log/info "HTTP REQ: " (:request-method request) (:uri request))
-    (handler request)
-    #_(let [b (slurp (:body request))]
-      (println "~~~~START Debug Logger~~~~")
-      (println request)
-      (println b)
-      (println "~~~~END Debug Logger~~~~")
-      (let [resp (handler (assoc request :body (io/input-stream (.getBytes b))))
-            resp-b (slurp (:body resp))]
-        (println "RETURNING RESP:" resp)
-        (println "resp body: " resp-b)
-        (assoc resp :body (io/input-stream (.getBytes resp-b)))))))
+    (println "HTTP REQ: " (:request-method request) (:uri request))
+    (if (:body request)
+      (let [b (slurp (.bytes (:body request)))]
+        (println "GOT BODY: " b)
+        (->> (org.httpkit.BytesInputStream. (.getBytes b) (count b))
+            (assoc request)
+            (handler)))
+      (handler request))))
 
 (def print-mw (fn [h] (fn [r] (println r) (h r))))
 (def with-middleware
   (-> (routes web-ui api)
       (identity)
-      (debug-logger)
+      ;; (debug-logger)
       #_(logger/wrap-with-logger)))
 
 (defn start!

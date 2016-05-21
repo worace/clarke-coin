@@ -9,14 +9,12 @@
 
 (defn req
   ([verb url] (req verb url {}))
-  ([verb url params] (req verb url params {}))
-  ([verb url params default]
+  ([verb url options] (req verb url options {}))
+  ([verb url options default]
    (try
      (-> (case verb
-           :get (http/get url)
-           :post (http/post url {:form-params params
-                                 :throw-exceptions false
-                                 :content-type :json}))
+           :get (http/get url options)
+           :post (http/post url options))
          :body
          read-json
          :payload)
@@ -24,7 +22,7 @@
                             default)))))
 
 (defn block-height [peer]
-  (req :get (url peer "block_height") 0))
+  (req :get (url peer "block_height") {} 0))
 
 (defn blocks-since [peer block-hash]
   (req :get (url peer "blocks_since" block-hash)))
@@ -33,14 +31,26 @@
   (req :get (url peer "blocks" block-hash)))
 
 (defn send-peer [peer port]
-  (req :post (url peer "peers") {:port port}))
+  (req :post (url peer "peers") {:form-params {:port port}
+                                 :content-type :json
+                                 :throw-exceptions false}))
 
 (defn send-block [peer block]
-  (log/info "Sending block" (q/bhash block) "to peer" peer)
-  (req :post (url peer "blocks") block))
+  (req :post (url peer "blocks") {:form-params block
+                                  :throw-exceptions false
+                                  :content-type :json}))
 
 (defn send-txn [peer txn]
-  (req :post (url peer "pending_transactions") txn))
+  (req :post (url peer "pending_transactions") {:form-params txn
+                                                :throw-exceptions false
+                                                :content-type :json}))
 
-(defn unmined-block [peer addr]
-  (req :post (url peer "unmined_block") {:address addr}))
+(defn unmined-block
+  ([peer] (unmined-block peer nil))
+  ([peer addr]
+  (if addr
+    (req :post (url peer "unmined_block") {:form-params {:address addr}
+                                           :throw-exceptions false
+                                           :content-type :json})
+    (req :post (url peer "unmined_block") {:throw-exceptions false
+                                           :content-type :json}))))

@@ -157,5 +157,22 @@
         resp (pc/unmined-block {:host "localhost"
                                 :port "9292"}
                                addr)]
+    (is (= addr (get-in resp [:transactions 0 :outputs 0 :address])))
+    (is (= ["Block's hash does not meet the specified target."]
+           (pc/send-block {:host "localhost" :port "9292"} resp)))))
+
+(deftest test-uses-default-key-if-none-provided
+  (miner/mine-and-commit-db!)
+  ;; send with explicit nil address
+  (let [resp (pc/unmined-block {:host "localhost"
+                                :port "9292"}
+                               nil)]
+    (is (= (q/wallet-addr @db/db) (get-in resp [:transactions 0 :outputs 0 :address])))
+    (is (= ["Block's hash does not meet the specified target."]
+           (pc/send-block {:host "localhost" :port "9292"} resp))))
+  ;; send with empty body
+  (let [resp (pc/unmined-block {:host "localhost"
+                                :port "9292"})]
+    (is (= (q/wallet-addr @db/db) (get-in resp [:transactions 0 :outputs 0 :address])))
     (is (= ["Block's hash does not meet the specified target."]
            (pc/send-block {:host "localhost" :port "9292"} resp)))))
