@@ -9,7 +9,6 @@
             [block-chain.db :as db]
             [block-chain.queries :as q]
             [schema.core :as s]
-            [ring.logger :as logger]
             [block-chain.schemas :refer :all]
             [clojure.java.io :as io]
             [compojure.core :refer [defroutes GET routes]]
@@ -178,8 +177,7 @@
 (def with-middleware
   (-> (routes web-ui api)
       (identity)
-      ;; (debug-logger)
-      #_(logger/wrap-with-logger)))
+      #_(debug-logger)))
 
 (defn start!
   ([] (start! 3001))
