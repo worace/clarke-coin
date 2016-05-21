@@ -17,8 +17,6 @@
                  [metosin/compojure-api "1.0.2"]
                  [ring/ring-core "1.4.0"]
                  [http-kit "2.1.18"]
-                 [ring/ring-json "0.4.0"]
-                 [ring-logger "0.7.6"]
                  [org.clojure/tools.logging "0.3.1"]
                  [log4j/log4j "1.2.17" :exclusions [javax.mail/mail
                                                   javax.jms/jms
