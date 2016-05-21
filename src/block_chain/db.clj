@@ -3,6 +3,7 @@
             [block-chain.utils :refer :all]
             [block-chain.queries :as q]
             [block-chain.wallet :as wallet]
+            [clj-leveldb :as ldb]
             ))
 
 ;; DB namespace
@@ -29,13 +30,30 @@
 (def chain-path (str (System/getProperty "user.home")
                      "/.block_chain.json"))
 
-(defonce transaction-pool (atom #{}))
+(defn json->bytes [val]
+  (-> val
+      write-json
+      .getBytes))
+
+(defn bytes->json [bytes]
+  (->> bytes (map char) (apply str) (read-json)))
+
+(defn close [leveldb] (.close leveldb))
+
+(def db-path (str "/tmp/clarke-db-" (current-time-millis)))
+(println "Making db at path:" db-path)
+(def test-db (ldb/create-db db-path
+                            {:val-encoder json->bytes
+                             :val-decoder bytes->json}))
+
 (def empty-db {:blocks {}
+               :block-db test-db
                :default-key wallet/keypair
                :children {}
                :chains {}
                :peers #{}
                :transaction-pool #{}
                :transactions {}})
+(println "CREATED EMPTY DB WITH" empty-db)
 (def initial-db (q/add-block empty-db genesis-block))
-(defonce db (atom initial-db))
+(def db (atom initial-db))

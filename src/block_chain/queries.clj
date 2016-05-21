@@ -1,5 +1,6 @@
 (ns block-chain.queries
-  (:require [clojure.set]))
+  (:require [clojure.set]
+            [clj-leveldb :as ldb]))
 
 (defn bhash [b] (get-in b [:header :hash]))
 
@@ -55,6 +56,7 @@
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   (as-> db db
     (clear-txn-pool db block)
+    (update-in db [:block-db] ldb/put (bhash block) block)
     (assoc-in db [:blocks hash] block)
     (update-in db [:children parent-hash] conj hash)
     (reduce add-transaction db (:transactions block))

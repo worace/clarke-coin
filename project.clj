@@ -24,5 +24,7 @@
                                                   com.sun.jmx/jmxri]]
                  [environ "1.0.2"]
                  [org.clojure/core.async "0.2.374"]
-                 [pandect "0.5.4"]]
+                 [pandect "0.5.4"]
+                 [byte-streams "0.2.2"]
+                 [factual/clj-leveldb "0.1.1"]]
   :profiles {:uberjar {:aot :all}})
