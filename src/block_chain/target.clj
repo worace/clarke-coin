@@ -3,6 +3,7 @@
             [environ.core :refer [env]]
             [clojure.math.numeric-tower :as math]))
 
+(def hard "0000000000000000000000010000000000000000000000000000000000000000")
 (def default (env :default-target))
 (def frequency 300000)
 
