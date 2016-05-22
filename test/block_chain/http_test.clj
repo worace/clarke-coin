@@ -12,6 +12,7 @@
             [block-chain.utils :refer :all]
             [block-chain.schemas :refer :all]
             [block-chain.target :as target]
+            [block-chain.test-helper :as th]
             [schema.core :as s]
             [clojure.pprint :refer [pprint]]))
 
@@ -20,17 +21,26 @@
 (def key-a wallet/keypair)
 (def key-b (wallet/generate-keypair 512))
 
-(def starting-db (-> db/empty-db
-                     (miner/mine-and-commit-db)))
+(defn next-block [db] (miner/mine (miner/next-block db)))
 
-(def sample-block (q/highest-block starting-db))
-(def next-block (miner/mine (miner/next-block starting-db)))
+(defn sample-transaction [db]
+  (txn/payment key-a (:address key-b) 15 db))
 
-;; A pays B 5
-(def sample-transaction (txn/payment key-a
-                                     (:address key-b)
-                                     15
-                                     starting-db))
+(defn with-server [f]
+  (server/start! 9292)
+  (f)
+  (server/stop!))
+
+(def db-path (str "/tmp/" (th/dashed-ns-name)))
+(defn with-db [f]
+  (th/clear-db-path! db-path)
+  (with-open [test-conn (db/conn db-path)]
+    (reset! db/db (db/db-map test-conn))
+    (miner/mine-and-commit-db! db/db)
+    (f)))
+
+(use-fixtures :once with-server)
+(use-fixtures :each with-db)
 
 (defn post-req [path data]
   (update
@@ -46,19 +56,6 @@
    (http/get (str base-url path) {:throw-exceptions false})
    :body
    read-json))
-
-(defn with-server [f]
-  (server/start! 9292)
-  (f)
-  (server/stop!))
-
-(defn with-db [f]
-  (reset! db/db starting-db)
-  (f)
-  (reset! db/db starting-db))
-
-(use-fixtures :once with-server)
-(use-fixtures :each with-db)
 
 (deftest test-echo
   (let [r (post-req "/echo" {:message "hi"})]
@@ -82,36 +79,37 @@
   (is (= {:message "balance" :payload {:address "pizza" :balance 0} } (:body (post-req "/balance" {:address "pizza"})))))
 
 (deftest test-get-blocks
-  (is  (= {:message "blocks" :payload (vec (reverse (q/longest-chain @db/db)))}
+  (is (= {:message "blocks" :payload (vec (reverse (q/longest-chain @db/db)))}
           (:body (get-req "/blocks")))))
 
 (deftest test-get-transaction-pool
-  (q/add-transaction-to-pool! db/db sample-transaction)
-  (is  (= {:message "transaction_pool" :payload [sample-transaction]}
+  (q/add-transaction-to-pool! db/db (sample-transaction @db/db))
+  (is  (= {:message "transaction_pool"
+           :payload (into [] (q/transaction-pool @db/db))}
           (:body (get-req "/pending_transactions")))))
 
 (deftest test-get-block-info
-  (is (= {:message "block_info" :payload sample-block}
-         (:body (get-req (str "/blocks/" (q/bhash sample-block)))))))
+  (is (= {:message "block_info" :payload (q/highest-block @db/db)}
+         (:body (get-req (str "/blocks/" (q/highest-hash @db/db)))))))
 
 (deftest test-get-latest-block
-  (is  (= {:message "latest_block" :payload sample-block}
+  (is  (= {:message "latest_block" :payload (q/highest-block @db/db)}
           (:body (get-req "/latest_block")))))
 
 (deftest test-get-block-height
   (is (= 1 (pc/block-height {:host "localhost" :port "9292"}))))
 
-(deftest test-get-block-info
-  (is  (= {:message "block_info" :payload sample-block}
-          (:body (get-req (str "/blocks/" (q/bhash sample-block)))))))
-
 (deftest test-submit-transaction
-  (post-req "/pending_transactions" sample-transaction)
-  (is  (= {:message "transaction_pool" :payload [sample-transaction]}
-          (:body (get-req "/pending_transactions")))))
+  (let [txn (sample-transaction @db/db)]
+    (post-req "/pending_transactions" txn)
+    (is  (= {:message "transaction_pool" :payload [txn]}
+            (:body (get-req "/pending_transactions"))))))
 
 (deftest test-submitting-invalid-transaction-returns-validation-errors
-  (let [resp (post-req "/pending_transactions" (update-in sample-transaction [:outputs 0 :amount] inc))]
+  (let [resp (post-req "/pending_transactions"
+                       (update-in (sample-transaction @db/db)
+                                  [:outputs 0 :amount]
+                                  inc))]
     (is (= "transaction-rejected" (:message (:body resp))))
     (is (= 400 (:status resp)))
     (is (= (sort ["Transaction lacks sufficient inputs to cover its outputs.",
@@ -120,15 +118,18 @@
            (sort (:payload (:body resp)))))))
 
 (deftest test-submit-valid-block
-  (let [resp (post-req "/blocks" next-block)]
+  (let [b (next-block @db/db)
+        resp (post-req "/blocks" b)]
     (is (= 200 (:status resp)))
     (is (= "block-accepted" (:message (:body resp))))
-    (is (= next-block (:payload (:body resp)))))
-  (is  (= {:message "blocks" :payload [sample-block next-block]}
-          (:body (get-req "/blocks")))))
+    (is (= b (:payload (:body resp))))
+    (is (= {:message "blocks" :payload [(q/root-block @db/db) b]}
+           (:body (get-req "/blocks"))))))
 
 (deftest test-submitting-invalid-block-returns-validation-errors
-  (let [resp (post-req "/blocks" (update-in next-block [:transactions 0 :outputs 0 :amount] inc))]
+  (let [b (next-block @db/db)
+        tweaked (update-in b [:transactions 0 :outputs 0 :amount] inc)
+        resp (post-req "/blocks" tweaked)]
     (is (= "block-rejected" (:message (:body resp))))
     (is (= 400 (:status resp)))
     (is (= (sort ["Block's coinbase transaction is malformed or has incorrect amount."])

@@ -5,23 +5,30 @@
             [block-chain.miner :as miner]
             [block-chain.queries :as q]
             [block-chain.db :as db]
+            [clj-leveldb :as ldb]
             [org.httpkit.server :as httpkit]
             [compojure.core :refer [defroutes GET]]
+            [block-chain.test-helper :as th]
             [block-chain.block-sync :refer :all]))
 
-(def peer-db (atom db/initial-db))
+(def peer-db (atom nil))
+(def our-db (atom nil))
 
-;; A: 25
-(miner/mine-and-commit-db! peer-db)
-(miner/mine-and-commit-db! peer-db)
-(miner/mine-and-commit-db! peer-db)
-(miner/mine-and-commit-db! peer-db)
-(miner/mine-and-commit-db! peer-db)
-(miner/mine-and-commit-db! peer-db)
+(defn setup [tests]
+  (reset! peer-db (db/make-db (str "/tmp/" (th/dashed-ns-name) "-peer")))
+  (reset! our-db (db/make-db (str "/tmp/" (th/dashed-ns-name) "-us")))
+  (q/add-block! peer-db db/genesis-block)
+  (q/add-block! our-db db/genesis-block)
+  (dotimes [_ 6] (miner/mine-and-commit-db! peer-db))
+  (try
+    (tests)
+    (finally
+      (th/close-conns! @peer-db @our-db))))
 
-(def our-db (atom db/initial-db))
+(use-fixtures :once setup)
 
-(deftest test-setup
+
+(deftest test-setup2
   (is (= (q/bhash db/genesis-block) (q/highest-hash @our-db)))
   (is (= 7 (q/chain-length @peer-db)))
   (is (= 1 (q/chain-length @our-db))))
@@ -51,5 +58,6 @@
     (try
       (is (= (q/bhash db/genesis-block) (q/bhash (last (q/longest-chain @peer-db)))))
       (is (= 6 (count (pc/blocks-since peer (q/bhash (last (q/longest-chain @peer-db)))))))
-      (is (= @peer-db (synced-chain @our-db peer)))
+      (is (= (q/longest-chain @peer-db)
+             (q/longest-chain (synced-chain @our-db peer))))
       (finally (shutdown-fn)))))

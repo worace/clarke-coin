@@ -6,7 +6,10 @@
 
 (defn phash [b] (get-in b [:header :parent-hash]))
 
-(defn get-block [db hash] (get-in db [:blocks hash]))
+(defn get-block [db hash]
+  (if hash
+    (ldb/get (:block-db db) (str "block:" hash))
+    nil))
 
 (defn get-parent [db block] (get-block db (phash block)))
 
@@ -37,13 +40,17 @@
   ([db hash] (or (get-in db [:chains hash]) 0)))
 
 (defn new-block? [db block]
-  (not (contains? (:blocks db) (bhash block))))
+  (nil? (get-block db (bhash block))))
 
 (defn blocks-since [db hash]
   (->> db
        longest-chain
        (take-while (fn [b] (not (= hash (bhash b)))))
        (reverse)))
+
+(defn children [db hash]
+  (ldb/get (:block-db db)
+           (str "child-blocks:" hash)))
 
 (defn add-transaction [db {hash :hash :as txn}]
   (assoc-in db [:transactions hash] txn))
@@ -56,11 +63,20 @@
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   (as-> db db
     (clear-txn-pool db block)
-    (update-in db [:block-db] ldb/put (bhash block) block)
-    (assoc-in db [:blocks hash] block)
-    (update-in db [:children parent-hash] conj hash)
+    (do (ldb/put (:block-db db)
+                 (str "block:" hash)
+                 block)
+        db)
+    (do (ldb/put (:block-db db)
+                 (str "child-blocks:" parent-hash)
+                 (conj (children db parent-hash) hash))
+        db)
+    ;; (update-in db [:children parent-hash] conj hash)
     (reduce add-transaction db (:transactions block))
     (assoc-in db [:chains hash] (inc (chain-length db parent-hash)))))
+
+(defn add-block! [db-ref block]
+  (swap! db-ref add-block block))
 
 (defn add-peer [db peer] (update-in db [:peers] conj peer))
 (defn add-peer! [db-ref peer] (swap! db-ref add-peer peer))
@@ -98,4 +114,4 @@
 
 (defn wallet-addr [db] (get-in db [:default-key :address]))
 
-(defn children [db hash] (get-in db [:children hash]))
+(defn root-block [db] (last (longest-chain db)))
