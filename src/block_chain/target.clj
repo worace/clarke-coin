@@ -4,8 +4,7 @@
             [clojure.math.numeric-tower :as math]))
 
 (def hard "0000000000000000000000010000000000000000000000000000000000000000")
-;; (def default (env :default-target))
-(def default "1100000000000000000000000000000000000000000000000000000000000000")
+(def default (env :default-target))
 (def frequency 300000)
 
 (defn avg-spacing
