@@ -45,9 +45,9 @@
          (= (count (vals inputs-sources))
             (count (into #{} (vals inputs-sources)))))))
 
-(defn inputs-unspent? [db txn]
-  (let [sources (vals (t/inputs-to-sources (:inputs txn)
-                                           db))]
+(defn sources-unspent? [db txn]
+  (let [mapped (t/inputs-to-sources (:inputs txn) db)
+        sources (vals mapped)]
     (every? (partial t/unspent? (q/longest-chain db)) sources)))
 
 (defn valid-hash? [db txn]
@@ -56,7 +56,7 @@
 (def txn-validations
   {txn-structure-valid? "Transaction structure invalid."
    inputs-properly-sourced? "One or more transaction inputs is not properly sourced, OR multiple inputs attempt to source the same output."
-   inputs-unspent? "Outputs referenced by one or more txn inputs has already been spent."
+   sources-unspent? "Outputs referenced by one or more txn inputs has already been spent."
    sufficient-inputs? "Transaction lacks sufficient inputs to cover its outputs."
    signatures-valid? "One or more transactions signatures is invalid."
    valid-hash? "Transaction's hash does not match its contents."

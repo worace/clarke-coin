@@ -170,9 +170,8 @@
        (= source-index (:source-index input))))
 
 (defn unspent?
-  "takes a txn hash and output index identifying a
-   Transaction Output in the block chain. Searches the
-   chain to find if this output has been spent."
+  "Searches the chain to determine if the provided Transaction
+   Output has already been referenced by another input."
   [blocks output]
   (let [inputs (inputs blocks)
         {:keys [transaction-id index]} (:coords output)
