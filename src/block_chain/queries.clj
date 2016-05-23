@@ -88,7 +88,11 @@
 (defn add-transaction-to-pool! [db-ref txn] (swap! db-ref update :transaction-pool conj txn))
 
 (defn utxos [db]
-  (loop [[txn & txns] (mapcat :transactions (longest-chain db))
+  ;; Have to start from the oldest block (hence reverse them)
+  ;; so that older outputs get evicted by the more recent
+  ;; inputs that spend them. Obviously should think about doing this
+  ;; more efficiently but it is what we got for now
+  (loop [[txn & txns] (mapcat :transactions (reverse (longest-chain db)))
          unspent #{}]
     (if (nil? txn)
       unspent

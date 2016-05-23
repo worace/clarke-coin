@@ -59,7 +59,6 @@
            (children updated (phash db/genesis-block))))))
 
 (deftest test-blocks-since
-  (println "length:" (chain-length @sample-db))
   (is (= 4 (count (blocks-since @sample-db (bhash db/genesis-block)))))
   (is (= (map bhash (drop 1 (reverse (longest-chain @sample-db))))
          (map bhash (blocks-since @sample-db (bhash db/genesis-block))))))
