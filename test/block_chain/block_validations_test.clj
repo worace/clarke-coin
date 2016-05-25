@@ -12,7 +12,6 @@
             [block-chain.blocks :as blocks]
             [block-chain.block-validations :refer :all]))
 
-(def db-path (str "/tmp/" (th/dashed-ns-name)))
 (def db (atom nil))
 (def key-a (wallet/generate-keypair 512))
 (def key-b (wallet/generate-keypair 512))
@@ -21,17 +20,14 @@
   (txn/payment key-a (:address key-b) 5 db 2))
 
 (defn setup [tests]
-  (th/clear-db-path! db-path)
-  (reset! db (db/make-db db-path))
-  (let [a-coinbase (txn/coinbase @db (:address key-a))]
-    (->> (blocks/generate-block [a-coinbase] @db)
-         (miner/mine)
-         (swap! db q/add-block)))
-  (q/add-transaction-to-pool! db (a-pays-b-5 @db))
-  (try
-    (tests)
-    (finally
-      (th/close-conns! @db))))
+  (with-open [conn (th/temp-db-conn)]
+    (reset! db (db/db-map conn))
+    (let [a-coinbase (txn/coinbase @db (:address key-a))]
+      (->> (blocks/generate-block [a-coinbase] @db)
+           (miner/mine)
+           (swap! db q/add-block)))
+    (q/add-transaction-to-pool! db (a-pays-b-5 @db))))
+
 (use-fixtures :once setup)
 
 (defn unmined []
