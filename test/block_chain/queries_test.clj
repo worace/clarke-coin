@@ -26,7 +26,7 @@
     (doseq [b sample-chain] (add-block! sample-db b))
     (tests)))
 
-(use-fixtures :once setup)
+(use-fixtures :each setup)
 
 (defn sample-txn [db] (-> (highest-block db) :transactions first) )
 (defn utxo [db] (-> (sample-txn db) :outputs first))
@@ -48,8 +48,8 @@
 (deftest test-adding-block
   (let [updated (add-block @empty-db db/genesis-block)]
     (is (= db/genesis-block (get-block updated (bhash db/genesis-block))))
-    (is (= 1 (get-in updated [:chains (bhash db/genesis-block)])))
-    (is (= 1 (count (:transactions updated))))
+    (is (= 1 (chain-length updated (bhash db/genesis-block))))
+    (is (= 1 (count (all-txns updated))))
     (is (= (list (bhash db/genesis-block))
            (children updated (phash db/genesis-block))))))
 
@@ -68,10 +68,10 @@
     (is (= (-> t :outputs first)
            (source-output @sample-db i)))))
 
+;; TODO this is important enough to warrant more testing
 (deftest test-utxos
   (is (= (->> @sample-db
-              :transactions
-              vals
+              all-txns
               (mapcat :outputs)
               (into #{}))
          (utxos @sample-db))))
@@ -85,6 +85,6 @@
 ;; ;; #{["txn-hash 1" 0] ["txn-hash 2" 0] }
 
 (deftest test-output-assigned-to-key
-  (let [utxo (utxo (sample-txn @sample-db))]
+  (let [utxo (utxo @sample-db)]
     (is (assigned-to-key? (:address utxo) utxo))
     (is (not (assigned-to-key? "pizza" utxo)))))

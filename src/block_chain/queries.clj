@@ -13,10 +13,11 @@
 
 (defn get-parent [db block] (get-block db (phash block)))
 
-(defn get-txn [db hash] (get-in db [:transactions hash]))
+(defn get-txn [db hash] (ldb/get (:block-db db) (str "transaction:" hash)))
 
 (defn source-output [db {txn-hash :source-hash index :source-index :as txn-input}]
-  (get-in db [:transactions txn-hash :outputs index]))
+  (-> (get-txn db txn-hash)
+      (get-in [:outputs index])))
 
 (defn chain [db block]
   (if block
@@ -24,10 +25,10 @@
                     (chain db (get-parent db block))))
     (list)))
 
-(defn highest-hash [{chains :chains}]
-  (if (empty? chains)
-    nil
-    (key (apply max-key val chains))))
+(defn highest-hash [db]
+  (if-let [h (ldb/get (:block-db db) "highest-hash")]
+    h
+    nil))
 
 (defn highest-block [db]
   (get-block db (highest-hash db)))
@@ -37,7 +38,7 @@
 
 (defn chain-length
   ([db] (chain-length db (highest-hash db)))
-  ([db hash] (or (get-in db [:chains hash]) 0)))
+  ([db hash] (or (ldb/get (:block-db db) (str "chain-length:" hash)) 0)))
 
 (defn new-block? [db block]
   (nil? (get-block db (bhash block))))
@@ -53,7 +54,7 @@
            (str "child-blocks:" hash)))
 
 (defn add-transaction [db {hash :hash :as txn}]
-  (assoc-in db [:transactions hash] txn))
+  (ldb/put (:block-db db) (str "transaction:" hash) txn))
 
 (defn clear-txn-pool [db block]
   (update db
@@ -61,18 +62,32 @@
           #(clojure.set/difference % (into #{} (:transactions block)))))
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
-  (as-> db db
-    (clear-txn-pool db block)
-    (do (ldb/put (:block-db db)
-                 (str "block:" hash)
-                 block)
-        db)
-    (do (ldb/put (:block-db db)
-                 (str "child-blocks:" parent-hash)
-                 (conj (children db parent-hash) hash))
-        db)
-    (reduce add-transaction db (:transactions block))
-    (assoc-in db [:chains hash] (inc (chain-length db parent-hash)))))
+  (clear-txn-pool db block)
+  ;; TODO: Batch these all in leveldb
+  (ldb/put (:block-db db) (str "block:" hash) block)
+  (ldb/put (:block-db db)
+           (str "child-blocks:" parent-hash)
+           (conj (children db parent-hash) hash))
+  (ldb/put (:block-db db)
+           (str "chain-length:" hash)
+           (inc (chain-length db parent-hash)))
+  (when (> (chain-length db hash) (chain-length db (highest-hash db)))
+    (ldb/put (:block-db db)
+             "highest-hash"
+             hash))
+  (doseq [t (:transactions block)]
+    (add-transaction db t))
+  (clear-txn-pool db block))
+
+
+(defn all-txns
+  "Linear iteration through all Transactions in the DB using a leveldb
+   iterator around possible transaction key values. Probably a bad idea in
+   most circumstances but useful for testing."
+  [db]
+  (map last (ldb/iterator (:block-db db)
+                          (apply str "transaction:" (take 40 (repeat "0")))
+                          (apply str "transaction:" (take 40 (repeat "z"))))))
 
 (defn add-block! [db-ref block]
   (swap! db-ref add-block block))

@@ -4,8 +4,11 @@
             [block-chain.queries :as q]
             [environ.core :refer [env]]
             [block-chain.wallet :as wallet]
+            [clojure.tools.namespace.repl]
             [clj-leveldb :as ldb]
             ))
+
+(clojure.tools.namespace.repl/disable-reload!)
 
 (def genesis-block (read-json (slurp (io/resource "genesis.json"))))
 
@@ -20,7 +23,6 @@
 
 (defn close [leveldb] (.close leveldb))
 
-(def db-path (env :db-path))
 (defn conn [path]
   (ldb/create-db path
                  {:val-encoder json->bytes
@@ -43,7 +45,7 @@
 (defonce initial-db (-> empty-db
                         (q/add-block genesis-block)))
 
-(def db (atom initial-db))
+(defonce db (atom initial-db))
 
 (defn wipe-db! [ldb-conn]
   (apply (partial ldb/delete ldb-conn)
