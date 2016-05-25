@@ -6,15 +6,6 @@
 
 (defn clear-db-path! [path] (ldb/destroy-db path))
 
-(defn dashed-ns-name []
-  (clojure.string/replace (name (ns-name *ns*)) #"\." "-"))
-
-(defn close-conn! [db]
-  (.close (:block-db db)))
-
-(defn close-conns! [& dbs]
-  (doseq [db dbs] (close-conn! db)))
-
 ;; File helpers thanks to clojure cookbook
 (defn safe-delete [file-path]
   (if (.exists (clojure.java.io/file file-path))

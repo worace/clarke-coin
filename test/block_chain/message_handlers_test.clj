@@ -49,13 +49,11 @@
       (finally (do (shutdown-fn)
                    (reset! peer-requests {}))))))
 
-(def db-path (str "/tmp/" (th/dashed-ns-name)))
-(defn with-db [f]
-  (th/clear-db-path! db-path)
-  (with-open [test-conn (db/conn db-path)]
-    (reset! db/db (db/db-map test-conn))
+(defn with-db [test]
+  (with-open [conn (th/temp-db-conn)]
+    (reset! db/db (db/db-map conn))
     (miner/mine-and-commit-db! db/db)
-    (f)))
+    (test)))
 
 (use-fixtures :each with-db with-peer)
 
@@ -260,10 +258,8 @@
       (is (= 4 (q/chain-length @db/db))))))
 
 (deftest test-receiving-higher-blocks-moves-the-chain-forward
-  (let [peer-path (str db-path "-peer")
-        peer-db (atom nil)]
-    (th/clear-db-path! peer-path)
-    (with-open [peer-conn (db/conn peer-path)]
+  (let [peer-db (atom nil)]
+    (with-open [peer-conn (th/temp-db-conn)]
       (reset! peer-db (db/db-map peer-conn))
       (swap! peer-db assoc :default-key (wallet/generate-keypair 512))
       ;; Both Dbs start with 1 (shared genesis block)

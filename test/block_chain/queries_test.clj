@@ -15,21 +15,16 @@
                        (update-in [:header :hash] sha256)
                        (fake-chain))))))
 (def sample-chain (take 5 (fake-chain)))
-(def empty-path (str "/tmp/" (th/dashed-ns-name) "-empty"))
-(def sample-path (str "/tmp/" (th/dashed-ns-name) "-sample"))
 (def empty-db (atom nil))
 (def sample-db (atom nil))
 
 (defn setup [tests]
-  (ldb/destroy-db empty-path)
-  (ldb/destroy-db sample-path)
-  (reset! empty-db (db/make-db empty-path))
-  (reset! sample-db (db/make-db sample-path))
-  (doseq [b sample-chain] (add-block! sample-db b))
-  (try
-    (tests)
-    (finally
-      (th/close-conns! @empty-db @sample-db))))
+  (with-open [empty-conn (th/temp-db-conn)
+              sample-conn (th/temp-db-conn)]
+    (reset! empty-db (db/db-map empty-conn))
+    (reset! sample-db (db/db-map sample-conn))
+    (doseq [b sample-chain] (add-block! sample-db b))
+    (tests)))
 
 (use-fixtures :once setup)
 
