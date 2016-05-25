@@ -4,11 +4,7 @@
             [block-chain.queries :as q]
             [environ.core :refer [env]]
             [block-chain.wallet :as wallet]
-            [clojure.tools.namespace.repl]
-            [clj-leveldb :as ldb]
-            ))
-
-(clojure.tools.namespace.repl/disable-reload!)
+            [clj-leveldb :as ldb]))
 
 (def genesis-block (read-json (slurp (io/resource "genesis.json"))))
 
