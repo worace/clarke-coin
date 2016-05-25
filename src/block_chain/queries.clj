@@ -71,7 +71,6 @@
                  (str "child-blocks:" parent-hash)
                  (conj (children db parent-hash) hash))
         db)
-    ;; (update-in db [:children parent-hash] conj hash)
     (reduce add-transaction db (:transactions block))
     (assoc-in db [:chains hash] (inc (chain-length db parent-hash)))))
 

@@ -3,8 +3,6 @@
              [block-chain.miner :as miner]
              [block-chain.test-helper :as th]
              [block-chain.blocks :refer :all]))
-(th/restore-empty-db!)
-(th/restore-initial-db!)
 
 (deftest hashes-block-by-hashing-header-values
   (let [b {:header {:parent-hash "0"
@@ -37,6 +35,3 @@
     (is (get-in block [:header :hash]))
     (is (= 0 (get-in block [:header :nonce])))
     (is (not (blocks/meets-target? block)))))
-
-(th/restore-empty-db!)
-(th/restore-initial-db!)

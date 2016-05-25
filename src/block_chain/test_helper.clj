@@ -4,18 +4,6 @@
             [clj-leveldb :as ldb]
             [block-chain.queries :as q]))
 
-(defn with-empty-db [test]
-  (db/wipe-db! (:block-db db/empty-db))
-  (test)
-  (db/wipe-db! (:block-db db/empty-db)))
-
-(defn restore-initial-db! []
-  (db/wipe-db! (:block-db db/initial-db))
-  (q/add-block db/initial-db db/genesis-block))
-
-(defn restore-empty-db! []
-  (db/wipe-db! (:block-db db/empty-db)))
-
 (defn clear-db-path! [path] (ldb/destroy-db path))
 
 (defn dashed-ns-name []
