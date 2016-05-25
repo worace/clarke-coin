@@ -15,15 +15,14 @@
 (def our-db (atom nil))
 
 (defn setup [tests]
-  (reset! peer-db (db/make-db (str "/tmp/" (th/dashed-ns-name) "-peer")))
-  (reset! our-db (db/make-db (str "/tmp/" (th/dashed-ns-name) "-us")))
-  (q/add-block! peer-db db/genesis-block)
-  (q/add-block! our-db db/genesis-block)
-  (dotimes [_ 6] (miner/mine-and-commit-db! peer-db))
-  (try
-    (tests)
-    (finally
-      (th/close-conns! @peer-db @our-db))))
+  (with-open [our-conn (th/temp-db-conn)
+              peer-conn (th/temp-db-conn)]
+    (reset! peer-db (db/db-map peer-conn))
+    (reset! our-db (db/db-map our-conn))
+    (q/add-block! peer-db db/genesis-block)
+    (q/add-block! our-db db/genesis-block)
+    (dotimes [_ 6] (miner/mine-and-commit-db! peer-db))
+    (tests)))
 
 (use-fixtures :once setup)
 
