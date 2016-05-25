@@ -1,6 +1,7 @@
 # ClarkeCoin
 
-[![Build Status](https://travis-ci.org/worace/coins.svg?branch=master)](https://travis-ci.org/worace/coins)
+
+![Build Status][https://api.travis-ci.org/worace/clarke-coin.svg]
 
 What would it take to make a simplistic but functional crypto currency?
 
