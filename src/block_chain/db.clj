@@ -36,24 +36,14 @@
    :transaction-pool #{}
    :transactions {}})
 
-#_(str "/tmp" #_(env :db-dir) "/" "clarke-db" label)
 (defn make-db [path] (db-map (conn path)))
 
-;; (defonce empty-db  (make-db "/tmp/clarke-db-empty"))
-(def empty-db {:blocks {}
-               :default-key wallet/keypair
-               :children {}
-               :chains {}
-               :peers #{}
-               :transaction-pool #{}
-               :transactions {}})
+(defonce empty-db (make-db (env :db-path)))
 
-;; (defonce initial-db (-> (make-db "/tmp/clarke-db")
-;;                         (q/add-block genesis-block)))
-(def initial-db empty-db)
+(defonce initial-db (-> empty-db
+                        (q/add-block genesis-block)))
 
-;; (def db (atom initial-db))
-(def db (atom {}))
+(def db (atom initial-db))
 
 (defn wipe-db! [ldb-conn]
   (apply (partial ldb/delete ldb-conn)
