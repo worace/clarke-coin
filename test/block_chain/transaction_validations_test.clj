@@ -30,7 +30,7 @@
 (use-fixtures :once setup)
 
 (deftest test-valid-structure
-  (is (txn-structure-valid? @db (txn/coinbase addr-a @db)))
+  (is (txn-structure-valid? @db (txn/coinbase @db addr-a)))
   (is (txn-structure-valid? @db (txn/payment key-b addr-a 5 @db)))
   (is (not (txn-structure-valid? @db {}))))
 

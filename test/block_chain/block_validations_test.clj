@@ -23,7 +23,7 @@
 (defn setup [tests]
   (th/clear-db-path! db-path)
   (reset! db (db/make-db db-path))
-  (let [a-coinbase (txn/coinbase (:address key-a) @db)]
+  (let [a-coinbase (txn/coinbase @db (:address key-a))]
     (->> (blocks/generate-block [a-coinbase] @db)
          (miner/mine)
          (swap! db q/add-block)))
@@ -90,7 +90,7 @@
 (deftest test-valid-timestamp
   (let [b (blocks/hashed
            (blocks/generate-block
-            [(txn/coinbase (:address key-a) @db)
+            [(txn/coinbase @db (:address key-a))
              a-pays-b-5]
             @db))]
     (is (valid-timestamp? @db b))

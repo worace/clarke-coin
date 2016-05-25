@@ -176,7 +176,7 @@
            (json-body req)))))
 
 (deftest test-receiving-new-block-adds-to-block-chain
-  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase @db/db)]
                                              @db/db))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= b (q/highest-block @db/db)))
@@ -184,7 +184,7 @@
 
 (deftest test-forwarding-received-blocks-to-peers
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase @db/db)]
                                              @db/db))]
     (handler {:message "submit_block" :payload b} sock-info)
     (is (= 2 (q/chain-length @db/db)))
@@ -197,7 +197,7 @@
 
 (deftest test-forwards-received-block-to-peers-only-if-new
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase @db/db)]
                                              @db/db))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= 2 (q/chain-length @db/db)))
