@@ -1,7 +1,6 @@
 (ns block-chain.miner-test
   (:require  [clojure.test :refer :all]
              [block-chain.miner :as miner]
-             [block-chain.test-helper :as th]
              [block-chain.blocks :refer :all]))
 
 (deftest hashes-block-by-hashing-header-values

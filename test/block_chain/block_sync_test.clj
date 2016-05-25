@@ -5,7 +5,6 @@
             [block-chain.miner :as miner]
             [block-chain.queries :as q]
             [block-chain.db :as db]
-            [clj-leveldb :as ldb]
             [org.httpkit.server :as httpkit]
             [compojure.core :refer [defroutes GET]]
             [block-chain.test-helper :as th]

@@ -31,11 +31,9 @@
   (f)
   (server/stop!))
 
-(def db-path (str "/tmp/" (th/dashed-ns-name)))
 (defn with-db [f]
-  (th/clear-db-path! db-path)
-  (with-open [test-conn (db/conn db-path)]
-    (reset! db/db (db/db-map test-conn))
+  (with-open [conn (th/temp-db-conn)]
+    (reset! db/db (db/db-map conn))
     (miner/mine-and-commit-db! db/db)
     (f)))
 
