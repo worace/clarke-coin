@@ -9,6 +9,7 @@
             [compojure.core :refer [routes]]
             [block-chain.db :as db]
             [block-chain.queries :as q]
+            [block-chain.test-helper :as th]
             [schema.core :as s]
             [block-chain.schemas :refer :all]
             [block-chain.blocks :as blocks]
@@ -48,11 +49,11 @@
       (finally (do (shutdown-fn)
                    (reset! peer-requests {}))))))
 
-(defn with-db [f]
-  (reset! db/db db/empty-db)
-  (miner/mine-and-commit-db!)
-  (f)
-  (reset! db/db db/empty-db))
+(defn with-db [test]
+  (with-open [conn (th/temp-db-conn)]
+    (reset! db/db (db/db-map conn))
+    (miner/mine-and-commit-db! db/db)
+    (test)))
 
 (use-fixtures :each with-db with-peer)
 
@@ -173,7 +174,7 @@
            (json-body req)))))
 
 (deftest test-receiving-new-block-adds-to-block-chain
-  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase @db/db)]
                                              @db/db))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= b (q/highest-block @db/db)))
@@ -181,7 +182,7 @@
 
 (deftest test-forwarding-received-blocks-to-peers
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase @db/db)]
                                              @db/db))]
     (handler {:message "submit_block" :payload b} sock-info)
     (is (= 2 (q/chain-length @db/db)))
@@ -194,7 +195,7 @@
 
 (deftest test-forwards-received-block-to-peers-only-if-new
   (q/add-peer! db/db {:port test-port :host "127.0.0.1"})
-  (let [b (miner/mine (blocks/generate-block [(txn/coinbase)]
+  (let [b (miner/mine (blocks/generate-block [(txn/coinbase @db/db)]
                                              @db/db))]
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= 2 (q/chain-length @db/db)))
@@ -222,16 +223,13 @@
     (is (= 0 (count (q/transaction-pool @db/db))))))
 
 (deftest test-validating-incoming-transactions
-  (let [key-b (wallet/generate-keypair 512)
-        alt-db (atom (assoc db/empty-db :default-key key-b))]
-    (miner/mine-and-commit-db! alt-db)
-    (let [txn (txn/payment key-b
-                           (:address wallet/keypair)
-                           25
-                           @alt-db)]
-      (let [resp (handler {:message "submit_transaction" :payload txn} sock-info)]
-        (is (= "transaction-rejected"
-               (:message resp)))))))
+  (let [addr (:address (wallet/generate-keypair 512))
+        bad-txn (-> (txn/payment wallet/keypair addr 25 @db/db)
+                    (update-in [:outputs 0 :amount] inc))]
+      (let [resp (handler {:message "submit_transaction"
+                           :payload bad-txn}
+                          sock-info)]
+        (is (= "transaction-rejected" (:message resp))))))
 
 (deftest test-blocks-since
   (miner/mine-and-commit-db!)
@@ -247,59 +245,58 @@
                  sock-info))))
 
 (deftest test-receiving-lower-alt-block-does-not-change-latest-block
-  (let [block-one-snapshot (assoc @db/db :default-key (wallet/generate-keypair 512))]
+  (let [alt-block-1 (miner/mine (miner/next-block @db/db
+                                                  (:address (wallet/generate-keypair 512))))]
     (miner/mine-and-commit-db!)
     (miner/mine-and-commit-db!)
     (miner/mine-and-commit-db!)
     (is (= 4 (q/chain-length @db/db)))
-    (is (= 1 (q/chain-length block-one-snapshot)))
-    (let [prev-head (q/highest-block @db/db)
-          b (miner/mine (miner/next-block block-one-snapshot))
-          resp (handler {:message "submit_block" :payload b} sock-info)]
-      (is (= b (:payload resp)))
-      (is (= "block-accepted" (:message resp)))
+    (let [prev-head (q/highest-block @db/db)]
+      (is (= {:message "block-accepted" :payload alt-block-1}
+             (handler {:message "submit_block" :payload alt-block-1} sock-info)))
       (is (= prev-head (q/highest-block @db/db)))
       (is (= 4 (q/chain-length @db/db))))))
 
 (deftest test-receiving-higher-blocks-moves-the-chain-forward
-  ;; Both Dbs start with 1 (shared genesis block)
-  (let [peer-db (atom (assoc @db/db :default-key (wallet/generate-keypair 512)))]
-    ;; Both db/db and peer-db have 1:
+  (let [peer-db (atom nil)]
+    (with-open [peer-conn (th/temp-db-conn)]
+      (reset! peer-db (db/db-map peer-conn))
+      (swap! peer-db assoc :default-key (wallet/generate-keypair 512))
+      ;; Both Dbs start with 1 (shared genesis block)
+      (q/add-block! peer-db (q/root-block @db/db))
+      ;; DB     - A
+      ;; PeerDb - A
+      (is (= 1 (q/chain-length @db/db)))
+      (is (= 1 (q/chain-length @peer-db)))
 
-    ;; DB     - A
-    ;; PeerDb - A
-    (is (= 1 (q/chain-length @db/db)))
-    (is (= 1 (q/chain-length @peer-db)))
+      ;; db/db advances by 2
+      ;; DB     - A - B - C
+      ;; PeerDb - A
+      (miner/mine-and-commit-db! db/db)
+      (miner/mine-and-commit-db! db/db)
 
-    (miner/mine-and-commit-db! db/db)
-    (miner/mine-and-commit-db! db/db) ;; db/db advances by 2
-    ;; DB     - A - B - C
-    ;; PeerDb - A
+      (is (= 3 (q/chain-length @db/db)))
+      (is (= 1 (q/chain-length @peer-db)))
 
-    (is (= 3 (q/chain-length @db/db)))
-    (is (= 1 (q/chain-length @peer-db)))
+      ;; peer-db advances by 3 -- now ahead
+      ;; DB     - A - B - C
+      ;; PeerDb - A - D - E - F
+      (miner/mine-and-commit-db! peer-db)
+      (miner/mine-and-commit-db! peer-db)
+      (miner/mine-and-commit-db! peer-db)
 
-    (miner/mine-and-commit-db! peer-db)
-    (miner/mine-and-commit-db! peer-db)
-    (miner/mine-and-commit-db! peer-db) ;; peer-db advances by 3 -- now ahead
+      (is (= 4 (q/chain-length @peer-db)))
 
-    ;; DB     - A - B - C
-    ;; PeerDb - A - D - E - F
-
-    (is (= 4 (q/chain-length @peer-db)))
-
-    (doseq [b (drop 1 (reverse (q/longest-chain @peer-db)))]
-      (is (= {:message "block-accepted" :payload b}
-             (handler {:message "submit_block" :payload b} sock-info))))
-
-    ;;              B - C - G - H
-    ;;             /
-    ;; DB     - A - D - E - F
-    ;;
-    ;; PeerDb - A - D - E - F
-    ;;            \
-    ;;             B - C - G - H
-
-    (is (= 4 (q/chain-length @db/db)))
-    (is (= (q/highest-block @peer-db)
-           (q/highest-block @db/db)))))
+      (doseq [b (drop 1 (reverse (q/longest-chain @peer-db)))]
+        (is (= {:message "block-accepted" :payload b}
+               (handler {:message "submit_block" :payload b} sock-info))))
+      ;;              B - C - G - H
+      ;;             /
+      ;; DB     - A - D - E - F
+      ;;
+      ;; PeerDb - A - D - E - F
+      ;;            \
+      ;;             B - C - G - H
+      (is (= 4 (q/chain-length @db/db)))
+      (is (= (q/highest-block @peer-db)
+             (q/highest-block @db/db))))))

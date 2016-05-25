@@ -1,7 +1,8 @@
-# BlockChain
+# ClarkeCoin
 
-What would it take to make a simplistic but functional
-crypto currency?
+[![Build Status](https://travis-ci.org/worace/coins.svg?branch=master)](https://travis-ci.org/worace/coins)
+
+What would it take to make a simplistic but functional crypto currency?
 
 ## ToDo
 

@@ -3,82 +3,76 @@
             [block-chain.wallet :as wallet]
             [clojure.pprint :refer [pprint]]
             [block-chain.utils :refer :all]
-            [block-chain.db :refer [empty-db]]
+            [block-chain.db :as db]
             [block-chain.queries :as q]
             [clojure.math.numeric-tower :as math]
             [block-chain.transactions :as txn]
             [block-chain.miner :as miner]
             [block-chain.blocks :as blocks]
+            [block-chain.test-helper :as th]
             [block-chain.transaction-validations :refer :all]))
 
-(def db (atom empty-db))
-
+(def db (atom nil))
 (def key-a (wallet/generate-keypair 512))
 (def key-b (wallet/generate-keypair 512))
+(def addr-a (:address key-a))
+(def addr-b (:address key-b))
 
-(def a-coinbase (txn/coinbase (:address key-a) @db))
-(def b-coinbase (txn/coinbase (:address key-b) @db))
+(defn setup [tests]
+  (with-open [conn (th/temp-db-conn)]
+    (reset! db (db/db-map conn))
+    (miner/mine-and-commit-db! db (miner/next-block @db addr-a))
+    (q/add-transaction-to-pool! db (txn/payment key-a addr-b 10 @db))
+    (miner/mine-and-commit-db! db (miner/next-block @db addr-a))
+    ;; Ending Balances: A: 40, B: 10
+    (tests)))
 
-(def a-paid (blocks/generate-block [a-coinbase] @db))
-(miner/mine-and-commit-db! db a-paid)
-(def b-paid (blocks/generate-block [b-coinbase] @db))
-;; A and B both start with 25
-;; A: 25 B: 25
-(miner/mine-and-commit-db! db b-paid)
-(def b-pays-a-5 (txn/payment key-b
-                             (:address key-a)
-                             5
-                             @db))
-
-;; B pays A 5
-;; A: 30, B: 20
-(swap! db q/add-block (miner/mine (blocks/generate-block [b-pays-a-5] @db)))
-(assert (= 3 (q/chain-length @db)))
-;; Pending payment transactions:
-(def a-pays-b-15 (txn/payment key-a
-                              (:address key-b)
-                              15
-                              @db))
-
-(def a-pays-b-50 (assoc-in a-pays-b-15 [:outputs 0 :amount] 50))
-
+(use-fixtures :once setup)
 
 (deftest test-valid-structure
-  (is (txn-structure-valid? @db a-coinbase))
-  (is (txn-structure-valid? @db a-pays-b-15))
+  (is (txn-structure-valid? @db (txn/coinbase @db addr-a)))
+  (is (txn-structure-valid? @db (txn/payment key-b addr-a 5 @db)))
   (is (not (txn-structure-valid? @db {}))))
 
 (deftest test-sufficient-balance
-  (is (sufficient-inputs? @db a-pays-b-15))
-  (is (not (sufficient-inputs? @db a-pays-b-50))))
+  (is (sufficient-inputs? @db (txn/payment key-b addr-a 5 @db)))
+  (is (not (sufficient-inputs? @db (-> (txn/payment key-b addr-a 5 @db)
+                                       (assoc-in [:outputs 0 :amount] 50))))))
 
 (deftest test-all-inputs-have-sources
-  (is (inputs-properly-sourced? @db a-pays-b-15))
-  (let [bogus-sourced (assoc-in a-pays-b-15
-                                [:inputs 0 :source-hash]
-                                "pizza")]
-    (is (not (inputs-properly-sourced? @db bogus-sourced)))))
+  (is (inputs-properly-sourced? @db (txn/payment key-a addr-b 15 @db)))
+  (is (not (inputs-properly-sourced? @db (-> (txn/payment key-b addr-a 5 @db)
+                                             (assoc-in [:inputs 0 :source-hash] "pizza"))))))
 
 (deftest test-valid-signatures
-  (is (signatures-valid? @db a-pays-b-15))
-  (let [bogus-sig (assoc-in a-pays-b-15
-                            [:outputs 0 :amount]
-                            16)]
-    (is (not (signatures-valid? @db bogus-sig)))))
+  (is (signatures-valid? @db (txn/payment key-a addr-b 15 @db)))
+  (is (not (signatures-valid? @db (-> (txn/payment key-b addr-a 5 @db)
+                                      (update-in [:outputs 0 :amount] inc)))))
+  (is (not (signatures-valid? @db (-> (txn/payment key-b addr-a 5 @db)
+                                      (update-in [:inputs 0 :signature] clojure.string/lower-case))))))
 
 (deftest test-inputs-unspent
-  (is (inputs-unspent? @db a-pays-b-15))
-  (is (= 3 (q/chain-length @db)))
+  (is (= 2 (q/chain-length @db)))
+  ;; 2 Coinbases + 1 Payment A -> B
   (is (= 3 (count (mapcat :transactions (q/longest-chain @db)))))
-  (is (contains? (->> (q/longest-chain @db)
+  ;; 2x Coinbase, 1x Transfer, 1x Change
+  (is (= 3 (count (q/utxos @db))))
+  (is (= 4 (count (mapcat :outputs (mapcat :transactions (q/longest-chain @db))))))
+  (is (= 2 (count (q/unspent-outputs addr-a @db))))
+  (is (= 1 (count (q/unspent-outputs addr-b @db))))
+  (is (= 10 (q/balance addr-b @db)))
+  (is (= 40 (q/balance addr-a @db)))
+  (let [p (txn/payment key-a addr-b 15 @db)]
+    (is (sources-unspent? @db p)))
+
+  (let [existing-txn (second (:transactions (q/highest-block @db)))]
+    (is (not (sources-unspent? @db existing-txn)))
+    (is (contains? (->> (q/longest-chain @db)
                       (mapcat :transactions)
                       (into #{}))
-                 b-pays-a-5))
-  ;; ^ b-pays-a-5 is already in the chain
-  ;; so its transaction inputs should show as having already
-  ;; been spent
-  (is (not (inputs-unspent? @db b-pays-a-5))))
+                   existing-txn))))
 
 (deftest test-correct-hash
-  (is (valid-hash? @db a-pays-b-15))
-  (is (not (valid-hash? @db (assoc a-pays-b-15 :hash "pizza")))))
+  (is (valid-hash? @db (txn/payment key-a addr-b 15 @db)))
+  (is (not (valid-hash? @db (assoc (txn/payment key-a addr-b 15 @db) :hash "pizza"))))
+  (is (not (valid-hash? @db (assoc (txn/payment key-a addr-b 15 @db) :min-height 10)))))
