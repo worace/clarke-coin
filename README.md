@@ -7,11 +7,19 @@ What would it take to make a simplistic but functional crypto currency?
 
 ## Running the Docker Image
 
+**OS X** (With docker-machine)
 
 ```
 docker-machine start default
 docker build -t clarke-coin .
-docker run -p 3000-3000:3000-3000/tcp 69cdd323db31
+docker run -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000/tcp 69cdd323db31
+```
+
+With this running you can connect to the docker-machine VM and check out the data directory:
+
+```
+docker-machine ssh
+ls /var/lib/clarke-coin
 ```
 
 ## ToDo
