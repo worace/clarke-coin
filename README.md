@@ -5,6 +5,15 @@
 
 What would it take to make a simplistic but functional crypto currency?
 
+## Running the Docker Image
+
+
+```
+docker-machine start default
+docker build -t clarke-coin .
+docker run -p 3000-3000:3000-3000/tcp 69cdd323db31
+```
+
 ## ToDo
 
 * [X] Generate Transaction message -- send from-addr, amount, to-addr and have node send u back an unsigned txn for that amount
