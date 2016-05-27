@@ -36,12 +36,13 @@
 
 (defn make-db [path] (db-map (conn path)))
 
-(defonce empty-db (make-db (env :db-path)))
+(defn make-initial-db [path] (-> (make-db path)
+                                 (q/add-block genesis-block)))
 
-(defonce initial-db (-> empty-db
-                        (q/add-block genesis-block)))
+#_(str (System/getProperty "user.home") "clarke-coin-db")
+(def db-path (or (env :db-path) "/var/lib/clarke-coin/db"))
 
-(defonce db (atom initial-db))
+(defonce db (atom nil))
 
 (defn wipe-db! [ldb-conn]
   (apply (partial ldb/delete ldb-conn)

@@ -19,6 +19,8 @@
 
 (defn start! [{port :port repl-port :repl-port peer :bootstrap-peer}]
   (log/info "****** Starting Clarke Coin *******")
+  (println "Will set up initial DB at path" db/db-path)
+  (reset! db/db (db/make-initial-db db/db-path))
   (http/start! port)
   (if peer
     (do

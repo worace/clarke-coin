@@ -7,7 +7,7 @@
             [block-chain.key-serialization :as ks]
             [block-chain.transactions :as txn]
             [block-chain.blocks :as blocks]
-            [block-chain.db :as db :refer [empty-db]]
+            [block-chain.db :as db]
             [block-chain.queries :as q]
             [block-chain.test-helper :as th]
             [block-chain.miner :as miner]))
@@ -32,7 +32,7 @@
 
 (deftest test-mining-block
   (let [block (-> (txn/coinbase @db address-a)
-                  (blocks/generate-block empty-db)
+                  (blocks/generate-block @db)
                   (miner/mine))]
     (is (blocks/meets-target? block))))
 
