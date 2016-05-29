@@ -1,6 +1,7 @@
 (ns block-chain.wallet
   (:require [clojure.java.io :as io]
             [clojure.string :refer [join split]]
+            [environ.core :refer [env]]
             [block-chain.key-serialization :as ks]
             [block-chain.encoding :refer :all]))
 
@@ -51,7 +52,12 @@
               (.update msg-data))]
     (.verify sig signature)))
 
-(def wallet-path (str (System/getProperty "user.home") "/.wallet.der"))
+(def wallets-dir
+  (or (env :wallets-dir)
+      "/var/lib/clarke-coin/wallets"))
+
+(def wallet-path
+  (str wallets-dir "/default.der"))
 
 (defn wallet-exists? [] (.exists (io/as-file wallet-path)))
 
@@ -63,6 +69,7 @@
    (if (wallet-exists?)
      (ks/der-file->key-pair wallet-path)
      (let [kp (generate-keypair)]
+       (io/make-parents wallet-path)
        (spit wallet-path
              (ks/private-key->der-string (:private kp)))
        kp)))
