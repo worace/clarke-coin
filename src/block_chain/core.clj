@@ -17,17 +17,23 @@
     (repl/stop-server @repl-server))
   (reset! repl-server (repl/start-server :port port)))
 
-(defn start! [{port :port repl-port :repl-port peer :bootstrap-peer}]
+(defn bootstrap-from-peer! [peer our-port]
+  (q/add-peer! db/db peer)
+  (pc/send-peer peer our-port)
+  (log/info "Will bootstrap from peer node: " peer)
+  (bsync/sync-if-needed! db/db peer))
+
+(defn bootstrap-from-dns-server! [url our-port]
+  (doseq [p (pc/dns-request-peers url our-port)]
+    (bootstrap-from-peer! p our-port)))
+
+(defn start! [{port :port repl-port :repl-port peer :bootstrap-peer dns-server :dns-server}]
   (log/info "****** Starting Clarke Coin *******")
   (println "Will set up initial DB at path" db/db-path)
   (reset! db/db (db/make-initial-db db/db-path))
   (http/start! port)
-  (if peer
-    (do
-      (q/add-peer! db/db peer)
-      (pc/send-peer peer port)
-      (log/info "Will bootstrap from peer node: " peer)
-      (bsync/sync-if-needed! db/db peer)))
+  (when peer (bootstrap-from-peer! peer port))
+  (when dns-server (bootstrap-from-dns-server!))
   (miner/run-miner!)
   (when repl-port (start-repl! repl-port)))
 
@@ -48,6 +54,8 @@
     :default nil
     :parse-fn (fn [p] {:host (first (clojure.string/split p #":"))
                        :port (last (clojure.string/split p #":"))})]
+   ["-d" "--dns-server URL" "URL for a DNS server to use for discovering initial peers"
+    :default nil]
    ["-h" "--help"]])
 
 (defn -main [& args]
