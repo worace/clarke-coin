@@ -48,13 +48,15 @@
                                                 :content-type :json}))
 
 (defn ping [peer time]
-    (-> (http/post (url peer "ping")
-                   {:form-params {:ping time}
-                    :content-type :json})
-        :body
-        read-json))
+  (log/info "Pinging peer" peer time)
+  (-> (http/post (url peer "ping")
+                 {:form-params {:ping time}
+                  :content-type :json})
+      :body
+      read-json))
 
 (defn available-peer? [peer]
+  (log/info "available-peer?" peer)
   (let [t (current-time-millis)]
     (try
       (= t (:pong (ping peer t)))
@@ -80,6 +82,6 @@
                  :body
                  read-json)]
     (if-let [e (:error body)]
-      (do (println "Error fetching peers from DNS server:" e)
+      (do (log/info "Error fetching peers from DNS server:" e)
           [])
       body)))

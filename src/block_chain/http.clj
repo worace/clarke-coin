@@ -173,11 +173,17 @@
             (handler)))
       (handler request))))
 
+(defn request-logger [handler]
+  (fn [request]
+    (log/info "#### Clarke Coin HTTP Recevied REQ ####")
+    (log/info (:request-method request) (:uri request) (:remote-addr request))
+    (handler request)))
+
 (def print-mw (fn [h] (fn [r] (println r) (h r))))
 (def with-middleware
   (-> (routes web-ui api)
       (identity)
-      #_(debug-logger)))
+      (request-logger)))
 
 (defn start!
   ([] (start! 3001))

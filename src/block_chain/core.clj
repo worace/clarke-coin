@@ -24,18 +24,24 @@
   (bsync/sync-if-needed! db/db peer))
 
 (defn bootstrap-from-dns-server! [url our-port]
+  (log/info "Will bootstrap from dns-server" url our-port)
   (doseq [p (pc/dns-request-peers url our-port)]
     (bootstrap-from-peer! p our-port)))
 
-(defn start! [{port :port repl-port :repl-port peer :bootstrap-peer dns-server :dns-server}]
+(defn start! [{port :port
+               repl-port :repl-port
+               peer :bootstrap-peer
+               dns-server :dns-server
+               :as opts}]
   (log/info "****** Starting Clarke Coin *******")
-  (println "Will set up initial DB at path" db/db-path)
+  (log/info "Received CLI opts:" opts)
+  (log/info "Will set up initial DB at path" db/db-path)
   (reset! db/db (db/make-initial-db db/db-path))
   (http/start! port)
   (when peer (bootstrap-from-peer! peer port))
-  (when dns-server (bootstrap-from-dns-server!))
-  (miner/run-miner!)
-  (when repl-port (start-repl! repl-port)))
+  (when dns-server (bootstrap-from-dns-server! dns-server port))
+  (when repl-port (start-repl! repl-port))
+  (miner/run-miner!))
 
 (defn stop! []
   (log/info "****** Stopping Clarke Coin *******")
