@@ -39,7 +39,9 @@
   (reset! db/db (db/make-initial-db db/db-path))
   (http/start! port)
   (when peer (bootstrap-from-peer! peer port))
-  (when dns-server (bootstrap-from-dns-server! dns-server port))
+  (when dns-server
+    (bootstrap-from-dns-server! dns-server port)
+    (pc/add-to-dns-registry dns-server port))
   (when repl-port (start-repl! repl-port))
   (miner/run-miner!))
 

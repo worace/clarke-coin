@@ -85,3 +85,17 @@
       (do (log/info "Error fetching peers from DNS server:" e)
           [])
       body)))
+
+(defn add-to-dns-registry [dns-server our-port]
+  (assert (not (clojure.string/starts-with? dns-server "http")))
+  (assert (not (clojure.string/ends-with? dns-server "/")))
+  (let [body (-> (http/post (str "http://" dns-server "/api/peers")
+                            {:form-params {:port our-port}
+                             :content-type :json
+                             :throw-exceptions false})
+                 :body
+                 read-json)]
+    (if-let [e (:error body)]
+      (do (log/info "Adding self to DNS registry:" e)
+          {})
+      body)))
