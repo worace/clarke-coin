@@ -12,6 +12,7 @@
             [block-chain.key-serialization :as ks]
             [block-chain.miner :as miner]
             [block-chain.peer-notifications :as peers]
+            [block-chain.peer-client :as pc]
             [block-chain.transactions :as txn]))
 
 (defn echo [msg sock-info] msg)
@@ -23,10 +24,13 @@
 
 (defn add-peer [msg sock-info]
   (let [host (:remote-address sock-info)
-        port (:port (:payload msg))]
-    (q/add-peer! db/db {:host host :port port})
-    (block-sync/sync-if-needed! db/db {:host host :port port})
-    {:message "peers" :payload (q/peers @db/db)}))
+        port (:port (:payload msg))
+        peer {:host host :port port}]
+    (when (pc/available-peer? peer)
+      (q/add-peer! db/db peer)
+      ;; TODO - need to async this
+      (block-sync/sync-if-needed! db/db peer)
+      {:message "peers" :payload (q/peers @db/db)})))
 
 (defn remove-peer [msg sock-info]
   (let [host (:remote-address sock-info)

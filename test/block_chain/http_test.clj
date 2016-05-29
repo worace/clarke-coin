@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clj-http.client :as http]
             [block-chain.http :as server]
+            [org.httpkit.server :as httpkit]
             [block-chain.db :as db]
             [block-chain.queries :as q]
             [block-chain.peer-client :as pc]
@@ -31,13 +32,20 @@
   (f)
   (server/stop!))
 
+(defn with-peer [f]
+  (let [shutdown-fn (httpkit/run-server (th/baby-peer (atom {}))
+                                        {:port 9293})]
+    (try
+      (f)
+      (finally (shutdown-fn)))))
+
 (defn with-db [f]
   (with-open [conn (th/temp-db-conn)]
     (reset! db/db (db/db-map conn))
     (miner/mine-and-commit-db! db/db)
     (f)))
 
-(use-fixtures :once with-server)
+(use-fixtures :once with-server with-peer)
 (use-fixtures :each with-db)
 
 (defn post-req [path data]
@@ -141,8 +149,13 @@
                           (q/bhash (last (q/longest-chain @db/db)))))))
 
 (deftest test-adding-peer-via-http
-  (pc/send-peer {:host "127.0.0.1" :port 9292} 3001)
-  (is (= [{:host "127.0.0.1" :port "3001"}]
+  (pc/send-peer {:host "127.0.0.1" :port 9292} 9293)
+  (is (= [{:host "127.0.0.1" :port "9293"}]
+         (q/peers @db/db))))
+
+(deftest test-doesnt-add-peer-that-is-not-online
+  (pc/send-peer {:host "127.0.0.1" :port 9292} 9294)
+  (is (= []
          (q/peers @db/db))))
 
 (deftest test-gets-static-html-route
