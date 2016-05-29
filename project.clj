@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :main block-chain.core
   :plugins [[lein-environ "1.0.3"]]
-  :dependencies [[org.clojure/clojure "1.7.0"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.bouncycastle/bcpg-jdk15on "1.53"]
                  [org.bouncycastle/bcpkix-jdk15on "1.53"]
                  [org.clojure/math.numeric-tower "0.0.4"]
