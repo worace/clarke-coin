@@ -6,7 +6,6 @@
             [block-chain.miner :as miner]
             [block-chain.transactions :as txn]
             [org.httpkit.server :as httpkit]
-            [compojure.core :refer [routes]]
             [block-chain.db :as db]
             [block-chain.queries :as q]
             [block-chain.test-helper :as th]
@@ -33,16 +32,11 @@
    :outgoing-port 51283})
 
 (def peer-requests (atom {}))
-(defn peer-handler [req]
-  (let [req (if (:body req)
-              (assoc req :body (-> req :body .bytes slurp))
-              req)]
-    (swap! peer-requests update (:uri req) conj req)
-    {:status 200}))
 
 (defn with-peer [f]
   (reset! peer-requests {})
-  (let [shutdown-fn (httpkit/run-server (routes peer-handler)
+  (let [handler (th/baby-peer peer-requests)
+        shutdown-fn (httpkit/run-server handler
                                         {:port test-port})]
     (try
       (f)

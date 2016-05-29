@@ -1,6 +1,7 @@
 (ns block-chain.test-helper
   (:import [java.util UUID])
   (:require [block-chain.db :as db]
+            [block-chain.utils :refer :all]
             [clj-leveldb :as ldb]
             [block-chain.queries :as q]))
 
@@ -28,3 +29,15 @@
     (.addShutdownHook (Runtime/getRuntime)
                       (Thread. #(delete-directory path)))
     (db/conn path)))
+
+(defn baby-peer [req-storage]
+  (fn [req]
+    (let [req (if (:body req)
+                (assoc req :body (-> req :body .bytes slurp))
+                req)
+          body (:body req)]
+      (swap! req-storage update (:uri req) conj req)
+      (println "PEER HANDLER runing req" req)
+      (case (:uri req)
+        "/ping" {:status 200 :body (write-json {:pong (:ping (read-json body))})}
+        {:status 200 :body body}))))
