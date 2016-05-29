@@ -31,13 +31,13 @@ sudo docker login
 ```
 
 ```
-sudo docker build -t worace/clarke-clin .
+sudo docker build -t worace/clarke-coin .
 sudo docker push worace/clarke-coin:latest
 ssh root@159.203.204.18
 # these will be run on the host machine
 docker pull worace/clarke-coin:latest
 docker ps -q --filter ancestor=worace/clarke-coin | xargs docker stop
-docker run -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000 worace/clarke-coin:latest
+docker run -d -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000 worace/clarke-coin:latest
 ```
 
 Except you would need to replace `worace` with your dockerhub username
