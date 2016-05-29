@@ -31,8 +31,10 @@
   (req :get (url peer "blocks" block-hash)))
 
 (defn send-peer [peer port]
+  (log/info "Connect to peer:" peer "from port:" port)
   (req :post (url peer "peers") {:form-params {:port port}
                                  :content-type :json
+                                 :socket-timeout 3000
                                  :throw-exceptions false}))
 
 (defn send-block [peer block]
