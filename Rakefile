@@ -10,7 +10,7 @@ task :deploy do
   sh "sudo docker build -t worace/clarke-coin ."
   sh "sudo docker push worace/clarke-coin:latest"
 
-  on DEPLOYED_NODES.take(1) do |host|
+  on DEPLOYED_NODES do |host|
     puts "Deploying to node #{host}"
     execute "docker pull worace/clarke-coin:latest"
     execute "docker ps -ql | xargs docker stop"
