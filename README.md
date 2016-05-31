@@ -22,6 +22,12 @@ docker-machine ssh
 ls /var/lib/clarke-coin
 ```
 
+## Attaching a Repl to a Running Container
+
+```
+docker exec -it <Container-ID> lein repl :connect 7889
+```
+
 ## Deploying
 
 First, make sure you are logged in to docker hub
