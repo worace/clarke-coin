@@ -141,7 +141,7 @@
                                                                             :to-address to_address
                                                                             :amount amount
                                                                             :fee fee}} {})]
-                 (if (= "transaction-accepted" (:message resp))
+                 (if (= "unsigned_transaction" (:message resp))
                    (ok resp)
                    (bad-request resp))))
 
