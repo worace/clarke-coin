@@ -1,0 +1,77 @@
+* ClarkeCoin - An Educational Cryptocurrency
+
+#+CAPTION: Build Status
+[[https://api.travis-ci.org/worace/clarke-coin.svg]]
+
+** Description
+
+What would it take to build a minimal but functional cryptocurrency modelled on Bitcoin? ClarkeCoin is an attempt to answer this question and, in the process, hopefully make some of the concepts in Bitcoin more accessible to a wider range of developers.
+
+A couple of the design choices we make to achieve this include:
+  * A simple data-structure spec described using JSON
+  * A P2P interface which uses simple HTTP endpoints to communicate between nodes
+  * A swagger-based HTTP API which provides clear documentation and even auto-generated clients for various languages
+  * A transaction model which focuses on the most straightforward payment cases from Bitcoin, avoiding the complexity of the transaction Script language
+
+Additionally, the project aims to be fairly "pluggable" from the outset. Because each full node implements a straightforward HTTP API, it's easy for newer developers to get started by building smaller projects (wallet clients, blockchain browsers, dedicated external miners, etc) that plug into the network directly but don't have to deal with the complexity of implementing a full node.
+
+** Projects
+
+A few of the projects working with clarke coin include:
+
+  * The Clarke Coin full node (this repository)
+  * [[http://github.com/worace/clarke-dns][clarke-dns]] - A simple DNS server for tracking and discovering available nodes
+  * [[https://github.com/worace/clarke-wallet][clarke-wallet]] - An electron-based desktop wallet for creating keys and sending transactions
+  * [[https://github.com/worace/clarke_coin_web][clarke_coin_web]] - A sinatra-based web frontend for browsing data in the block chain
+
+** Running the Docker Image
+
+*OS X* (With docker-machine)
+
+#+BEGIN_EXAMPLE
+    docker-machine start default
+    docker build -t clarke-coin .
+    docker run -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000/tcp 69cdd323db31
+#+END_EXAMPLE
+
+With this running you can connect to the docker-machine VM and check out
+the data directory:
+
+#+BEGIN_EXAMPLE
+    docker-machine ssh
+    ls /var/lib/clarke-coin
+#+END_EXAMPLE
+
+** Attaching a Repl to a Running Container
+
+#+BEGIN_EXAMPLE
+    docker exec -it <Container-ID> lein repl :connect 7889
+#+END_EXAMPLE
+
+** Deploying
+
+First, make sure you are logged in to docker hub
+
+#+BEGIN_EXAMPLE
+    sudo docker login
+#+END_EXAMPLE
+
+#+BEGIN_EXAMPLE
+    sudo docker build -t worace/clarke-coin .
+    sudo docker push worace/clarke-coin:latest
+    ssh root@159.203.204.18
+    # these will be run on the host machine
+    docker pull worace/clarke-coin:latest
+    docker ps -q --filter ancestor=worace/clarke-coin | xargs docker stop
+    docker run -d -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000 worace/clarke-coin:latest
+#+END_EXAMPLE
+
+Except you would need to replace =worace= with your dockerhub username
+and replace IP addrs with your IP.
+
+** License
+
+Copyright © 2016 Horace Williams
+
+Distributed under the Eclipse Public License either version 1.0 or (at
+your option) any later version.
