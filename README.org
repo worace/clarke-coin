@@ -26,6 +26,16 @@ A few of the projects working with clarke coin include:
   * [[https://github.com/erinnachen/all_the_coins][erinnachen/all_the_coins]] - Ruby implementation of a full node
   * [[https://github.com/pindell-matt/clarkecoin/tree/master/lib][pindell-matt/clarkecoin]] - Ruby wallet implementation
 
+** Project Ideas
+
+There are a lot of ways to get involved in working with clarke coin --  here are a few ideas:
+
+*** Web-based graphical block browser, similar to [[https://blockexplorer.com/]]
+*** Independent miner using the ~/unmined_block~ API endpoint
+*** Mobile or Desktop wallet client
+*** Web-based ClarkeCoin "bank" in the vein of [[https://www.coinbase.com]]
+*** Alternative "Full Node" implementations -- produce, accept, validate, and store blocks and transactions
+
 ** Running the Docker Image
 
 *OS X* (With docker-machine)
@@ -47,7 +57,7 @@ the data directory:
 ** Attaching a Repl to a Running Container
 
 #+BEGIN_EXAMPLE
-    docker exec -it <Container-ID> lein repl :connect 7889
+docker exec -it <Container-ID> lein repl :connect 7889
 #+END_EXAMPLE
 
 ** Deploying
