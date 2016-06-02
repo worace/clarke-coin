@@ -7,8 +7,6 @@
   :plugins [[lein-environ "1.0.3"]]
   :uberjar-name "clarke-coin-node.jar"
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.bouncycastle/bcpg-jdk15on "1.53"]
-                 [org.bouncycastle/bcpkix-jdk15on "1.53"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.nrepl "0.2.11"]
                  [org.clojure/tools.cli "0.3.5"]

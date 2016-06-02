@@ -8,10 +8,8 @@
 ;; Thanks to http://nakkaya.com/2012/10/28/public-key-cryptography/
 ;; for many of these snippets
 
-(java.security.Security/addProvider (org.bouncycastle.jce.provider.BouncyCastleProvider.))
-
 (defn kp-generator [length]
-  (doto (java.security.KeyPairGenerator/getInstance "RSA" "BC")
+  (doto (java.security.KeyPairGenerator/getInstance "RSA")
     (.initialize length)))
 
 (defn key-map [kp]
@@ -28,7 +26,7 @@
   "Perform RSA public key encryption of the given message (as a string).
    Returns a Base64 encoded string of the encrypted data."
   (encode64
-   (let [cipher (doto (javax.crypto.Cipher/getInstance "RSA/ECB/PKCS1Padding" "BC")
+   (let [cipher (doto (javax.crypto.Cipher/getInstance "RSA/ECB/PKCS1Padding")
                   (.init javax.crypto.Cipher/ENCRYPT_MODE public-key))]
      (.doFinal cipher (.getBytes message)))))
 
@@ -37,7 +35,7 @@
   "RSA private key decryption of an encrypted message. Expects a base64-encoded string
    of the encrypted data."
   (apply str
-         (map char (let [cipher (doto (javax.crypto.Cipher/getInstance "RSA/ECB/PKCS1Padding" "BC")
+         (map char (let [cipher (doto (javax.crypto.Cipher/getInstance "RSA/ECB/PKCS1Padding")
                                   (.init javax.crypto.Cipher/DECRYPT_MODE private-key))]
                      (.doFinal cipher (decode64 message))))))
 
@@ -47,7 +45,7 @@
    is valid."
   (let [msg-data (.getBytes message)
         signature (decode64 encoded-sig)
-        sig (doto (java.security.Signature/getInstance "SHA256withRSA" "BC")
+        sig (doto (java.security.Signature/getInstance "SHA256withRSA")
               (.initVerify public-key)
               (.update msg-data))]
     (.verify sig signature)))
@@ -84,7 +82,7 @@
   [message private-key]
   (encode64
    (let [msg-data (.getBytes message)
-         sig (doto (java.security.Signature/getInstance "SHA256withRSA" "BC")
+         sig (doto (java.security.Signature/getInstance "SHA256withRSA")
                (.initSign private-key (java.security.SecureRandom.))
                (.update msg-data))]
      (.sign sig))))

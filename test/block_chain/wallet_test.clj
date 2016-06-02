@@ -4,7 +4,7 @@
             [block-chain.key-serialization :as ks]))
 
 (deftest test-encrypt-and-decrypt-with-fresh-keys
-  (let [kp (generate-keypair 128)
+  (let [kp (generate-keypair 512)
         pub (:public kp)
         priv (:private kp)]
     (is (= "pizza"
@@ -19,7 +19,7 @@
                     priv)))))
 
 (deftest test-serialize-and-deserialize-new-key
-  (let [kp (generate-keypair 128)
+  (let [kp (generate-keypair 512)
         encrypted (encrypt "pizza" (:public kp))
         der-str (ks/private-key->der-string (:private kp))
         deserialized (ks/der-string->key-pair der-str)]
