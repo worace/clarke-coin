@@ -1,4 +1,5 @@
 (ns block-chain.miner
+  (:import [java.util UUID])
   (:require [clojure.math.numeric-tower :as math]
             [block-chain.utils :refer :all]
             [block-chain.db :as db]
@@ -10,18 +11,24 @@
             [block-chain.block-validations :as block-v]
             [block-chain.peer-notifications :as peers]))
 
-(defn mine
-  ([block] (mine block (atom true)))
-  ([block switch]
-   (let [attempt (blocks/hashed block)]
-     (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000))
-       (log/info "got to nonce: " (get-in attempt [:header :nonce]) "against parent" (q/phash attempt)))
-     (if (blocks/meets-target? attempt)
-       attempt
-       (if (not @switch)
-         (do (println "exiting") nil)
-         (recur (update-in block [:header :nonce] inc)
-              switch))))))
+(defonce miner-interrupts (atom {}))
+(defn interrupt-miner! []
+  (doseq [i (vals @miner-interrupts)]
+    (reset! i true)))
+
+(defn mine [block]
+  (let [miner-id (UUID/randomUUID)
+        interrupt (atom false)]
+    (swap! miner-interrupts assoc miner-id interrupt)
+    (try
+      (loop [attempt (blocks/hashed block)]
+        (when (= 0 (mod (get-in attempt [:header :nonce]) 1000000))
+          (log/info "got to nonce: " (get-in attempt [:header :nonce]) "against parent" (q/phash attempt)))
+        (cond
+          (blocks/meets-target? attempt) attempt
+          @interrupt (do (println "Miner interrupted.") nil)
+          :else (recur (blocks/hashed (update-in attempt [:header :nonce] inc)))))
+      (finally (swap! miner-interrupts dissoc miner-id)))))
 
 (defonce mine? (atom true))
 (defn stop-miner! [] (reset! mine? false))
