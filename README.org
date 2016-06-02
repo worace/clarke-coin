@@ -1,7 +1,7 @@
 * ClarkeCoin - An Educational Cryptocurrency
 
 #+CAPTION: Build Status
-[[https://api.travis-ci.org/worace/clarke-coin.svg]]
+[[https://api.travis-ci.org/worace/clarke-coin.svg]] [[https://travis-ci.org/worace/clarke-coin][CI]]
 
 ** Description
 
