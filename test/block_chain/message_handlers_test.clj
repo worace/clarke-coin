@@ -313,7 +313,7 @@
     (is (= :finished
            (loop [start-time (current-time-millis)]
              (cond
-               (timed-out? start-time 500) :timeout-elapsed
+               (timed-out? start-time 1500) :timeout-elapsed
                (future-done? mining-future) :finished
                :else (recur start-time))
              )))
