@@ -133,3 +133,12 @@
 (defn wallet-addr [db] (get-in db [:default-key :address]))
 
 (defn root-block [db] (last (longest-chain db)))
+
+(defn blocks-time-spread [db]
+  (->> db
+       longest-chain
+       (drop-last)
+       (map #(get-in % [:header :timestamp]))
+       (partition 2 1)
+       (map (partial apply -))
+       (map #(/ % 1000.0))))
