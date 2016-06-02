@@ -30,11 +30,12 @@ A few of the projects working with clarke coin include:
 
 There are a lot of ways to get involved in working with clarke coin --  here are a few ideas:
 
-*** Web-based graphical block browser, similar to [[https://blockexplorer.com/]]
-*** Independent miner using the ~/unmined_block~ API endpoint
-*** Mobile or Desktop wallet client
-*** Web-based ClarkeCoin "bank" in the vein of [[https://www.coinbase.com]]
-*** Alternative "Full Node" implementations -- produce, accept, validate, and store blocks and transactions
+ * Web-based graphical block browser, similar to [[https://blockexplorer.com/]]
+ * Independent miner using the ~/unmined_block~ API endpoint
+ * Mobile or Desktop wallet client
+ * Web-based ClarkeCoin "bank" in the vein of [[https://www.coinbase.com]]
+ * Alternative "Full Node" implementations -- produce, accept, validate, and store blocks and transactions
+
 
 ** Running the Docker Image
 
