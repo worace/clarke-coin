@@ -26,7 +26,7 @@
           (log/info "got to nonce: " (get-in attempt [:header :nonce]) "against parent" (q/phash attempt)))
         (cond
           (blocks/meets-target? attempt) attempt
-          @interrupt (do (println "Miner interrupted.") nil)
+          @interrupt (do (log/info "****** Miner interrupted ******\nAgainst parent:" (q/phash attempt)) nil)
           :else (recur (blocks/hashed (update-in attempt [:header :nonce] inc)))))
       (finally (swap! miner-interrupts dissoc miner-id)))))
 
