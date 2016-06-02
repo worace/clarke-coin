@@ -24,7 +24,7 @@
              :transactions-hash (transactions-hash transactions)
              :target (or target
                          ;; drop one block to make sure we don't count the genesis block...
-                         (target/next-target (drop-last (take 30 (q/longest-chain db)))))
+                         (target/next-target (q/longest-chain db)))
              :timestamp (or timestamp (current-time-millis))
              :nonce (or nonce 0)}
     :transactions transactions}))

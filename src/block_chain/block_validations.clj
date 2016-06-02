@@ -17,7 +17,7 @@
   (b/meets-target? block))
 
 (defn valid-target? [db block]
-  (let [expected (hex->int (target/next-target (drop-last (take 30 (q/chain db (q/get-parent db block))))))
+  (let [expected (hex->int (target/next-target (q/chain db (q/get-parent db block))))
         received (hex->int (get-in block [:header :target]))
         threshold (/ expected 1000)]
     (in-delta? expected received threshold)))

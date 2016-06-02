@@ -49,7 +49,8 @@
 (defn next-target
   "Calculate the appropriate next target based on the time frequency
    of recent blocks."
-  [blocks]
-  (if (> (count blocks) 8)
-    (adjusted-target blocks frequency)
-    default))
+  [chain]
+  (let [blocks (drop-last (take 30 chain))]
+    (if (> (count blocks) 10)
+      (adjusted-target blocks frequency)
+      default)))
