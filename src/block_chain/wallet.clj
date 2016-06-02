@@ -18,9 +18,12 @@
    :address (ks/public-key->der-string (.getPublic kp))})
 
 (defn generate-keypair
-  "Generate an RSA Keypair. Accepts optional length. Default key length is 2048."
+  "Generate an RSA Keypair. Accepts optional length. Default key length is 2048.
+   Minimum key length is 512."
   ([] (generate-keypair 2048))
-  ([length] (key-map (.generateKeyPair (kp-generator length)))))
+  ([length]
+   (assert (>= length 512) "RSA Key must be at least 512 bits long.")
+   (key-map (.generateKeyPair (kp-generator length)))))
 
 (defn encrypt [message public-key]
   "Perform RSA public key encryption of the given message (as a string).

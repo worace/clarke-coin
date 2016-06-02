@@ -11,6 +11,9 @@
            (decrypt (encrypt "pizza" pub)
                     priv)))))
 
+(deftest test-cant-make-key-shorter-than-512
+  (is (thrown? AssertionError (generate-keypair 128))))
+
 (deftest test-encrypt-and-decrypt-with-deserialized-keys
   (let [priv (:private (ks/der-file->key-pair "./test/sample_private_key.der"))
         pub (ks/der-file->public-key "./test/sample_public_key.der")]
