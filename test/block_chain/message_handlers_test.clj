@@ -3,6 +3,7 @@
             [block-chain.utils :refer :all]
             [clojure.pprint :refer [pprint]]
             [block-chain.wallet :as wallet]
+            [block-chain.target :as target]
             [block-chain.miner :as miner]
             [block-chain.transactions :as txn]
             [org.httpkit.server :as httpkit]
@@ -294,3 +295,67 @@
       (is (= 4 (q/chain-length @db/db)))
       (is (= (q/highest-block @peer-db)
              (q/highest-block @db/db))))))
+
+(defn timed-out? [start duration]
+  (> (- (current-time-millis) start) duration))
+
+#_(deftest test-receiving-outside-block-stops-miner
+  (let [alt-block (miner/mine (miner/next-block @db/db))
+        mining-future (atom nil)]
+
+    (println "future: " @mining-future)
+
+    #_[target/default target/hard]
+    (reset! mining-future
+            (future
+              (println "FUTURE...")
+              (with-bindings {#'target/default target/hard}
+                (println "Target in thread: " target/default)
+                (miner/mine-and-commit-db! db/db))))
+
+    (println "Target in main: " target/default)
+    (println "future: " @mining-future)
+    (is (= {:message "block-accepted" :payload alt-block}
+           (handler {:message "submit_block" :payload alt-block}
+                    sock-info)))
+
+    (is (= :finished
+           (loop [start-time (current-time-millis)]
+             (cond
+               (timed-out? start-time 500) :timeout-elapsed
+               (future-done? @mining-future) :finished
+               :else (recur start-time))
+             )))
+    (miner/interrupt-miner!))
+  ;; make 1 block and mine it
+  ;; redef target hard
+  ;; start mine-and-commit-db! in future
+  ;; submit the mined block to db
+
+  ;; set a timestamp and start looping
+  ;; each loop check if future is done
+  ;; if so: pass
+  ;; if time diff is past threshold
+  ;; miner interrupt
+  )
+
+
+(deftest test-receiving-outside-block-stops-miner
+  (let [alt-block (miner/mine (miner/next-block @db/db))
+        pending (-> (miner/next-block @db/db)
+                    (assoc-in [:header :target] target/hard))
+        mining-future (future
+                        (miner/mine pending))]
+
+    (is (= {:message "block-accepted" :payload alt-block}
+           (handler {:message "submit_block" :payload alt-block}
+                    sock-info)))
+
+    (is (= :finished
+           (loop [start-time (current-time-millis)]
+             (cond
+               (timed-out? start-time 500) :timeout-elapsed
+               (future-done? mining-future) :finished
+               :else (recur start-time))
+             )))
+    (miner/interrupt-miner!)))
