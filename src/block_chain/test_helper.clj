@@ -2,6 +2,7 @@
   (:import [java.util UUID])
   (:require [block-chain.db :as db]
             [block-chain.utils :refer :all]
+            [block-chain.log :as log]
             [clj-leveldb :as ldb]
             [block-chain.queries :as q]))
 
@@ -37,7 +38,7 @@
                 req)
           body (:body req)]
       (swap! req-storage update (:uri req) conj req)
-      (println "PEER HANDLER runing req" req)
+      (log/info "PEER HANDLER runing req" req)
       (case (:uri req)
         "/ping" {:status 200 :body (write-json {:pong (:ping (read-json body))})}
         {:status 200 :body body}))))
