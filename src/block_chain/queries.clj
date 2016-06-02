@@ -50,8 +50,8 @@
        (reverse)))
 
 (defn children [db hash]
-  (ldb/get (:block-db db)
-           (str "child-blocks:" hash)))
+  (set (ldb/get (:block-db db)
+                (str "child-blocks:" hash))))
 
 (defn add-transaction [db {hash :hash :as txn}]
   (ldb/put (:block-db db) (str "transaction:" hash) txn))

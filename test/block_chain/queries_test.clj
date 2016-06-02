@@ -50,8 +50,15 @@
     (is (= db/genesis-block (get-block updated (bhash db/genesis-block))))
     (is (= 1 (chain-length updated (bhash db/genesis-block))))
     (is (= 1 (count (all-txns updated))))
-    (is (= (list (bhash db/genesis-block))
+    (is (= #{(bhash db/genesis-block)}
            (children updated (phash db/genesis-block))))))
+
+(deftest test-adding-child-twice-doesnt-duplicate-in-child-listing
+  (let [parent (first sample-chain)
+        child (second sample-chain)]
+    (is (= #{(bhash child)} (children @sample-db (bhash parent))))
+    (add-block! sample-db child)
+    (is (= #{(bhash child)} (children @sample-db (bhash parent))))))
 
 (deftest test-blocks-since
   (is (= 4 (count (blocks-since @sample-db (bhash db/genesis-block)))))
