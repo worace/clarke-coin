@@ -101,7 +101,7 @@
     (if (empty? validation-errors)
       (if (q/new-block? @db/db b)
         (do
-          ;; (miner/stop-miner!)
+          (miner/interrupt-miner!)
           (swap! db/db q/add-block b)
           (peers/block-received! b)
           (log/info "Received block" (q/bhash b))
