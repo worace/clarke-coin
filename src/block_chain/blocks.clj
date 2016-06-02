@@ -23,7 +23,8 @@
    {:header {:parent-hash (or parent-hash (q/highest-hash db) (hex-string 0))
              :transactions-hash (transactions-hash transactions)
              :target (or target
-                         (target/next-target (take 10 (q/longest-chain db))))
+                         ;; drop one block to make sure we don't count the genesis block...
+                         (target/next-target (drop-last (take 30 (q/longest-chain db)))))
              :timestamp (or timestamp (current-time-millis))
              :nonce (or nonce 0)}
     :transactions transactions}))

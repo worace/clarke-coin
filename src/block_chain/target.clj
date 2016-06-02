@@ -20,8 +20,8 @@
 
 (defn capped [ratio]
   (cond
-    (> ratio 1.15) 1.15
-    (< ratio 0.85) 0.85
+    (> ratio 1.50) 1.50
+    (< ratio 0.50) 0.50
     :else (float ratio)))
 
 (defn target-value [block]
