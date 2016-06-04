@@ -16,12 +16,15 @@
        (partition 2 1)
        (map reverse)
        (map #(apply - %))
-       (avg))))
+       (avg)
+       (abs))))
 
+(def max-increase 1.50)
+(def min-increase 0.50)
 (defn capped [ratio]
   (cond
-    (> ratio 1.50) 1.50
-    (< ratio 0.50) 0.50
+    (> ratio max-increase) max-increase
+    (< ratio min-increase) min-increase
     :else (float ratio)))
 
 (defn target-value [block]
@@ -34,14 +37,22 @@
    most recent target by the ratio between this average and the
    desired frequency.
 
-   Also caps the amount of change at 15%, to avoid wild fluctuations.
-   So an adjustment greater than 15% or less than -15% will be capped.
+   Also caps the amount of change to avoid wild fluctuations.
 
    Note that a higher target is easier and lower target is harder, so
    an average spacing longer than the desired frequency will result in
-   increasing the target, and vice versa."
+   increasing the target, and vice versa.
+
+   Assumes blocks are ordered from most recent to least recent,
+   so the first block is the latest."
+  ;; TODO - Blocks probably need to be reversed here
+  ;; OR need to use ABS value for the adjustment calc
+  ;; Since we reversed the chain ordering the time gaps now
+  ;; come in as negative
+  ;; Try testing with these sample times:
+  ;; (1464998857331 1464997835129 1464994875175 1464993687994 1464987372796 1464984656015 1464983933372 1464983456575 1464983276480 1464983035510 1464979726070 1464972468482 1464962387353 1464959711863 1464959653445 1464956635558 1464956341155 1464952375924 1464952209420 1464947955003 1464945310960 1464942079225 1464936260364 1464935128026 1464933320948 1464928038067 1464925262651 1464922847098 1464920856719 1464919110823)
   (let [times (map #(get-in % [:header :timestamp]) blocks)
-        latest-target (target-value (last blocks))
+        latest-target (target-value (first blocks))
         ratio (/ (avg-spacing times) frequency)
         adjustment (capped ratio)]
     (hex-string (bigint (* adjustment latest-target)))))

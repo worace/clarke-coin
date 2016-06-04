@@ -1,6 +1,7 @@
 (ns block-chain.target-test
   (:require [clojure.test :refer :all]
             [block-chain.utils :refer :all]
+            [clojure.pprint :refer [pprint]]
             [block-chain.target :refer :all]))
 
 (deftest test-average-spacing
@@ -58,12 +59,12 @@
 
 (defn next-n-blocks [blocks n]
   (loop [i n
-           blocks blocks]
+         blocks blocks]
       (if (= i 0)
         blocks
         (recur (dec i)
                (conj blocks
-                     {:header {:timestamp (+ 5000 (get-in (last blocks) [:header :timestamp]))
+                     {:header {:timestamp (+ 5000 (get-in (first blocks) [:header :timestamp]))
                                :target (adjusted-target blocks 60000)}})))))
 
 (deftest test-weird-test
@@ -71,11 +72,71 @@
   ;; insert tightly spaced frequencies each time and see that
   ;; the target gets harder, not easier
   ;; (targets are monotonically decreasing)
-  (let [blocks [{:header {:timestamp 0 :target default}}
-                {:header {:timestamp 15000 :target default}}
-                {:header {:timestamp 30000 :target default}}]]
+  (let [blocks (list {:header {:timestamp 45000 :target default}}
+                     {:header {:timestamp 30000 :target default}}
+                     {:header {:timestamp 15000 :target default}})]
     (is (smaller-target (adjusted-target blocks 600000) default))
     (let [more-blocks (next-n-blocks blocks 20)
           targets (map hex->int (map #(get-in % [:header :target]) more-blocks))]
       (is (= 23 (count targets)))
-      (is (apply > (drop 3 targets))))))
+      ;; 3x default + 20 adjusted targets
+      (is (= 21 (count (into #{} targets))))
+      (is (< (first targets) (second targets)))
+      (is (apply < (drop-last 3 targets))))))
+
+
+(def sample-times
+  [1464998857331 1464997835129 1464994875175
+   1464993687994 1464987372796 1464984656015
+   1464983933372 1464983456575 1464983276480
+   1464983035510 1464979726070 1464972468482
+   1464962387353 1464959711863 1464959653445
+   1464956635558 1464956341155 1464952375924
+   1464952209420 1464947955003 1464945310960
+   1464942079225 1464936260364 1464935128026
+   1464933320948 1464928038067 1464925262651
+   1464922847098 1464920856719 1464919110823])
+
+(def samples-2
+  (map (fn [t] {:header {:timestamp t
+                         :target default}}) sample-times))
+(def default-int (hex->int default))
+
+(deftest test-with-sample-times
+  (is (= 7689318425915528602346510723233181380881209919202693705745230188025481265152N
+         (target-value (last samples-2))))
+  (is (= 79746508/29 (avg-spacing sample-times)))
+  (is (= (avg-spacing sample-times)
+         (avg-spacing (reverse sample-times))))
+  (is (= 19936627/2175000
+         (/ (avg-spacing sample-times)
+            frequency)))
+  (is (= (hex-string (bigint (* default-int max-increase)))
+         (adjusted-target samples-2 frequency)))
+  (is (= (hex-string (bigint (* default-int max-increase)))
+         (adjusted-target (reverse samples-2) frequency))))
+
+
+(def halved-target (hex-string (/ default-int 2)))
+(def doubled-target (hex-string (* default-int 2)))
+
+
+(def flat-variance
+  ;; blocks have 2x the desired frequency,
+  ;; so target should get adjusted by max increase
+  (vec (map (fn [i]
+              {:header {:target default
+                        :timestamp (* i 2 frequency)}})
+            (range 4))))
+
+(deftest test-adjusts-from-most-recent-block
+  (is (= 4 (count flat-variance)))
+  (is (= 0 (get-in flat-variance [0 :header :timestamp])))
+  (is (= (hex-string (* max-increase default-int))
+         (adjusted-target flat-variance frequency)))
+  (let [high-first-block
+        (assoc-in flat-variance
+                  [0 :header :target]
+                  doubled-target)]
+    (is (= (hex-string (* 2 max-increase default-int))
+           (adjusted-target high-first-block frequency)))))
