@@ -17,7 +17,9 @@
 (defn children-tree
   ([db] (children-tree db (-> db q/longest-chain last q/bhash)))
   ([db hash]
-    {:hash hash :label (apply str (take-last 7 hash)) :children (map (partial children-tree db) (q/children db hash))}))
+   {:hash hash
+    :label (apply str (take-last 7 hash))
+    :children (map (partial children-tree db) (q/children db hash))}))
 
 (defroutes web-ui
   (GET "/graph" [] (slurp (io/resource "graph.html")))
@@ -53,7 +55,7 @@
               :return {:message String :payload [Peer]}
               :body-params [port :- s/Int]
               :summary "Add a peer based on port they provided and their remote addr"
-              (ok (h/handler {:message "add_peer" :payload {:port (str port)}}
+              (ok (h/handler {:message "add_peer" :payload {:port port}}
                              {:remote-address (:remote-addr request)})))
 
    (sweet/GET "/pending_transactions" []

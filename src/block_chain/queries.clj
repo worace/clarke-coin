@@ -1,5 +1,8 @@
 (ns block-chain.queries
   (:require [clojure.set]
+            [block-chain.schemas :refer :all]
+            [block-chain.log :as log]
+            [schema.core :as s]
             [clj-leveldb :as ldb]))
 
 (defn bhash [b] (get-in b [:header :hash]))
@@ -92,7 +95,13 @@
 (defn add-block! [db-ref block]
   (swap! db-ref add-block block))
 
-(defn add-peer [db peer] (update-in db [:peers] conj peer))
+(defn add-peer [db peer]
+  (try
+    (update-in db [:peers] conj (s/validate Peer peer))
+    (catch RuntimeException e
+      (do (log/info "Error validating peer:" e)
+          db)))
+  )
 (defn add-peer! [db-ref peer] (swap! db-ref add-peer peer))
 (defn remove-peer [db peer] (clojure.set/difference (:peers db) #{peer}))
 (defn remove-peer! [db-ref peer] (swap! db-ref remove-peer peer))

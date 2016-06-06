@@ -150,7 +150,7 @@
 
 (deftest test-adding-peer-via-http
   (pc/send-peer {:host "127.0.0.1" :port 9292} 9293)
-  (is (= [{:host "127.0.0.1" :port "9293"}]
+  (is (= [{:host "127.0.0.1" :port 9293}]
          (q/peers @db/db))))
 
 (deftest test-doesnt-add-peer-that-is-not-online
