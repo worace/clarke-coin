@@ -6,6 +6,14 @@ DEPLOYED_NODES = ["159.203.206.61", "159.203.206.63", "159.203.206.49"].map do |
   SSHKit::Host.new("root@#{ip}")
 end
 
+def docker_command
+  if RUBY_PLATFORM.include?("darwin")
+    "docker"
+  else
+    "sudo docker"
+  end
+end
+
 desc "Shutdown docker containers on miner nodes"
 task :stop_miners do
   on DEPLOYED_NODES do |host|
@@ -25,8 +33,8 @@ end
 desc "Rebuild the docker image and push it to dockerhub"
 task :docker_push do
   puts "Building and pushing docker image..."
-  sh "sudo docker build -t worace/clarke-coin ."
-  sh "sudo docker push worace/clarke-coin:latest"
+  sh "#{docker_command} build -t worace/clarke-coin ."
+  sh "#{docker_command} push worace/clarke-coin:latest"
 end
 
 desc "Pull the latest docker image to each server and run it"
