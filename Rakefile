@@ -15,10 +15,18 @@ def docker_command
 end
 
 desc "Shutdown docker containers on miner nodes"
-task :stop_miners do
+task :stop do
   on DEPLOYED_NODES do |host|
     puts "Stopping miner on node #{host}"
     execute "docker ps -ql | xargs docker stop"
+  end
+end
+
+desc "Start docker containers on miner nodes"
+task :start do
+  on DEPLOYED_NODES do |host|
+    puts "Starting miner on node #{host}"
+    execute "docker run -d -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000 worace/clarke-coin:latest"
   end
 end
 
