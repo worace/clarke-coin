@@ -77,8 +77,8 @@
            (:body r)))))
 
 (deftest test-get-peers
-  (q/add-peer! db/db {:host "127.0.0.1" :port "9999"})
-  (is (= {:message "peers" :payload [{:host "127.0.0.1" :port "9999"}]}
+  (q/add-peer! db/db {:host "127.0.0.1" :port 9999})
+  (is (= {:message "peers" :payload [{:host "127.0.0.1" :port 9999}]}
          (:body (get-req "/peers")))))
 
 (deftest test-get-balance

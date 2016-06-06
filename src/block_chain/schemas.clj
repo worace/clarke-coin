@@ -26,4 +26,4 @@
             :nonce s/Int}
    :transactions [Transaction]})
 
-(s/defschema Peer {:host s/Str :port s/Str})
+(s/defschema Peer {:host s/Str :port s/Int})
