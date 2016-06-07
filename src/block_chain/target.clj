@@ -19,8 +19,8 @@
        (avg)
        (abs))))
 
-(def max-increase 1.50)
-(def min-increase 0.50)
+(def max-increase 1.10)
+(def min-increase 0.90)
 (defn capped [ratio]
   (cond
     (> ratio max-increase) max-increase
