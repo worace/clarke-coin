@@ -20,11 +20,11 @@
        (abs))))
 
 (def max-increase 1.10)
-(def min-increase 0.90)
+(def max-decrease 0.90)
 (defn capped [ratio]
   (cond
     (> ratio max-increase) max-increase
-    (< ratio min-increase) min-increase
+    (< ratio max-decrease) max-decrease
     :else (float ratio)))
 
 (defn target-value [block]
