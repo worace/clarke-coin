@@ -26,10 +26,11 @@
   (let [host (:remote-address sock-info)
         port (:port (:payload msg))
         peer {:host host :port port}]
-    (when (pc/available-peer? peer)
-      (q/add-peer! db/db peer)
-      ;; TODO - need to async this
-      (block-sync/sync-if-needed! db/db peer)
+    (if (pc/available-peer? peer)
+      (do (q/add-peer! db/db peer)
+          ;; TODO - need to async this
+          (block-sync/sync-if-needed! db/db peer)
+          {:message "peers" :payload (q/peers @db/db)})
       {:message "peers" :payload (q/peers @db/db)})))
 
 (defn remove-peer [msg sock-info]

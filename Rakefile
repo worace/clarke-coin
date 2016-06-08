@@ -30,6 +30,14 @@ task :start do
   end
 end
 
+desc "Wipe wallets on miner nodes"
+task :wipe_wallets do
+  on DEPLOYED_NODES do |host|
+    puts "Stopping miner on node #{host}"
+    execute "rm -rf /var/lib/clarke-coin/wallets"
+  end
+end
+
 desc "Delete DBs on miner nodes"
 task :wipe_dbs do
   on DEPLOYED_NODES do |host|
