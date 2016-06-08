@@ -52,6 +52,7 @@
   (-> (http/post (url peer "ping")
                  {:form-params {:ping time}
                   :socket-timeout 2000
+                  :conn-timeout 2000
                   :content-type :json})
       :body
       read-json))
