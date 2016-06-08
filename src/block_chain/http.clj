@@ -126,7 +126,7 @@
    (sweet/POST "/pending_transactions" req
                :return {:message String :payload Transaction}
                :body [transaction Transaction]
-               :summary "Submit a new transaction to this node for inclusion in the next block."
+               :summary "Submit a new transaction to this node for inclusion in the next block. Txn must be fully valid and signed."
                (let [resp (h/handler {:message "submit_transaction" :payload transaction} {})]
                      (if (= "transaction-accepted" (:message resp))
                        (ok resp)
@@ -138,7 +138,7 @@
                              to_address :- s/Str
                              amount :- s/Int
                              fee :- s/Int]
-               :summary "Submit a new transaction to this node for inclusion in the next block."
+               :summary "Builds a payment transaction by sourcing appropriate inputs to fund the requested amount. Creates a structurally valid Txn without signatures on the inputs. A wallet-only client can use this endpoint to fetch a txn, then add the signatures and submit the txn for inclusion in the chain."
                (let [resp (h/handler {:message "generate_payment" :payload {:from-address from_address
                                                                             :to-address to_address
                                                                             :amount amount
