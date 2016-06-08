@@ -306,6 +306,8 @@
         mining-future (future
                         (miner/mine pending))]
 
+    (Thread/sleep 50)
+
     (is (= {:message "block-accepted" :payload alt-block}
            (handler {:message "submit_block" :payload alt-block}
                     sock-info)))
