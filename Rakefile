@@ -6,6 +6,23 @@ DEPLOYED_NODES = ["159.203.206.61", "159.203.206.63", "159.203.206.49"].map do |
   SSHKit::Host.new("root@#{ip}")
 end
 
+def stop_container
+  execute "docker ps -ql | xargs docker stop"
+end
+
+def pull_image
+  execute "docker pull worace/clarke-coin:latest"
+end
+
+def start_container
+  execute "docker run -d -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000 worace/clarke-coin:latest"
+end
+
+def docker_cleanup
+  execute "docker rm -v $(docker ps --filter status=exited -q 2>/dev/null) 2>/dev/null"
+  execute "docker rmi $(docker images --filter dangling=true -q 2>/dev/null) 2>/dev/null"
+end
+
 def docker_command
   if RUBY_PLATFORM.include?("darwin")
     "docker"
@@ -18,7 +35,7 @@ desc "Shutdown docker containers on miner nodes"
 task :stop do
   on DEPLOYED_NODES do |host|
     puts "Stopping miner on node #{host}"
-    execute "docker ps -ql | xargs docker stop"
+    stop_container
   end
 end
 
@@ -26,7 +43,15 @@ desc "Start docker containers on miner nodes"
 task :start do
   on DEPLOYED_NODES do |host|
     puts "Starting miner on node #{host}"
-    execute "docker run -d -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000 worace/clarke-coin:latest"
+    start_container
+  end
+end
+
+desc "Delete unused docker images and containers on miner nodes"
+task :docker_cleanup do
+  on DEPLOYED_NODES do |host|
+    puts "Removing old docker images on host #{host}"
+    docker_cleanup
   end
 end
 
@@ -57,8 +82,9 @@ desc "Pull the latest docker image to each server and run it"
 task :deploy => [:docker_push] do
   on DEPLOYED_NODES do |host|
     puts "Deploying to node #{host}"
-    execute "docker pull worace/clarke-coin:latest"
-    execute "docker ps -ql | xargs docker stop"
-    execute "docker run -d -v /var/lib/clarke-coin:/var/lib/clarke-coin -p 3000-3000:3000-3000 worace/clarke-coin:latest"
+    pull_image
+    stop_container
+    docker_cleanup
+    start_container
   end
 end
