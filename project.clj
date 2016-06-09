@@ -25,5 +25,9 @@
                  [org.clojure/core.async "0.2.374"]
                  [pandect "0.5.4"]
                  [byte-streams "0.2.2"]
+                 [mvxcvi/clj-pgp "0.8.3"]
+                 [buddy/buddy-core "0.12.1"]
+
+
                  [factual/clj-leveldb "0.1.1"]]
   :profiles {:uberjar {:aot :all}})
