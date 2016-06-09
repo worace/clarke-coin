@@ -9,13 +9,20 @@
 (defn block-hashes [chain] (map q/bhash chain))
 
 (defn synced-chain [db peer]
+  (log/info "Building Synced chain from peer:" peer)
   (loop [this-batch (pc/blocks-since peer (q/highest-hash db))
          db db]
     (if (empty? this-batch)
-      (let [next-batch (pc/blocks-since peer (q/highest-hash db))]
-        (if (empty? next-batch)
-          db
-          (recur next-batch db)))
+      (do
+        (log/info "Got empty batch of blocks against parent: " (q/highest-hash db))
+        (let [next-batch (pc/blocks-since peer (q/highest-hash db))]
+          (if (empty? next-batch)
+            (do
+              (log/info "Finished fetching sync blocks; will return db")
+              db)
+            (do
+              (log/info "Finished one batch will fetch again")
+              (recur next-batch db)))))
       (let [next-block (pc/block peer (first this-batch))]
         (do
           (let [val-errs (bv/validate-block db next-block)]
