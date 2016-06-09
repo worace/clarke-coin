@@ -105,14 +105,15 @@
       (is (= 3 (- (:amount source)
                   (reduce + (map :amount (:outputs utxn)))))))))
 
-;; TODO
-#_(deftest test-submitting-and-mining-transaction
-  (miner/mine-and-commit-db!)
+(deftest test-submitting-and-mining-transaction
   (let [key-b (wallet/generate-keypair 512)
-        payment (miner/generate-payment wallet/keypair (:address key-b) 25 (q/longest-chain @db/db))]
+        payment (txn/payment wallet/keypair
+                             (:address key-b)
+                             25
+                             @db/db)]
     (is (= payment (s/validate Transaction payment)))
-    (is (= 25 (bc/balance-db (:address wallet/keypair)
-                             @db/db)))
+    (is (= 25 (q/balance (:address wallet/keypair)
+                         @db/db)))
     (is (= 1 (count (:outputs payment))))
     (is (= {:message "transaction-accepted"
             :payload payment}
@@ -122,9 +123,9 @@
     (is (= 1 (count (q/transaction-pool @db/db))))
     (miner/mine-and-commit-db!)
     (is (empty? (q/transaction-pool @db/db)))
-    (is (= 25 (bc/balance-db (:address wallet/keypair)
+    (is (= 25 (q/balance (:address wallet/keypair)
                              @db/db)))
-    (is (= 25 (bc/balance-db (:address key-b) @db/db)))))
+    (is (= 25 (q/balance (:address key-b) @db/db)))))
 
 (deftest test-submitting-transaction-with-txn-fee
   (let [key-b (wallet/generate-keypair 512)]
