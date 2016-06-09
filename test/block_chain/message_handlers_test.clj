@@ -126,20 +126,24 @@
                              @db/db)))
     (is (= 25 (bc/balance-db (:address key-b) @db/db)))))
 
-;; TODO
-#_(deftest test-submitting-transaction-with-txn-fee
+(deftest test-submitting-transaction-with-txn-fee
   (let [key-b (wallet/generate-keypair 512)]
-    (is (= 0 (bc/balance-db (:address wallet/keypair) @db/db)))
-    (miner/mine-and-commit-db!)
-    (let [payment (miner/generate-payment wallet/keypair (:address key-b) 24 (q/longest-chain @db/db) 1)]
-      (handler {:message "submit_transaction" :payload payment} sock-info)
+    (is (= 1 (q/chain-length @db/db)))
+    (is (= 25 (q/balance (:address wallet/keypair) @db/db)))
+    (let [payment (txn/payment wallet/keypair
+                               (:address key-b)
+                               24
+                               @db/db
+                               1)]
+      (handler {:message "submit_transaction"
+                :payload payment}
+               sock-info)
       (miner/mine-and-commit-db!)
       ;; miner should have 25 from coinbase and 1 from allotted txn fee
-      (is (= 2 (q/block-height @db/db)))
-      (is (= 1 ()))
-      (is (= 26 (bc/balance-db (:address wallet/keypair) @db/db)))
+      (is (= 2 (q/chain-length @db/db)))
+      (is (= 26 (q/balance (:address wallet/keypair) @db/db)))
       ;; B should have 24 from the payment
-      (is (= 24 (bc/balance-db (:address key-b) @db/db))))))
+      (is (= 24 (q/balance (:address key-b) @db/db))))))
 
 (deftest test-only-forwards-new-transactions
   (miner/mine-and-commit-db!)
