@@ -76,13 +76,19 @@
    could use this endpoint to generate transactions that they could then sign
    and return to the full node for inclusion in the block chain."
   [msg sock-info]
-  {:message "unsigned_transaction"
-   :payload (txn/unsigned-payment
-             (:from-address (:payload msg))
-             (:to-address (:payload msg))
-             (:amount (:payload msg))
-             @db/db
-             (or (:fee (:payload msg)) 0))})
+  (let [p (:payload msg)
+        balance (q/balance (:from-address p)
+                           @db/db)]
+    (if (>= balance (:amount p))
+      {:message "unsigned_transaction"
+       :payload (txn/unsigned-payment
+                 (:from-address (:payload msg))
+                 (:to-address (:payload msg))
+                 (:amount (:payload msg))
+                 @db/db
+                 (or (:fee (:payload msg)) 0))}
+      {:message "insufficient_balance"
+       :payload (str "Found " balance " to fund " (:amount p))})))
 
 (defn submit-transaction [msg sock-info]
   (let [txn (:payload msg)
