@@ -1,5 +1,5 @@
 (ns block-chain.queries
-  (:require [clojure.set]
+  (:require [clojure.set :refer [intersection]]
             [block-chain.schemas :refer :all]
             [block-chain.log :as log]
             [schema.core :as s]
@@ -59,10 +59,39 @@
 (defn add-transaction [db {hash :hash :as txn}]
   (ldb/put (:block-db db) (str "transaction:" hash) txn))
 
-(defn clear-txn-pool [db block]
+(defn coord-only-inputs [txns]
+  (->> txns
+       (mapcat :inputs)
+       (map #(dissoc % :signature))
+       (into #{})))
+
+(defn transaction-pool [db] (:transaction-pool db))
+
+(defn remove-overlapping-txns-from-pool [db txns]
   (update db
           :transaction-pool
-          #(clojure.set/difference % (into #{} (:transactions block)))))
+          #(clojure.set/difference % (into #{} txns))))
+
+(defn remove-txns-with-overlapping-inputs-from-pool [db txns]
+  (let [pool (transaction-pool db)
+        newly-spent-inputs (coord-only-inputs txns)]
+    (assoc db
+           :transaction-pool
+           (into #{}
+                 (filter (fn [txn]
+                           (empty? (intersection newly-spent-inputs
+                                                 (coord-only-inputs [txn]))))
+                         pool)))))
+
+;; (update db
+;;           :transaction-pool
+;;           #(clojure.set/difference % (into #{} (:transactions block))))
+
+(defn clear-txn-pool [db block]
+  (-> db
+      (remove-overlapping-txns-from-pool (:transactions block))
+      (remove-txns-with-overlapping-inputs-from-pool (:transactions block)))
+  )
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   (clear-txn-pool db block)
@@ -106,7 +135,6 @@
 (defn remove-peer [db peer] (clojure.set/difference (:peers db) #{peer}))
 (defn remove-peer! [db-ref peer] (swap! db-ref remove-peer peer))
 (defn peers [db] (into [] (:peers db)))
-(defn transaction-pool [db] (:transaction-pool db))
 
 (defn add-transaction-to-pool! [db-ref txn] (swap! db-ref update :transaction-pool conj txn))
 

@@ -1,5 +1,6 @@
 (ns block-chain.transaction-validations
   (:require [schema.core :as s]
+            [clojure.set :refer [intersection]]
             [block-chain.transactions :as t]
             [block-chain.queries :as q]
             [block-chain.key-serialization :as ks]
@@ -52,6 +53,10 @@
 
 (defn valid-hash? [db txn]
   (= (:hash txn) (t/txn-hash txn)))
+
+(defn inputs-unspent-in-txn-pool? [db txn]
+  (empty? (intersection (q/coord-only-inputs (q/transaction-pool db))
+                        (q/coord-only-inputs [txn]))))
 
 (def txn-validations
   {txn-structure-valid? "Transaction structure invalid."

@@ -6,14 +6,19 @@
             [block-chain.utils :refer :all]
             [block-chain.queries :refer :all]))
 
+(defn fake-next-block [{{hash :hash} :header :as block}]
+  (-> block
+      (assoc-in [:header :parent-hash] hash)
+      (update-in [:header :hash] sha256)))
+
 (defn fake-chain
   ([] (fake-chain db/genesis-block))
   ([{{hash :hash} :header :as block}]
    (lazy-seq (cons block
                    (-> block
-                       (assoc-in [:header :parent-hash] hash)
-                       (update-in [:header :hash] sha256)
+                       fake-next-block
                        (fake-chain))))))
+
 (def sample-chain (take 5 (fake-chain)))
 (def empty-db (atom nil))
 (def sample-db (atom nil))
@@ -59,6 +64,32 @@
     (is (= #{(bhash child)} (children @sample-db (bhash parent))))
     (add-block! sample-db child)
     (is (= #{(bhash child)} (children @sample-db (bhash parent))))))
+
+(deftest test-adding-block-clears-its-txns-from-pool
+  (let [next (fake-next-block (highest-block @sample-db))]
+    (add-transaction-to-pool! sample-db
+                              (first (:transactions next)))
+    (is (= 1 (count (transaction-pool @sample-db))))
+    (add-block! sample-db next)
+    (is (empty? (transaction-pool @sample-db)))))
+
+(deftest test-adding-block-clears-txns-with-overlapping-inputs-from
+  (let [txn1 {:inputs [{:source-hash "pizza"
+                        :source-index "0"
+                        :signature "sig1234"}]
+              :outputs [{:address "1234" :amount 10}]}
+        txn2 {:inputs [{:source-hash "pizza"
+                        :source-index "0"
+                        :signature "differentsig"}]
+              :outputs [{:address "diffaddr" :amount 10}]}
+        next (update (fake-next-block (highest-block @sample-db))
+                     :inputs
+                     conj
+                     txn1)]
+    (add-transaction-to-pool! sample-db txn2)
+    (is (= 1 (count (transaction-pool @sample-db))))
+    (add-block! sample-db next)
+    (is (empty? (transaction-pool @sample-db)))))
 
 (deftest test-blocks-since
   (is (= 4 (count (blocks-since @sample-db (bhash db/genesis-block)))))

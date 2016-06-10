@@ -72,6 +72,11 @@
                       (into #{}))
                    existing-txn))))
 
+(deftest test-inputs-unique-among-txn-pool
+  (let [p (txn/payment key-a addr-b 10 @db)]
+    (q/add-transaction-to-pool! db p)
+    (is (not (inputs-unspent-in-txn-pool? @db p)))))
+
 (deftest test-correct-hash
   (is (valid-hash? @db (txn/payment key-a addr-b 15 @db)))
   (is (not (valid-hash? @db (assoc (txn/payment key-a addr-b 15 @db) :hash "pizza"))))

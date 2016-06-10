@@ -97,6 +97,7 @@
                                                       txn)]
     (cond
       (not (txn-v/new-transaction? @db/db txn)) {:message "transaction-rejected" :payload ["Transaction already in this node's pool."]}
+      (not (txn-v/inputs-unspent-in-txn-pool? @db/db txn)) {:message "transaction-rejected" :payload ["One or more of Transaction's inputs have already been spent by a pending transaction."]}
       (not (empty? validation-errors)) {:message "transaction-rejected" :payload validation-errors}
       :else (do
               (q/add-transaction-to-pool! db/db txn)

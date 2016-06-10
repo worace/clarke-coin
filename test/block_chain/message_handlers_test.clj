@@ -146,6 +146,26 @@
       ;; B should have 24 from the payment
       (is (= 24 (q/balance (:address key-b) @db/db))))))
 
+(deftest test-wont-accept-different-txn-spending-same-inputs
+  (let [key-b (wallet/generate-keypair 512)]
+    (let [p1 (txn/payment wallet/keypair (:address key-b) 25 @db/db)
+          _ (Thread/sleep 1)
+          p2 (txn/payment wallet/keypair (:address key-b) 25 @db/db)]
+
+      (is (= (map #(dissoc % :signature) (:inputs p1))
+             (map #(dissoc % :signature) (:inputs p2))))
+      (is (not (= (:hash p1) (:hash p2))))
+      (is (not (= (:timestamp p1) (:timestamp p2))))
+      (is (= "transaction-accepted"
+             (:message (handler {:message "submit_transaction"
+                                 :payload p1}
+                                sock-info))))
+      (let [r (handler {:message "submit_transaction"
+                        :payload p2}
+                       sock-info)]
+        (is (= "transaction-rejected" (:message r))))
+      )))
+
 (deftest test-only-forwards-new-transactions
   (miner/mine-and-commit-db!)
   (is (empty? (q/transaction-pool @db/db)))
@@ -219,8 +239,31 @@
     (is (= 1 (count (q/transaction-pool @db/db))))
     (responds {:balance 25 :address (:address wallet/keypair)}
               {:message "get_balance" :payload (:address wallet/keypair)})
+
     (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
     (is (= 0 (count (q/transaction-pool @db/db))))))
+
+(deftest test-receiving-block-clears-pool-where-txn-inputs-overlap
+  (let [chain (q/longest-chain @db/db)
+        addr (:address wallet/keypair)
+        ut1 (txn/unsigned-payment (:address wallet/keypair) addr 25 @db/db)
+        ut2 (txn/hash-txn (update ut1 :timestamp inc))
+        txn1 (txn/sign-txn ut1 (:private wallet/keypair))
+        txn2 (txn/sign-txn ut2 (:private wallet/keypair))
+        b (-> (txn/txns-for-next-block @db/db addr [txn1])
+              (blocks/generate-block @db/db)
+              (miner/mine))]
+
+    (handler {:message "submit_transaction" :payload txn2} sock-info)
+
+    (is (= 1 (count (q/transaction-pool @db/db))))
+
+    (responds {:balance 25 :address (:address wallet/keypair)}
+              {:message "get_balance" :payload (:address wallet/keypair)})
+
+    (is (= b (:payload (handler {:message "submit_block" :payload b} sock-info))))
+    (is (= 0 (count (q/transaction-pool @db/db)))))
+  )
 
 (deftest test-validating-incoming-transactions
   (let [addr (:address (wallet/generate-keypair 512))
