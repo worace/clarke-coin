@@ -25,6 +25,7 @@ A few of the projects working with clarke coin include:
   * [[https://github.com/worace/clarke_coin_web][clarke_coin_web]] - A sinatra-based web frontend for browsing data in the block chain
   * [[https://github.com/erinnachen/all_the_coins][erinnachen/all_the_coins]] - Ruby implementation of a full node
   * [[https://github.com/pindell-matt/clarkecoin/tree/master/lib][pindell-matt/clarkecoin]] - Ruby wallet implementation
+  * [[https://github.com/jdliss/clarkebase][jdliss/clarkebase]] - Coinbase-style webapp for creating and managing user wallets
 
 ** Project Ideas
 
