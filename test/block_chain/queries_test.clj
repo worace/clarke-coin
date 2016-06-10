@@ -83,7 +83,7 @@
                         :signature "differentsig"}]
               :outputs [{:address "diffaddr" :amount 10}]}
         next (update (fake-next-block (highest-block @sample-db))
-                     :inputs
+                     :transactions
                      conj
                      txn1)]
     (add-transaction-to-pool! sample-db txn2)

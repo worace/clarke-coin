@@ -75,23 +75,17 @@
 (defn remove-txns-with-overlapping-inputs-from-pool [db txns]
   (let [pool (transaction-pool db)
         newly-spent-inputs (coord-only-inputs txns)]
-    (assoc db
-           :transaction-pool
-           (into #{}
-                 (filter (fn [txn]
-                           (empty? (intersection newly-spent-inputs
-                                                 (coord-only-inputs [txn]))))
-                         pool)))))
-
-;; (update db
-;;           :transaction-pool
-;;           #(clojure.set/difference % (into #{} (:transactions block))))
+    (->> pool
+         (filter (fn [txn]
+                   (empty? (intersection newly-spent-inputs
+                                         (coord-only-inputs [txn])))))
+         (into #{})
+         (assoc db :transaction-pool))))
 
 (defn clear-txn-pool [db block]
   (-> db
       (remove-overlapping-txns-from-pool (:transactions block))
-      (remove-txns-with-overlapping-inputs-from-pool (:transactions block)))
-  )
+      (remove-txns-with-overlapping-inputs-from-pool (:transactions block))))
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   (clear-txn-pool db block)
