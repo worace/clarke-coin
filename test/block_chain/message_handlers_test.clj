@@ -354,10 +354,35 @@
         mining-future (future
                         (miner/mine pending))]
 
-    (Thread/sleep 50)
+    (Thread/sleep 20)
 
     (is (= {:message "block-accepted" :payload alt-block}
            (handler {:message "submit_block" :payload alt-block}
+                    sock-info)))
+
+    (is (= :finished
+           (loop [start-time (current-time-millis)]
+             (cond
+               (timed-out? start-time 1500) :timeout-elapsed
+               (future-done? mining-future) :finished
+               :else (recur start-time))
+             )))
+    (miner/interrupt-miner!)))
+
+(deftest test-receiving-new-transaction-stops-miner
+  (let [pending (-> (miner/next-block @db/db)
+                    (assoc-in [:header :target] target/hard))
+        mining-future (future
+                        (miner/mine pending))
+        payment (txn/payment wallet/keypair
+                               (:address wallet/keypair)
+                               25
+                               @db/db)]
+
+    (Thread/sleep 20)
+
+    (is (= {:message "transaction-accepted" :payload payment}
+           (handler {:message "submit_transaction" :payload payment}
                     sock-info)))
 
     (is (= :finished

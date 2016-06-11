@@ -101,6 +101,7 @@
       (not (empty? validation-errors)) {:message "transaction-rejected" :payload validation-errors}
       :else (do
               (q/add-transaction-to-pool! db/db txn)
+              (miner/interrupt-miner!)
               (peers/transaction-received! txn)
               {:message "transaction-accepted" :payload txn}))))
 
