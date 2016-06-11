@@ -81,3 +81,11 @@
   (is (valid-hash? @db (txn/payment key-a addr-b 15 @db)))
   (is (not (valid-hash? @db (assoc (txn/payment key-a addr-b 15 @db) :hash "pizza"))))
   (is (not (valid-hash? @db (assoc (txn/payment key-a addr-b 15 @db) :min-height 10)))))
+
+(deftest test-valid-address
+  (is (valid-address? @db (txn/payment key-a addr-b 15 @db)))
+  (is (not (valid-address? @db
+                           (assoc-in (txn/payment key-a addr-b 15 @db)
+                                     [:outputs 0 :address]
+                                     "pizza"))))
+  )

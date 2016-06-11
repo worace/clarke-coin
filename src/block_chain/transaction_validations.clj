@@ -58,6 +58,15 @@
   (empty? (intersection (q/coord-only-inputs (q/transaction-pool db))
                         (q/coord-only-inputs [txn]))))
 
+(defn valid-address? [db txn]
+  (every? (fn [output]
+            (try
+              (instance?
+               java.security.PublicKey
+               (ks/der-string->pub-key (:address output)))
+              (catch Exception e false)))
+          (:outputs txn)))
+
 (def txn-validations
   {txn-structure-valid? "Transaction structure invalid."
    inputs-properly-sourced? "One or more transaction inputs is not properly sourced, OR multiple inputs attempt to source the same output."
@@ -65,6 +74,7 @@
    sufficient-inputs? "Transaction lacks sufficient inputs to cover its outputs."
    signatures-valid? "One or more transactions signatures is invalid."
    valid-hash? "Transaction's hash does not match its contents."
+   valid-address? "One or more of transaction's outputs are not assigned to a valid address."
    })
 
 (defn validate-transaction [db txn]
