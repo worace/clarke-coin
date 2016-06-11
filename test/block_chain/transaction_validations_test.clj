@@ -87,5 +87,4 @@
   (is (not (valid-address? @db
                            (assoc-in (txn/payment key-a addr-b 15 @db)
                                      [:outputs 0 :address]
-                                     "pizza"))))
-  )
+                                     "pizza")))))
