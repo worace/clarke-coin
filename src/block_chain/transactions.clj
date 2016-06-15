@@ -2,6 +2,7 @@
   (:require [block-chain.utils :refer :all]
             [block-chain.wallet :as wallet]
             [block-chain.queries :as q]
+            [clojure.set :refer [difference]]
             [block-chain.db :as db]
             [cheshire.core :as json]))
 
@@ -131,7 +132,8 @@
 (defn unsigned-payment
   ([from-address to-address amount db] (unsigned-payment from-address to-address amount db 0))
   ([from-address to-address amount db fee]
-   (let [output-pool (q/unspent-outputs from-address db)
+   (let [output-pool (difference (into #{} (q/unspent-outputs from-address db))
+                                 (q/outputs-spent-by-txn-pool db))
          sources (select-sources (+ amount fee) output-pool)
          txn (raw-txn amount to-address sources)]
      (-> txn

@@ -393,3 +393,27 @@
                :else (recur start-time))
              )))
     (miner/interrupt-miner!)))
+
+(deftest test-excludes-txn-inputs-already-included-in-txn-pool-when-generating-payment
+  (miner/mine-and-commit-db!)
+  ;; wallet now has 50
+  (let [key-b (wallet/generate-keypair 512)
+        p1 (txn/payment wallet/keypair (:address key-b) 25 @db/db)]
+    (is (= {:message "transaction-accepted" :payload p1}
+           (handler {:message "submit_transaction" :payload p1} sock-info)))
+    (let [p2 (txn/payment wallet/keypair (:address key-b) 25 @db/db)]
+      (is (not (= (map #(dissoc % :signature)
+                       (:inputs p1))
+                  (map #(dissoc % :signature)
+                       (:inputs p2)))))
+      (is (= {:message "transaction-accepted" :payload p2}
+           (handler {:message "submit_transaction" :payload p2} sock-info))))
+    ;; Wallet has 50 from 2x Coinbase
+    (is (= 50 (q/balance (:address wallet/keypair) @db/db)))
+    (is (= 0 (q/balance (:address key-b) @db/db)))
+    (miner/mine-and-commit-db!)
+    ;; Wallet sends 50 from 2x payments and gains 25 from coinbase
+    (is (= 25 (q/balance (:address wallet/keypair) @db/db)))
+    ;; B picks up 50 from 2x payments
+    (is (= 50 (q/balance (:address key-b) @db/db)))
+    ))

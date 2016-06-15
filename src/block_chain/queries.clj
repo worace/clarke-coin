@@ -132,6 +132,16 @@
 
 (defn add-transaction-to-pool! [db-ref txn] (swap! db-ref update :transaction-pool conj txn))
 
+(defn consumed-sources [db txn]
+  (->> (:inputs txn)
+       (map (partial source-output db))
+       (into #{})))
+
+(defn outputs-spent-by-txn-pool [db]
+  (->> (transaction-pool db)
+       (map (partial consumed-sources db))
+       (reduce clojure.set/union)))
+
 (defn utxos [db]
   ;; Have to start from the oldest block (hence reverse them)
   ;; so that older outputs get evicted by the more recent
@@ -142,13 +152,11 @@
     (if (nil? txn)
       unspent
       (let [new-outputs (into #{} (:outputs txn))
-            consumed-sources (->> (:inputs txn)
-                                  (map (partial source-output db))
-                                  (into #{}))]
+            cs (consumed-sources db txn)]
         (recur txns
                (-> unspent
                    (clojure.set/union new-outputs)
-                   (clojure.set/difference consumed-sources)))))))
+                   (clojure.set/difference cs)))))))
 
 (defn assigned-to-key? [key txo] (= key (:address txo)))
 
