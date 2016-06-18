@@ -115,7 +115,19 @@
       (remove-txns-with-overlapping-inputs-from-pool (:transactions block))))
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
-  (clear-txn-pool db block)
+  ;; Block insert cases:
+  ;; 1 - child of highest block -- simple advancement
+  ;;     - Add block
+  ;;     - Add block's TXNs
+  ;; 2 - orphan -- parent is unknown
+  ;;     - ?? Not sure
+  ;; 3 - Fork, not (yet) higher
+  ;;     - Add block
+  ;; 4 - Fork, surpassing
+  ;;     - Add block
+  ;;     - Add block's TXNs
+  ;;     - Add TXNs for all blocks back to common ancestor
+  ;;     - Remove all UTXOs from losing side of fork
   ;; TODO: Batch these all in leveldb
   (ldb/put (:block-db db) (str "block:" hash) block)
   (ldb/put (:block-db db)
@@ -132,6 +144,30 @@
     (add-transaction db t))
   (clear-txn-pool db block))
 
+(defn fork-path
+  "Take a db context and 2 block hashes, one for the head of the new
+   fork and one for the head of the existing trunk. Produce a sequence
+   of block hashes representing the path from the main chain to the new
+   fork head. Includes the fork head as the last element in the path but
+   excludes the common ancestor from the main chain."
+  [db fork-hash trunk-hash]
+  (loop [fork-block (get-block db fork-hash)
+         trunk-block (get-block db trunk-hash)
+         path (list fork-hash)
+         trunk-hashes #{trunk-hash}]
+    (println "fork hash" (bhash fork-block) "trunk hash" (bhash trunk-block))
+    (println path)
+    (println trunk-hashes)
+    (cond
+      (contains? trunk-hashes (bhash fork-block)) (drop 1 path)
+      (or (nil? fork-block) (nil? trunk-block)) (println "FAILED")
+      :else (recur (get-parent db fork-block)
+                   (get-parent db trunk-block)
+                   (conj path (phash fork-block))
+                   (conj trunk-hashes (phash trunk-block)))
+      )
+    )
+  )
 
 (defn all-txns
   "Linear iteration through all Transactions in the DB using a leveldb

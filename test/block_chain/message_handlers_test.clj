@@ -319,6 +319,7 @@
 
       (is (= 3 (q/chain-length @db/db)))
       (is (= 1 (q/chain-length @peer-db)))
+      (is (= 75 (q/balance @db/db (:address wallet/keypair))))
 
       ;; peer-db advances by 3 -- now ahead
       ;; DB     - A - B - C
@@ -332,13 +333,16 @@
       (doseq [b (drop 1 (reverse (q/longest-chain @peer-db)))]
         (is (= {:message "block-accepted" :payload b}
                (handler {:message "submit_block" :payload b} sock-info))))
-      ;;              B - C - G - H
+
+
+      (is (= 25 (q/balance @db/db (:address wallet/keypair))))
+      (is (= 75 (q/balance @db/db (:address (:default-key @peer-db)))))
+
+      ;;              B - C
       ;;             /
       ;; DB     - A - D - E - F
       ;;
       ;; PeerDb - A - D - E - F
-      ;;            \
-      ;;             B - C - G - H
       (is (= 4 (q/chain-length @db/db)))
       (is (= (q/highest-block @peer-db)
              (q/highest-block @db/db))))))

@@ -155,6 +155,20 @@
    :transactions [{:hash "txn-2"
                    :inputs [{:source-hash "txn-1" :source-index 0}]
                    :outputs [{:amount 25 :address "addr-b"}]}]})
+(def fork-block-1
+  {:header {:parent-hash "block-1"
+            :hash "fork-1"}
+   :transactions [{:hash "fork-txn-1"
+                   :inputs []
+                   :outputs [{:amount 25
+                              :address "addr-a"}]}]})
+(def fork-block-2
+  {:header {:parent-hash "fork-1"
+            :hash "fork-2"}
+   :transactions [{:hash "fork-txn-2"
+                   :inputs []
+                   :outputs [{:amount 25
+                              :address "addr-a"}]}]})
 
 (deftest removing-spent-utxos
   (add-block! empty-db simple-block)
@@ -165,5 +179,33 @@
 
 (deftest utxo-balance-for-nonexistent-key
   (is (= 0 (utxo-balance @empty-db "pizza"))))
+
+(deftest tracking-fork-paths
+  (add-block! empty-db simple-block)
+  (add-block! empty-db next-block)
+  (add-block! empty-db fork-block-1)
+  (add-block! empty-db fork-block-2)
+
+  (is (= ["fork-1" "fork-2"] (fork-path @empty-db "fork-2" "block-2")))
+  (is (= [] (fork-path @empty-db "block-2" "block-2")))
+  (is (= ["fork-1"] (fork-path @empty-db "fork-1" "block-2")))
+  )
+
+(deftest utxo-rewinding-for-fork-resolution
+  (add-block! empty-db simple-block)
+  (is (= 25 (utxo-balance @empty-db "addr-a")))
+  (add-block! empty-db next-block)
+  (is (= 0 (utxo-balance @empty-db "addr-a")))
+  (is (= 25 (utxo-balance @empty-db "addr-b")))
+
+  (add-block! empty-db fork-block-1)
+  (is (= 0 (utxo-balance @empty-db "addr-a")))
+  (is (= 25 (utxo-balance @empty-db "addr-b")))
+
+  (add-block! empty-db fork-block-2)
+  (is (= 75 (utxo-balance @empty-db "addr-a")))
+  (is (= 0 (utxo-balance @empty-db "addr-b")))
+
+  )
 
 (run-tests)
