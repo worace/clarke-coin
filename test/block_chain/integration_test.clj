@@ -58,7 +58,7 @@
   (dotimes [n 3] (miner/mine-and-commit-db! db))
   (is (= 3 (q/chain-length @db)))
   (is (= 3 (count (q/unspent-outputs address-a @db))))
-  (is (= 75 (q/balance address-a @db))))
+  (is (= 75 (q/balance @db address-a))))
 
 (deftest test-selecting-sources-from-output-pool
   (let [pool [{:amount 25 :address 1234}
@@ -74,7 +74,7 @@
   (miner/mine-and-commit-db! db)
   (is (= 1 (count (q/longest-chain @db))))
   (is (= 1 (count (q/unspent-outputs address-a @db))))
-  (is (= 25 (q/balance address-a @db)))
+  (is (= 25 (q/balance @db address-a)))
   (is (thrown? AssertionError
                (txn/payment key-a
                             address-b

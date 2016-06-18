@@ -82,7 +82,8 @@
          (:body (get-req "/peers")))))
 
 (deftest test-get-balance
-  (is (= {:message "balance" :payload {:address "pizza" :balance 0} } (:body (post-req "/balance" {:address "pizza"})))))
+  (is (= {:message "balance" :payload {:address "pizza" :balance 0} }
+         (:body (post-req "/balance" {:address "pizza"})))))
 
 (deftest test-get-blocks
   (is (= {:message "blocks" :payload (vec (reverse (q/longest-chain @db/db)))}

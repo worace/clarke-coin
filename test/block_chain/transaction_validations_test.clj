@@ -60,8 +60,8 @@
   (is (= 4 (count (mapcat :outputs (mapcat :transactions (q/longest-chain @db))))))
   (is (= 2 (count (q/unspent-outputs addr-a @db))))
   (is (= 1 (count (q/unspent-outputs addr-b @db))))
-  (is (= 10 (q/balance addr-b @db)))
-  (is (= 40 (q/balance addr-a @db)))
+  (is (= 10 (q/balance @db addr-b)))
+  (is (= 40 (q/balance @db addr-a)))
   (let [p (txn/payment key-a addr-b 15 @db)]
     (is (sources-unspent? @db p)))
 

@@ -162,3 +162,8 @@
   (add-block! empty-db next-block)
   (is (= 0 (utxo-balance @empty-db "addr-a")))
   (is (= 25 (utxo-balance @empty-db "addr-b"))))
+
+(deftest utxo-balance-for-nonexistent-key
+  (is (= 0 (utxo-balance @empty-db "pizza"))))
+
+(run-tests)

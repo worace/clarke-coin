@@ -41,7 +41,7 @@
 
 (defn get-balance [msg sock-info]
   (let [address (:payload msg)
-        balance (q/balance address @db/db)]
+        balance (q/balance @db/db address)]
     {:message "balance"
      :payload {:address address :balance balance}}))
 
@@ -79,7 +79,7 @@
   (let [{{:keys [from-address to-address amount fee]} :payload} msg
         fee (or fee 0)
         total (+ amount fee)
-        balance (q/balance from-address @db/db)]
+        balance (q/balance @db/db from-address)]
     (if (>= balance total)
       {:message "unsigned_transaction"
        :payload (txn/unsigned-payment

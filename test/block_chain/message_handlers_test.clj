@@ -112,8 +112,7 @@
                              25
                              @db/db)]
     (is (= payment (s/validate Transaction payment)))
-    (is (= 25 (q/balance (:address wallet/keypair)
-                         @db/db)))
+    (is (= 25 (q/balance @db/db (:address wallet/keypair))))
     (is (= 1 (count (:outputs payment))))
     (is (= {:message "transaction-accepted"
             :payload payment}
@@ -123,14 +122,13 @@
     (is (= 1 (count (q/transaction-pool @db/db))))
     (miner/mine-and-commit-db!)
     (is (empty? (q/transaction-pool @db/db)))
-    (is (= 25 (q/balance (:address wallet/keypair)
-                             @db/db)))
-    (is (= 25 (q/balance (:address key-b) @db/db)))))
+    (is (= 25 (q/balance @db/db (:address wallet/keypair))))
+    (is (= 25 (q/balance @db/db (:address key-b))))))
 
 (deftest test-submitting-transaction-with-txn-fee
   (let [key-b (wallet/generate-keypair 512)]
     (is (= 1 (q/chain-length @db/db)))
-    (is (= 25 (q/balance (:address wallet/keypair) @db/db)))
+    (is (= 25 (q/balance @db/db (:address wallet/keypair))))
     (let [payment (txn/payment wallet/keypair
                                (:address key-b)
                                24
@@ -142,9 +140,9 @@
       (miner/mine-and-commit-db!)
       ;; miner should have 25 from coinbase and 1 from allotted txn fee
       (is (= 2 (q/chain-length @db/db)))
-      (is (= 26 (q/balance (:address wallet/keypair) @db/db)))
+      (is (= 26 (q/balance @db/db (:address wallet/keypair))))
       ;; B should have 24 from the payment
-      (is (= 24 (q/balance (:address key-b) @db/db))))))
+      (is (= 24 (q/balance @db/db (:address key-b)))))))
 
 (deftest test-wont-accept-different-txn-spending-same-inputs
   (let [key-b (wallet/generate-keypair 512)]
@@ -311,6 +309,7 @@
       ;; PeerDb - A
       (is (= 1 (q/chain-length @db/db)))
       (is (= 1 (q/chain-length @peer-db)))
+      (is (= 25 (q/balance @db/db (:address wallet/keypair))))
 
       ;; db/db advances by 2
       ;; DB     - A - B - C
@@ -409,11 +408,11 @@
       (is (= {:message "transaction-accepted" :payload p2}
            (handler {:message "submit_transaction" :payload p2} sock-info))))
     ;; Wallet has 50 from 2x Coinbase
-    (is (= 50 (q/balance (:address wallet/keypair) @db/db)))
-    (is (= 0 (q/balance (:address key-b) @db/db)))
+    (is (= 50 (q/balance @db/db (:address wallet/keypair))))
+    (is (= 0 (q/balance @db/db (:address key-b))))
     (miner/mine-and-commit-db!)
     ;; Wallet sends 50 from 2x payments and gains 25 from coinbase
-    (is (= 25 (q/balance (:address wallet/keypair) @db/db)))
+    (is (= 25 (q/balance @db/db (:address wallet/keypair))))
     ;; B picks up 50 from 2x payments
-    (is (= 50 (q/balance (:address key-b) @db/db)))
+    (is (= 50 (q/balance @db/db (:address key-b))))
     ))

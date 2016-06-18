@@ -65,12 +65,14 @@
 
 (defn utxo-balance [db address]
   (let [key-start (str "utxos:" (sha256 address))]
-    (with-open [iter (ldb/iterator (:block-db db) key-start)]
-      (->> iter
-           (take-while (fn [[k v]] (starts-with? k key-start)))
-           (map last)
-           (map :amount)
-           (reduce +)))))
+    (if-let [iter (ldb/iterator (:block-db db) key-start)]
+      (with-open [iter iter]
+        (->> iter
+             (take-while (fn [[k v]] (starts-with? k key-start)))
+             (map last)
+             (map :amount)
+             (reduce +)))
+      0)))
 
 (defn remove-consumed-utxo [db {txn-hash :source-hash index :source-index :as input}]
   (if-let [source (source-output db input)]
@@ -189,11 +191,8 @@
   (->> (utxos db)
        (filter (partial assigned-to-key? key))))
 
-(defn balance [address db]
-  (utxo-balance db address)
-  (->> (unspent-outputs address db)
-       (map :amount)
-       (reduce +)))
+(defn balance [db address]
+  (utxo-balance db address))
 
 (defn wallet-addr [db] (get-in db [:default-key :address]))
 
