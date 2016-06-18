@@ -1,8 +1,10 @@
 (ns block-chain.queries
   (:require [clojure.set :refer [intersection]]
             [block-chain.schemas :refer :all]
+            [block-chain.utils :refer [sha256]]
             [block-chain.log :as log]
             [schema.core :as s]
+            [clojure.string :refer [join starts-with?]]
             [clj-leveldb :as ldb]))
 
 (defn bhash [b] (get-in b [:header :hash]))
@@ -56,8 +58,27 @@
   (set (ldb/get (:block-db db)
                 (str "child-blocks:" hash))))
 
+(defn add-transaction-output [db utxo txn-id index]
+  (let [khash (sha256 (:address utxo))
+        db-key (join ":" ["utxos" khash txn-id index])]
+    (ldb/put (:block-db db) db-key utxo)))
+
+(defn utxo-balance [db address]
+  (let [key-start (str "utxos:" (sha256 address))
+        utxos (take-while (fn [[k v]]
+                            (starts-with? k key-start))
+                          (ldb/iterator (:block-db db)
+                                        key-start))]
+    (->> (ldb/iterator (:block-db db) key-start)
+         (take-while (fn [[k v]] (starts-with? k key-start)))
+         (map last)
+         (map :amount)
+         (reduce +))))
+
 (defn add-transaction [db {hash :hash :as txn}]
-  (ldb/put (:block-db db) (str "transaction:" hash) txn))
+  (ldb/put (:block-db db) (str "transaction:" hash) txn)
+  (dotimes [index (count (:outputs txn))]
+    (add-transaction-output db (get-in txn [:outputs index]) hash index)))
 
 (defn coord-only-inputs [txns]
   (->> txns

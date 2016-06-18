@@ -23,6 +23,8 @@
 (def empty-db (atom nil))
 (def sample-db (atom nil))
 
+(defonce repl-db (atom (db/db-map (th/temp-db-conn))))
+
 (defn setup [tests]
   (with-open [empty-conn (th/temp-db-conn)
               sample-conn (th/temp-db-conn)]
@@ -126,3 +128,42 @@
   (let [utxo (utxo @sample-db)]
     (is (assigned-to-key? (:address utxo) utxo))
     (is (not (assigned-to-key? "pizza" utxo)))))
+
+(deftest test-adding-utxos
+  (let [txn (get-in db/genesis-block [:transactions 0])
+        address (get-in txn [:outputs 0 :address])
+        key-hash (sha256 address)
+        txn-id (:hash txn)
+        utxo-key (str "utxos:" key-hash ":" txn-id ":" "0")
+        conn (:block-db @empty-db)]
+    (is (nil? (ldb/get conn utxo-key)))
+    (add-block! empty-db db/genesis-block)
+    (is (not (nil? (ldb/get conn utxo-key))))
+    (is (= (first (:outputs txn))
+           (ldb/get conn utxo-key)))
+    (is (= 25 (utxo-balance @empty-db address)))))
+
+(def simple-block
+  {:header {:parent-hash "0000"
+            :hash "block-1"}
+   :transactions [{:hash "txn-1"
+                   :inputs []
+                   :outputs [{:amount 25
+                              :address "addr-a"}]}]})
+
+(def next-block
+  {:header {:parent-hash "block-1"
+            :hash "block-2"}
+   :transactions [{:hash "txn-2"
+                   :inputs [{:source-hash "txn-1" :source-index 0}]
+                   :outputs [{:amount 25 :address "addr-b"}]}]})
+
+(deftest removing-spent-utxos
+  (add-block! empty-db simple-block)
+  (is (= 25 (utxo-balance @empty-db "addr-a")))
+  (add-block! empty-db next-block)
+  (is (= 0 (utxo-balance @empty-db "addr-a")))
+  (is (= 25 (utxo-balance @empty-db "addr-b")))
+)
+
+(run-tests)
