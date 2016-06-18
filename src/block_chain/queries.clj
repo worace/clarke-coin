@@ -64,19 +64,23 @@
     (ldb/put (:block-db db) db-key utxo)))
 
 (defn utxo-balance [db address]
-  (let [key-start (str "utxos:" (sha256 address))
-        utxos (take-while (fn [[k v]]
-                            (starts-with? k key-start))
-                          (ldb/iterator (:block-db db)
-                                        key-start))]
-    (->> (ldb/iterator (:block-db db) key-start)
-         (take-while (fn [[k v]] (starts-with? k key-start)))
-         (map last)
-         (map :amount)
-         (reduce +))))
+  (let [key-start (str "utxos:" (sha256 address))]
+    (with-open [iter (ldb/iterator (:block-db db) key-start)]
+      (->> iter
+           (take-while (fn [[k v]] (starts-with? k key-start)))
+           (map last)
+           (map :amount)
+           (reduce +)))))
+
+(defn remove-consumed-utxo [db {txn-hash :source-hash index :source-index :as input}]
+  (if-let [source (source-output db input)]
+    (ldb/delete (:block-db db)
+                (join ":" ["utxos" (sha256 (:address source)) txn-hash index]))))
 
 (defn add-transaction [db {hash :hash :as txn}]
   (ldb/put (:block-db db) (str "transaction:" hash) txn)
+  (doseq [i (:inputs txn)]
+    (remove-consumed-utxo db i))
   (dotimes [index (count (:outputs txn))]
     (add-transaction-output db (get-in txn [:outputs index]) hash index)))
 
@@ -186,6 +190,7 @@
        (filter (partial assigned-to-key? key))))
 
 (defn balance [address db]
+  (utxo-balance db address)
   (->> (unspent-outputs address db)
        (map :amount)
        (reduce +)))

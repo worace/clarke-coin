@@ -23,8 +23,6 @@
 (def empty-db (atom nil))
 (def sample-db (atom nil))
 
-(defonce repl-db (atom (db/db-map (th/temp-db-conn))))
-
 (defn setup [tests]
   (with-open [empty-conn (th/temp-db-conn)
               sample-conn (th/temp-db-conn)]
@@ -163,7 +161,4 @@
   (is (= 25 (utxo-balance @empty-db "addr-a")))
   (add-block! empty-db next-block)
   (is (= 0 (utxo-balance @empty-db "addr-a")))
-  (is (= 25 (utxo-balance @empty-db "addr-b")))
-)
-
-(run-tests)
+  (is (= 25 (utxo-balance @empty-db "addr-b"))))
