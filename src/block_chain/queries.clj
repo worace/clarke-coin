@@ -193,6 +193,14 @@
    :orphan [changeset-block-only-inserts]
    :fork-non-surpassing [changeset-block-only-inserts]})
 
+(defn fork-surpassing-changeset [db block]
+  ;; find common ancestor
+  ;; 1 - revert the transactions on path from highest block to common ancestor
+  ;;     (reverse order, from highest block to lowest)
+  ;; 2 - block-insert blocks on path from common ancestor to new highest block
+  ;;     (normal order starting from next child up to highest block)
+  )
+
 (defn block-insert-scenario [db block]
   (cond
     (linear-advance? db block) :linear-advance
