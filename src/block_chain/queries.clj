@@ -113,62 +113,49 @@
       (remove-overlapping-txns-from-pool (:transactions block))
       (remove-txns-with-overlapping-inputs-from-pool (:transactions block))))
 
-;; Idea -- Change Sets
-;; Try to represent collection of db updates as a value
-;; whenever we need to write to db,
-;; first: use one function to generate a changeset for that update
-;; second: use ldb to write the changeset as a batch
-;;
-;; Might look like:
-(comment
-  {:puts [{:key "value" :key2 "val2"}]
-   :deletes ["k1" "k2" "k3"]}
-;; Or:
-  {:puts [["k1" "v1"]
-          ["k2" "v2"]
-          ["k3" "v3"]
-          ]
-   :deletes ["k1" "k2" "k3"]}
-;; Or:
-  {:puts ["k1" "v1" "k2" "v2" "k3" "v3"]
-   :deletes ["k1" "k2" "k3"]})
-
 (defn changeset-highest-hash [db block]
   (if (> (inc (chain-length db (phash block))) (chain-length db (highest-hash db)))
     #{[db-key/highest-hash (bhash block)]}
     #{}))
+
+(defn changeset-transactions [db block]
+  (into #{} (map (fn [txn] [(db-key/txn (:hash txn)) txn]) (:transactions block))))
+
+(defn changeset-add-utxo [txn-id index output]
+  [(db-key/utxo (:address output) txn-id index) output])
+
+(defn changeset-txn-add-utxos [txn]
+  (map-indexed (partial changeset-add-utxo (:hash txn)) (:outputs txn)))
+
+(defn changeset-add-utxos [db block]
+  (->> (:transactions block)
+       (mapcat changeset-txn-add-utxos)
+       (into #{})))
+
+(defn changeset-remove-spent-outputs [db block]
+  (->> (:transactions block)
+       (mapcat :inputs)
+       (map (fn [i] (if-let [source (source-output db i)]
+                      #{(db-key/utxo (:address source) (:source-hash i) (:source-index i))}
+                      #{})))
+       (reduce union)))
 
 (defn changeset-add-block [db {{block-hash :hash parent-hash :parent-hash} :header :as block}]
   (-> {:put #{} :delete #{}}
       (update :put union #{[(db-key/block block-hash) block]})
       (update :put union #{[(db-key/child-blocks parent-hash) (conj (children db parent-hash) block-hash)]})
       (update :put union #{[(db-key/chain-length block-hash) (inc (chain-length db parent-hash))]})
-      (update :put union (changeset-highest-hash db block))))
+      (update :put union (changeset-highest-hash db block))
+      (update :put union (changeset-transactions db block))
+      (update :put union (changeset-add-utxos db block))
+      (update :delete union (changeset-remove-spent-outputs db block))))
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
-  ;; Block insert cases:
-  ;; 1 - child of highest block -- simple advancement
-  ;;     - Add block
-  ;;     - Add block's TXNs
-  ;; 2 - orphan -- parent is unknown
-  ;;     - ?? Not sure
-  ;; 3 - Fork, not (yet) higher
-  ;;     - Add block
-  ;; 4 - Fork, surpassing
-  ;;     - Add block
-  ;;     - Add block's TXNs
-  ;;     - Add TXNs for all blocks back to common ancestor
-  ;;     - Remove all UTXOs from losing side of fork
-  ;; TODO: Batch these all in leveldb
   (let [cs (changeset-add-block db block)]
     (doseq [[k v] (:put cs)]
-      (ldb/put (:block-db db) k v)))
-  ;; (when (> (chain-length db hash) (chain-length db (highest-hash db)))
-  ;;   (ldb/put (:block-db db)
-  ;;            db-key/highest-hash
-  ;;            hash))
-  (doseq [t (:transactions block)]
-    (add-transaction db t))
+      (ldb/put (:block-db db) k v))
+    (doseq [k (:delete cs)]
+      (ldb/delete (:block-db db) k)))
   (clear-txn-pool db block))
 
 (defn fork-path
@@ -188,10 +175,7 @@
       :else (recur (get-parent db fork-block)
                    (get-parent db trunk-block)
                    (conj path (phash fork-block))
-                   (conj trunk-hashes (phash trunk-block)))
-      )
-    )
-  )
+                   (conj trunk-hashes (phash trunk-block))))))
 
 (defn all-txns
   "Linear iteration through all Transactions in the DB using a leveldb

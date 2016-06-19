@@ -133,7 +133,7 @@
         address (get-in txn [:outputs 0 :address])
         key-hash (sha256 address)
         txn-id (:hash txn)
-        utxo-key (str "utxos:" key-hash ":" txn-id ":" "0")
+        utxo-key (str "utxo:" key-hash ":" txn-id ":" "0")
         conn (:block-db @empty-db)]
     (is (nil? (ldb/get conn utxo-key)))
     (add-block! empty-db db/genesis-block)
@@ -210,17 +210,71 @@
 
   )
 
+(def simple-block
+  {:header {:parent-hash "0"
+            :hash "block-1"}
+   :transactions [{:hash "txn-1"
+                   :inputs []
+                   :outputs [{:amount 25
+                              :address "addr-a"}]}]})
+
+
 (deftest test-building-db-changesets
-  (let [b db/genesis-block
+  (let [b simple-block
         cs (changeset-add-block @empty-db b)]
     (is (= #{:put :delete} (into #{} (keys cs))))
     (is (contains? (:put cs)
-                   [(db-key/block (bhash b)) b]))
+                   ["block:block-1" b]))
     (is (contains? (:put cs)
-                   [(db-key/child-blocks (phash b)) #{(bhash b)}]))
+                   ["child-blocks:0" #{"block-1"}]))
     (is (contains? (:put cs)
-                   [(db-key/chain-length (bhash b)) 1]))
+                   ["chain-length:block-1" 1]))
     (is (contains? (:put cs)
-                   [db-key/highest-hash (bhash b)]))))
+                   ["highest-hash" "block-1"]))
+    (is (contains? (:put cs)
+                   ["transaction:txn-1" (first (:transactions b))]))
+    (is (contains? (:put cs)
+                   [(str "utxo:" (sha256 "addr-a") ":txn-1:0") {:amount 25 :address "addr-a"}]))))
 
+(deftest test-db-changesets-when-spending-inputs
+  (add-block! empty-db simple-block)
+  (let [cs (changeset-add-block @empty-db next-block)]
+    (is (contains? (:delete cs)
+                   (str "utxo:" (sha256 "addr-a") ":txn-1:0"))))
+  )
 (run-tests)
+
+
+;; Idea -- Change Sets
+;; Try to represent collection of db updates as a value
+;; whenever we need to write to db,
+;; first: use one function to generate a changeset for that update
+;; second: use ldb to write the changeset as a batch
+;;
+;; Might look like:
+(comment
+  {:puts [{:key "value" :key2 "val2"}]
+   :deletes ["k1" "k2" "k3"]}
+;; Or:
+  {:puts [["k1" "v1"]
+          ["k2" "v2"]
+          ["k3" "v3"]
+          ]
+   :deletes ["k1" "k2" "k3"]}
+;; Or:
+  {:puts ["k1" "v1" "k2" "v2" "k3" "v3"]
+   :deletes ["k1" "k2" "k3"]})
+;; Block insert cases:
+;; 1 - child of highest block -- simple advancement
+;;     - Add block
+;;     - Add block's TXNs
+;; 2 - orphan -- parent is unknown
+;;     - ?? Not sure
+;; 3 - Fork, not (yet) higher
+;;     - Add block
+;; 4 - Fork, surpassing
+;;     - Add block
+;;     - Add block's TXNs
+;;     - Add TXNs for all blocks back to common ancestor
+;;     - Remove all UTXOs from losing side of fork
+;; TODO: Batch these all in leveldb

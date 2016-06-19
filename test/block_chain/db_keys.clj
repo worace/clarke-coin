@@ -9,9 +9,9 @@
 
 (defn child-blocks [block-hash] (str "child-blocks:" block-hash))
 
-(defn utxos-range-start [address] (str "utxos:" (sha256 address)))
+(defn utxos-range-start [address] (str "utxo:" (sha256 address)))
 
-(defn utxo [address txn-id index] (join ":" ["utxos" (sha256 address) txn-id index]))
+(defn utxo [address txn-id index] (join ":" ["utxo" (sha256 address) txn-id index]))
 
 (defn txn [txn-hash] (str "transaction:" txn-hash))
 
