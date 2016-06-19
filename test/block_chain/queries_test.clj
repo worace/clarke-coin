@@ -115,14 +115,6 @@
               (into #{}))
          (utxos @sample-db))))
 
-;; ;; input: {source-hash "FFF.." source-index 0}
-;; ;; output {address "pizza" amount "50"}
-;; ;; UTXO:
-;; ;; Map of...? Coords? Vector of txn hash and index?
-;; ;; OR
-;; ;; Set of Coords
-;; ;; #{["txn-hash 1" 0] ["txn-hash 2" 0] }
-
 (deftest test-output-assigned-to-key
   (let [utxo (utxo @sample-db)]
     (is (assigned-to-key? (:address utxo) utxo))
@@ -157,19 +149,13 @@
                    :inputs [{:source-hash "txn-1" :source-index 0}]
                    :outputs [{:amount 25 :address "addr-b"}]}]})
 (def fork-block-1
-  {:header {:parent-hash "block-1"
-            :hash "fork-1"}
-   :transactions [{:hash "fork-txn-1"
-                   :inputs []
-                   :outputs [{:amount 25
-                              :address "addr-a"}]}]})
+  {:header {:parent-hash "block-1" :hash "fork-1"}
+   :transactions [{:hash "fork-txn-1" :inputs [] :outputs [{:amount 25
+                                                            :address "addr-a"}]}]})
 (def fork-block-2
-  {:header {:parent-hash "fork-1"
-            :hash "fork-2"}
-   :transactions [{:hash "fork-txn-2"
-                   :inputs []
-                   :outputs [{:amount 25
-                              :address "addr-a"}]}]})
+  {:header {:parent-hash "fork-1" :hash "fork-2"}
+   :transactions [{:hash "fork-txn-2" :inputs [] :outputs [{:amount 25
+                                                            :address "addr-a"}]}]})
 
 (deftest removing-spent-utxos
   (add-block! empty-db simple-block)
@@ -182,50 +168,17 @@
 (deftest utxo-balance-for-nonexistent-key
   (is (= 0 (utxo-balance @empty-db "pizza"))))
 
-(deftest tracking-fork-paths
-  (add-block! empty-db simple-block)
-  (add-block! empty-db next-block)
-  (add-block! empty-db fork-block-1)
-  (add-block! empty-db fork-block-2)
-
-  (is (= ["fork-1" "fork-2"] (fork-path @empty-db "fork-2" "block-2")))
-  (is (= [] (fork-path @empty-db "block-2" "block-2")))
-  (is (= ["fork-1"] (fork-path @empty-db "fork-1" "block-2")))
-  )
-
-#_(deftest utxo-rewinding-for-fork-resolution
-  (add-block! empty-db simple-block)
-  (is (= 25 (utxo-balance @empty-db "addr-a")))
-  (add-block! empty-db next-block)
-  (is (= 0 (utxo-balance @empty-db "addr-a")))
-  (is (= 25 (utxo-balance @empty-db "addr-b")))
-
-  (add-block! empty-db fork-block-1)
-  (is (= 0 (utxo-balance @empty-db "addr-a")))
-  (is (= 25 (utxo-balance @empty-db "addr-b")))
-
-  (add-block! empty-db fork-block-2)
-  (is (= 75 (utxo-balance @empty-db "addr-a")))
-  (is (= 0 (utxo-balance @empty-db "addr-b")))
-
-  )
-
 (deftest test-building-db-changesets
   (let [b simple-block
         cs (changeset-add-block @empty-db b)]
     (is (= #{:put :delete} (into #{} (keys cs))))
-    (is (contains? (:put cs)
-                   ["block:block-1" b]))
-    (is (contains? (:put cs)
-                   ["child-blocks:0" #{"block-1"}]))
-    (is (contains? (:put cs)
-                   ["chain-length:block-1" 1]))
-    (is (contains? (:put cs)
-                   ["highest-hash" "block-1"]))
-    (is (contains? (:put cs)
-                   ["transaction:txn-1" (first (:transactions b))]))
-    (is (contains? (:put cs)
-                   [(str "utxo:" (sha256 "addr-a") ":txn-1:0") {:amount 25 :address "addr-a"}]))))
+    (is (contains? (:put cs) ["block:block-1" b]))
+    (is (contains? (:put cs) ["child-blocks:0" #{"block-1"}]))
+    (is (contains? (:put cs) ["chain-length:block-1" 1]))
+    (is (contains? (:put cs) ["highest-hash" "block-1"]))
+    (is (contains? (:put cs) ["transaction:txn-1" (first (:transactions b))]))
+    (is (contains? (:put cs) [(str "utxo:" (sha256 "addr-a") ":txn-1:0")
+                              {:amount 25 :address "addr-a"}]))))
 
 (deftest test-db-changesets-when-spending-inputs
   (add-block! empty-db simple-block)
@@ -233,16 +186,6 @@
     (is (contains? (:delete cs)
                    (str "utxo:" (sha256 "addr-a") ":txn-1:0")))))
 
-;; (def simple-block
-;;   {:header {:parent-hash "0" :hash "block-1"}
-;;    :transactions [{:hash "txn-1" :inputs [] :outputs [{:amount 25
-;;                                                        :address "addr-a"}]}]})
-;; (def next-block
-;;   {:header {:parent-hash "block-1"
-;;             :hash "block-2"}
-;;    :transactions [{:hash "txn-2"
-;;                    :inputs [{:source-hash "txn-1" :source-index 0}]
-;;                    :outputs [{:amount 25 :address "addr-b"}]}]})
 (deftest test-db-changeset-for-rewinding-block
   (add-block! empty-db simple-block)
   (let [cs (changeset-revert-block-transactions @empty-db next-block)]
@@ -253,6 +196,59 @@
                    (str "utxo:" (sha256 "addr-b") ":txn-2:0")))
     (is (contains? (:delete cs)
                    (str "transaction:txn-2")))))
+
+(deftest test-db-changeset-for-non-surpassing-fork
+  (add-block! empty-db simple-block)
+  (add-block! empty-db next-block)
+  (let [cs (changeset-add-block @empty-db fork-block-1)
+        insert-keys (into #{} (map first (:put cs)))]
+    (is (contains? insert-keys "block:fork-1"))
+    (is (contains? insert-keys "child-blocks:block-1"))
+    (is (contains? insert-keys "chain-length:fork-1"))
+    (is (not (contains? insert-keys "transaction:fork-txn-1")))
+    (is (not (contains? insert-keys (str "utxo:" (sha256 "addr-a") ":fork-txn-1:0"))))))
+
+(deftest test-block-insert-cases
+  (add-block! empty-db simple-block)
+  (is (orphan? @empty-db fork-block-2))
+  (is (linear-advance? @empty-db next-block))
+  (add-block! empty-db next-block)
+  (is (fork-non-surpassing? @empty-db fork-block-1))
+  (add-block! empty-db fork-block-1)
+  (is (fork-surpassing? @empty-db fork-block-2)))
+
+;;         fork-1 -> fork-2
+;;         /
+;; block-1 -> block-2
+
+(deftest tracking-fork-paths
+  (add-block! empty-db simple-block)
+  (add-block! empty-db next-block)
+  (add-block! empty-db fork-block-1)
+  (add-block! empty-db fork-block-2)
+
+  (is (= ["fork-1" "fork-2"] (fork-path @empty-db "fork-2" "block-2")))
+  (is (= [] (fork-path @empty-db "block-2" "block-2")))
+  (is (= ["fork-1"] (fork-path @empty-db "fork-1" "block-2"))))
+
+(deftest test-common-ancestor
+  (add-block! empty-db simple-block)
+  (add-block! empty-db next-block)
+  (add-block! empty-db fork-block-1)
+  (add-block! empty-db fork-block-2)
+
+  (is (= "block-1" (common-ancestor @empty-db "fork-2" "block-2")))
+  (is (= "block-1" (common-ancestor @empty-db "block-2" "fork-2"))))
+
+(deftest test-path-to
+  (add-block! empty-db simple-block)
+  (add-block! empty-db next-block)
+  (add-block! empty-db fork-block-1)
+  (add-block! empty-db fork-block-2)
+  (is (= ["fork-2" "fork-1"] (path-to @empty-db "block-1" "fork-2")))
+  (is (= ["block-2"] (path-to @empty-db "block-1" "block-2")))
+  (is (= [] (path-to @empty-db "block-1" "pizza"))))
+
 (run-tests)
 
 
@@ -289,3 +285,40 @@
 ;;     - Add TXNs for all blocks back to common ancestor
 ;;     - Remove all UTXOs from losing side of fork
 ;; TODO: Batch these all in leveldb
+
+
+;; (def simple-block
+;;   {:header {:parent-hash "0" :hash "block-1"}
+;;    :transactions [{:hash "txn-1" :inputs [] :outputs [{:amount 25
+;;                                                        :address "addr-a"}]}]})
+;; (def next-block
+;;   {:header {:parent-hash "block-1"
+;;             :hash "block-2"}
+;;    :transactions [{:hash "txn-2"
+;;                    :inputs [{:source-hash "txn-1" :source-index 0}]
+;;                    :outputs [{:amount 25 :address "addr-b"}]}]})
+;; (def fork-block-1
+;;   {:header {:parent-hash "block-1" :hash "fork-1"}
+;;    :transactions [{:hash "fork-txn-1" :inputs []
+;;                    :outputs [{:amount 25 :address "addr-a"}]}]})
+;; (def fork-block-2
+;;   {:header {:parent-hash "fork-1" :hash "fork-2"}
+;;    :transactions [{:hash "fork-txn-2" :inputs [] :outputs [{:amount 25
+;;                                                             :address "addr-a"}]}]})
+
+(deftest utxo-rewinding-for-fork-resolution
+  (add-block! empty-db simple-block)
+  (is (= 25 (utxo-balance @empty-db "addr-a")))
+
+  (add-block! empty-db next-block)
+  (is (= 0 (utxo-balance @empty-db "addr-a")))
+  (is (= 25 (utxo-balance @empty-db "addr-b")))
+
+  (add-block! empty-db fork-block-1)
+  (is (= 0 (utxo-balance @empty-db "addr-a")))
+  (is (= 25 (utxo-balance @empty-db "addr-b")))
+
+  (add-block! empty-db fork-block-2)
+  (is (= 75 (utxo-balance @empty-db "addr-a")))
+  (is (= 0 (utxo-balance @empty-db "addr-b")))
+  )

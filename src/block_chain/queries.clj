@@ -115,11 +115,11 @@
 
 (defn changeset-highest-hash [db block]
   (if (> (inc (chain-length db (phash block))) (chain-length db (highest-hash db)))
-    #{[db-key/highest-hash (bhash block)]}
-    #{}))
+    {:put #{[db-key/highest-hash (bhash block)]}}
+    {}))
 
-(defn changeset-transactions [db block]
-  (into #{} (map (fn [txn] [(db-key/txn (:hash txn)) txn]) (:transactions block))))
+(defn changeset-transaction-inserts [db block]
+  {:put (into #{} (map (fn [txn] [(db-key/txn (:hash txn)) txn]) (:transactions block)))})
 
 (defn changeset-add-utxo [txn-id index output]
   [(db-key/utxo (:address output) txn-id index) output])
@@ -128,31 +128,27 @@
   (map-indexed (partial changeset-add-utxo (:hash txn)) (:outputs txn)))
 
 (defn changeset-add-utxos [db block]
-  (->> (:transactions block)
-       (mapcat changeset-txn-add-utxos)
-       (into #{})))
+  {:put (->> (:transactions block)
+             (mapcat changeset-txn-add-utxos)
+             (into #{}))})
 
 (defn changeset-remove-spent-outputs [db block]
-  (->> (:transactions block)
-       (mapcat :inputs)
-       (map (fn [i] (if-let [source (source-output db i)]
-                      #{(db-key/utxo (:address source) (:source-hash i) (:source-index i))}
-                      #{})))
-       (reduce union)))
+  {:delete (->> (:transactions block)
+                (mapcat :inputs)
+                (map (fn [i] (if-let [source (source-output db i)]
+                               #{(db-key/utxo (:address source) (:source-hash i) (:source-index i))}
+                               #{})))
+                (reduce union))})
 
-(defn changeset-add-block [db {{block-hash :hash parent-hash :parent-hash} :header :as block}]
-  (-> {:put #{} :delete #{}}
-      (update :put union #{[(db-key/block block-hash) block]})
-      (update :put union #{[(db-key/child-blocks parent-hash) (conj (children db parent-hash) block-hash)]})
-      (update :put union #{[(db-key/chain-length block-hash) (inc (chain-length db parent-hash))]})
-      (update :put union (changeset-highest-hash db block))
-      (update :put union (changeset-transactions db block))
-      (update :put union (changeset-add-utxos db block))
-      (update :delete union (changeset-remove-spent-outputs db block))))
+(defn changeset-block-only-inserts [db {{block-hash :hash parent-hash :parent-hash} :header :as block}]
+  {:put #{[(db-key/block block-hash) block]
+          [(db-key/child-blocks parent-hash) (conj (children db parent-hash) block-hash)]
+          [(db-key/chain-length block-hash) (inc (chain-length db parent-hash))]}})
 
 (defn changeset-revert-utxos [db block]
   ;; use process for adding utxos but just take the keys for deletion
   (->> (changeset-add-utxos db block)
+       :put
        (map first)
        (into #{})))
 
@@ -168,8 +164,48 @@
 (defn changeset-revert-block-transactions [db block]
   (-> {:put #{} :delete #{}}
       (update :delete union (changeset-revert-utxos db block))
-      (update :delete union (map first (changeset-transactions db block)))
+      (update :delete union (map first (:put (changeset-transaction-inserts db block))))
       (update :put union (changeset-revert-spending-inputs db block))))
+
+(defn linear-advance? [db block] (= (highest-hash db) (phash block)))
+(defn fork-non-surpassing? [db block]
+  (and (not (= (highest-hash db) (phash block)))
+       (<= (inc (chain-length db (phash block)))
+          (chain-length db))))
+(defn fork-surpassing? [db block]
+  (and (not (= (highest-hash db) (phash block)))
+       (> (inc (chain-length db (phash block)))
+          (chain-length db))))
+
+(defn orphan? [db block] (nil? (get-parent db block)))
+
+(def block-insert-updates
+  {:linear-advance [changeset-block-only-inserts
+                    changeset-highest-hash
+                    changeset-transaction-inserts
+                    changeset-add-utxos
+                    changeset-remove-spent-outputs]
+   :fork-surpassing [changeset-block-only-inserts
+                     changeset-highest-hash
+                     changeset-transaction-inserts
+                     changeset-add-utxos
+                     changeset-remove-spent-outputs]
+   :orphan [changeset-block-only-inserts]
+   :fork-non-surpassing [changeset-block-only-inserts]})
+
+(defn block-insert-scenario [db block]
+  (cond
+    (linear-advance? db block) :linear-advance
+    (fork-non-surpassing? db block) :fork-non-surpassing
+    (fork-surpassing? db block) :fork-surpassing
+    (orphan? db block) :orphan
+    :else (throw (Exception. "Unknown block insert case"))))
+
+(defn changeset-add-block [db {{block-hash :hash parent-hash :parent-hash} :header :as block}]
+  (let [required-updates (block-insert-updates (block-insert-scenario db block))]
+    (->> required-updates
+         (map (fn [u] (u db block)))
+         (reduce (partial merge-with union)))))
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   (let [cs (changeset-add-block db block)]
@@ -197,6 +233,27 @@
                    (get-parent db trunk-block)
                    (conj path (phash fork-block))
                    (conj trunk-hashes (phash trunk-block))))))
+
+(defn common-ancestor [db left-hash right-hash]
+  (loop [left (get-block db left-hash)
+         right (get-block db right-hash)
+         left-search #{(phash left)}
+         right-search #{(phash right)}]
+    (if-let [shared (first (intersection left-search right-search))]
+      shared
+      (recur (get-parent db left)
+             (get-parent db right)
+             (conj left-search (phash left))
+             (conj right-search (phash right))))))
+
+(defn path-to [db to from]
+  (loop [path []
+         current (get-block db from)]
+    (cond
+      (= to (bhash current)) path
+      (nil? current) []
+      :else (recur (conj path (bhash current))
+                   (get-parent db current)))))
 
 (defn all-txns
   "Linear iteration through all Transactions in the DB using a leveldb
