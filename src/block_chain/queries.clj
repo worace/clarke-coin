@@ -114,6 +114,26 @@
       (remove-overlapping-txns-from-pool (:transactions block))
       (remove-txns-with-overlapping-inputs-from-pool (:transactions block))))
 
+;; Idea -- Change Sets
+;; Try to represent collection of db updates as a value
+;; whenever we need to write to db,
+;; first: use one function to generate a changeset for that update
+;; second: use ldb to write the changeset as a batch
+;;
+;; Might look like:
+(comment
+  {:puts [{:key "value" :key2 "val2"}]
+   :deletes ["k1" "k2" "k3"]}
+;; Or:
+  {:puts [["k1" "v1"]
+          ["k2" "v2"]
+          ["k3" "v3"]
+          ]
+   :deletes ["k1" "k2" "k3"]}
+;; Or:
+  {:puts ["k1" "v1" "k2" "v2" "k3" "v3"]
+   :deletes ["k1" "k2" "k3"]})
+
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   ;; Block insert cases:
   ;; 1 - child of highest block -- simple advancement
