@@ -2,6 +2,7 @@
   (:require [clojure.set :refer [intersection]]
             [block-chain.schemas :refer :all]
             [block-chain.utils :refer [sha256]]
+            [block-chain.db-keys :as db-key]
             [block-chain.log :as log]
             [schema.core :as s]
             [clojure.string :refer [join starts-with?]]
@@ -13,12 +14,12 @@
 
 (defn get-block [db hash]
   (if hash
-    (ldb/get (:block-db db) (str "block:" hash))
+    (ldb/get (:block-db db) (db-key/block hash))
     nil))
 
 (defn get-parent [db block] (get-block db (phash block)))
 
-(defn get-txn [db hash] (ldb/get (:block-db db) (str "transaction:" hash)))
+(defn get-txn [db hash] (ldb/get (:block-db db) (db-key/txn hash)))
 
 (defn source-output [db {txn-hash :source-hash index :source-index :as txn-input}]
   (-> (get-txn db txn-hash)
@@ -31,7 +32,7 @@
     (list)))
 
 (defn highest-hash [db]
-  (if-let [h (ldb/get (:block-db db) "highest-hash")]
+  (if-let [h (ldb/get (:block-db db) db-key/highest-hash)]
     h
     nil))
 
@@ -43,7 +44,7 @@
 
 (defn chain-length
   ([db] (chain-length db (highest-hash db)))
-  ([db hash] (or (ldb/get (:block-db db) (str "chain-length:" hash)) 0)))
+  ([db hash] (or (ldb/get (:block-db db) (db-key/chain-length hash)) 0)))
 
 (defn new-block? [db block]
   (nil? (get-block db (bhash block))))
@@ -56,15 +57,13 @@
 
 (defn children [db hash]
   (set (ldb/get (:block-db db)
-                (str "child-blocks:" hash))))
+                (db-key/child-blocks hash))))
 
 (defn add-transaction-output [db utxo txn-id index]
-  (let [khash (sha256 (:address utxo))
-        db-key (join ":" ["utxos" khash txn-id index])]
-    (ldb/put (:block-db db) db-key utxo)))
+  (ldb/put (:block-db db) (db-key/utxo (:address utxo) txn-id index) utxo))
 
 (defn utxo-balance [db address]
-  (let [key-start (str "utxos:" (sha256 address))]
+  (let [key-start (db-key/utxos-range-start address)]
     (if-let [iter (ldb/iterator (:block-db db) key-start)]
       (with-open [iter iter]
         (->> iter
@@ -75,12 +74,12 @@
       0)))
 
 (defn remove-consumed-utxo [db {txn-hash :source-hash index :source-index :as input}]
-  (if-let [source (source-output db input)]
+  (when-let [source (source-output db input)]
     (ldb/delete (:block-db db)
-                (join ":" ["utxos" (sha256 (:address source)) txn-hash index]))))
+                (db-key/utxo (:address source) txn-hash index))))
 
 (defn add-transaction [db {hash :hash :as txn}]
-  (ldb/put (:block-db db) (str "transaction:" hash) txn)
+  (ldb/put (:block-db db) (db-key/txn hash) txn)
   (doseq [i (:inputs txn)]
     (remove-consumed-utxo db i))
   (dotimes [index (count (:outputs txn))]
@@ -134,6 +133,9 @@
   {:puts ["k1" "v1" "k2" "v2" "k3" "v3"]
    :deletes ["k1" "k2" "k3"]})
 
+(defn changeset-add-block [db block]
+  {:put [] :delete []})
+
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   ;; Block insert cases:
   ;; 1 - child of highest block -- simple advancement
@@ -149,16 +151,16 @@
   ;;     - Add TXNs for all blocks back to common ancestor
   ;;     - Remove all UTXOs from losing side of fork
   ;; TODO: Batch these all in leveldb
-  (ldb/put (:block-db db) (str "block:" hash) block)
+  (ldb/put (:block-db db) (db-key/block hash) block)
   (ldb/put (:block-db db)
-           (str "child-blocks:" parent-hash)
+           (db-key/child-blocks parent-hash)
            (conj (children db parent-hash) hash))
   (ldb/put (:block-db db)
-           (str "chain-length:" hash)
+           (db-key/chain-length hash)
            (inc (chain-length db parent-hash)))
   (when (> (chain-length db hash) (chain-length db (highest-hash db)))
     (ldb/put (:block-db db)
-             "highest-hash"
+             db-key/highest-hash
              hash))
   (doseq [t (:transactions block)]
     (add-transaction db t))
@@ -175,9 +177,6 @@
          trunk-block (get-block db trunk-hash)
          path (list fork-hash)
          trunk-hashes #{trunk-hash}]
-    (println "fork hash" (bhash fork-block) "trunk hash" (bhash trunk-block))
-    (println path)
-    (println trunk-hashes)
     (cond
       (contains? trunk-hashes (bhash fork-block)) (drop 1 path)
       (or (nil? fork-block) (nil? trunk-block)) (println "FAILED")
