@@ -1,6 +1,7 @@
 (ns block-chain.queries-test
   (:require [clojure.test :refer :all]
             [block-chain.db :as db]
+            [block-chain.db-keys :as db-key]
             [block-chain.test-helper :as th]
             [clj-leveldb :as ldb]
             [block-chain.utils :refer :all]
@@ -174,6 +175,7 @@
   (add-block! empty-db simple-block)
   (is (= 25 (utxo-balance @empty-db "addr-a")))
   (add-block! empty-db next-block)
+  (is (= {:amount 25 :address "addr-a"} (source-output @empty-db {:source-hash "txn-1" :source-index 0})))
   (is (= 0 (utxo-balance @empty-db "addr-a")))
   (is (= 25 (utxo-balance @empty-db "addr-b"))))
 
@@ -191,7 +193,7 @@
   (is (= ["fork-1"] (fork-path @empty-db "fork-1" "block-2")))
   )
 
-(deftest utxo-rewinding-for-fork-resolution
+#_(deftest utxo-rewinding-for-fork-resolution
   (add-block! empty-db simple-block)
   (is (= 25 (utxo-balance @empty-db "addr-a")))
   (add-block! empty-db next-block)
@@ -207,5 +209,18 @@
   (is (= 0 (utxo-balance @empty-db "addr-b")))
 
   )
+
+(deftest test-building-db-changesets
+  (let [b db/genesis-block
+        cs (changeset-add-block @empty-db b)]
+    (is (= #{:put :delete} (into #{} (keys cs))))
+    (is (contains? (:put cs)
+                   [(db-key/block (bhash b)) b]))
+    (is (contains? (:put cs)
+                   [(db-key/child-blocks (phash b)) #{(bhash b)}]))
+    (is (contains? (:put cs)
+                   [(db-key/chain-length (bhash b)) 1]))
+    (is (contains? (:put cs)
+                   [db-key/highest-hash (bhash b)]))))
 
 (run-tests)

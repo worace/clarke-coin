@@ -1,5 +1,5 @@
 (ns block-chain.queries
-  (:require [clojure.set :refer [intersection]]
+  (:require [clojure.set :refer [intersection union]]
             [block-chain.schemas :refer :all]
             [block-chain.utils :refer [sha256]]
             [block-chain.db-keys :as db-key]
@@ -133,8 +133,17 @@
   {:puts ["k1" "v1" "k2" "v2" "k3" "v3"]
    :deletes ["k1" "k2" "k3"]})
 
-(defn changeset-add-block [db block]
-  {:put [] :delete []})
+(defn changeset-highest-hash [db block]
+  (if (> (inc (chain-length db (phash block))) (chain-length db (highest-hash db)))
+    #{[db-key/highest-hash (bhash block)]}
+    #{}))
+
+(defn changeset-add-block [db {{block-hash :hash parent-hash :parent-hash} :header :as block}]
+  (-> {:put #{} :delete #{}}
+      (update :put union #{[(db-key/block block-hash) block]})
+      (update :put union #{[(db-key/child-blocks parent-hash) (conj (children db parent-hash) block-hash)]})
+      (update :put union #{[(db-key/chain-length block-hash) (inc (chain-length db parent-hash))]})
+      (update :put union (changeset-highest-hash db block))))
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   ;; Block insert cases:
@@ -151,17 +160,13 @@
   ;;     - Add TXNs for all blocks back to common ancestor
   ;;     - Remove all UTXOs from losing side of fork
   ;; TODO: Batch these all in leveldb
-  (ldb/put (:block-db db) (db-key/block hash) block)
-  (ldb/put (:block-db db)
-           (db-key/child-blocks parent-hash)
-           (conj (children db parent-hash) hash))
-  (ldb/put (:block-db db)
-           (db-key/chain-length hash)
-           (inc (chain-length db parent-hash)))
-  (when (> (chain-length db hash) (chain-length db (highest-hash db)))
-    (ldb/put (:block-db db)
-             db-key/highest-hash
-             hash))
+  (let [cs (changeset-add-block db block)]
+    (doseq [[k v] (:put cs)]
+      (ldb/put (:block-db db) k v)))
+  ;; (when (> (chain-length db hash) (chain-length db (highest-hash db)))
+  ;;   (ldb/put (:block-db db)
+  ;;            db-key/highest-hash
+  ;;            hash))
   (doseq [t (:transactions block)]
     (add-transaction db t))
   (clear-txn-pool db block))
