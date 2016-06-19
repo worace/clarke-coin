@@ -150,6 +150,27 @@
       (update :put union (changeset-add-utxos db block))
       (update :delete union (changeset-remove-spent-outputs db block))))
 
+(defn changeset-revert-utxos [db block]
+  ;; use process for adding utxos but just take the keys for deletion
+  (->> (changeset-add-utxos db block)
+       (map first)
+       (into #{})))
+
+(defn changeset-revert-spending-inputs [db block]
+  (->> (:transactions block)
+       (mapcat :inputs)
+       (map (fn [i] (if-let [source (source-output db i)]
+                      #{[(db-key/utxo (:address source) (:source-hash i) (:source-index i))
+                         source]}
+                      #{})))
+       (reduce union)))
+
+(defn changeset-revert-block-transactions [db block]
+  (-> {:put #{} :delete #{}}
+      (update :delete union (changeset-revert-utxos db block))
+      (update :delete union (map first (changeset-transactions db block)))
+      (update :put union (changeset-revert-spending-inputs db block))))
+
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   (let [cs (changeset-add-block db block)]
     (doseq [[k v] (:put cs)]

@@ -143,7 +143,7 @@
     (is (= 25 (utxo-balance @empty-db address)))))
 
 (def simple-block
-  {:header {:parent-hash "0000"
+  {:header {:parent-hash "0"
             :hash "block-1"}
    :transactions [{:hash "txn-1"
                    :inputs []
@@ -210,15 +210,6 @@
 
   )
 
-(def simple-block
-  {:header {:parent-hash "0"
-            :hash "block-1"}
-   :transactions [{:hash "txn-1"
-                   :inputs []
-                   :outputs [{:amount 25
-                              :address "addr-a"}]}]})
-
-
 (deftest test-building-db-changesets
   (let [b simple-block
         cs (changeset-add-block @empty-db b)]
@@ -240,8 +231,28 @@
   (add-block! empty-db simple-block)
   (let [cs (changeset-add-block @empty-db next-block)]
     (is (contains? (:delete cs)
-                   (str "utxo:" (sha256 "addr-a") ":txn-1:0"))))
-  )
+                   (str "utxo:" (sha256 "addr-a") ":txn-1:0")))))
+
+;; (def simple-block
+;;   {:header {:parent-hash "0" :hash "block-1"}
+;;    :transactions [{:hash "txn-1" :inputs [] :outputs [{:amount 25
+;;                                                        :address "addr-a"}]}]})
+;; (def next-block
+;;   {:header {:parent-hash "block-1"
+;;             :hash "block-2"}
+;;    :transactions [{:hash "txn-2"
+;;                    :inputs [{:source-hash "txn-1" :source-index 0}]
+;;                    :outputs [{:amount 25 :address "addr-b"}]}]})
+(deftest test-db-changeset-for-rewinding-block
+  (add-block! empty-db simple-block)
+  (let [cs (changeset-revert-block-transactions @empty-db next-block)]
+    (is (contains? (:put cs)
+                   [(str "utxo:" (sha256 "addr-a") ":txn-1:0")
+                    {:amount 25 :address "addr-a"}]))
+    (is (contains? (:delete cs)
+                   (str "utxo:" (sha256 "addr-b") ":txn-2:0")))
+    (is (contains? (:delete cs)
+                   (str "transaction:txn-2")))))
 (run-tests)
 
 
