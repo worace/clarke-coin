@@ -60,7 +60,6 @@
                 (db-key/child-blocks hash))))
 
 (defn common-ancestor [db left-hash right-hash]
-  (println "CA Search Start:" left-hash right-hash)
   (assert (= java.lang.String (type left-hash)))
   (assert (= java.lang.String (type right-hash)))
   (loop [left (get-block db left-hash)
@@ -68,9 +67,6 @@
          left-search #{(bhash left)}
          right-search #{(bhash right)}
          i 0]
-    (println "get common ancestor")
-    (println "l:" (bhash left) "r:" (bhash right))
-    (println "lsearch:" left-search "rsearch:" right-search )
     (cond
       (first (intersection left-search right-search)) (first (intersection left-search right-search))
       (and (nil? left) (nil? right)) "DUNNO"
@@ -90,7 +86,6 @@
 (defn path-to [db to from]
   (loop [path []
          current (get-block db from)]
-    (println "get path to")
     (cond
       (= to (bhash current)) path
       (or (nil? to) (nil? current)) []
@@ -283,15 +278,17 @@
   (let [all (->> block-hashes
                  (map (partial get-block db))
                  (map (partial block-txn-insert db))
-                 (reduce (partial merge-with) union))]
-    all))
+                 (reduce (partial merge-with union)))]
+    (update all :put (fn [put-set]
+                       (into #{}
+                             (filter (fn [[k v]]
+                                       (not (contains? (:delete all) k)))
+                                     put-set))))))
 
 (defn fork-surpassing-utxo-changeset [db block]
   (let [ca (common-ancestor db (bhash block) (highest-hash db))
         removal-path (path-to db ca (highest-hash db))
         rebuild-path (reverse (path-to db ca (bhash block)))]
-    (println "ca" ca)
-    (println "paths " removal-path rebuild-path)
     (merge-with union
                 (block-path-txn-revert-changeset db removal-path)
                 (block-path-txn-insert-changeset db rebuild-path))
@@ -310,7 +307,8 @@
                                 changeset-add-utxos
                                 changeset-remove-spent-outputs]
     (fork-non-surpassing? db block) [] ;;[fork-surpassing-changeset]
-    (fork-surpassing? db block) []
+    (fork-surpassing? db block) [fork-surpassing-utxo-changeset
+                                 changeset-highest-hash]
     (orphan? db block) []
     :else (throw (Exception. "Unknown block insert case"))))
 
