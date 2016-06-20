@@ -179,10 +179,12 @@
                 (reduce union))})
 
 (defn changeset-block-only-inserts [db {{block-hash :hash parent-hash :parent-hash} :header :as block}]
-  {:put #{[(db-key/block block-hash) block]
-          [(db-key/child-blocks parent-hash) (conj (children db parent-hash) block-hash)]
-          [(db-key/chain-length block-hash) (inc (chain-length db parent-hash))]}
-   :delete #{}})
+  (merge-with union
+              {:put #{[(db-key/block block-hash) block]
+                      [(db-key/child-blocks parent-hash) (conj (children db parent-hash) block-hash)]
+                      [(db-key/chain-length block-hash) (inc (chain-length db parent-hash))]}
+               :delete #{}}
+              (changeset-transaction-inserts db block)))
 
 (defn changeset-revert-utxos [db block]
   ;; use process for adding utxos but just take the keys for deletion
@@ -245,8 +247,7 @@
                            (map-indexed (fn [i utxo]
                                           (db-key/utxo (:address utxo) (:hash txn) i))
                                         (:outputs txn)))
-                         (:transactions block)))}
-  )
+                         (:transactions block)))})
 
 (defn block-path-txn-revert-changeset [db block-hashes]
   (let [all (->> block-hashes
@@ -254,11 +255,36 @@
                  (map (partial block-txn-revert db))
                  (reduce (partial merge-with union)))]
     (update all :put (fn [put-set]
-                       (println put-set)
-                       (println (:delete all))
                        (into #{}
                              (filter (fn [[k v]] (not (contains? (:delete all) k)))
                                      put-set))))))
+
+(defn block-txn-insert [db block]
+  ;; now we are going forward, so apply new utxos
+  ;; and delete spent sources
+  {:put (into #{}
+              (mapcat (fn [txn]
+                        (map-indexed (fn [i utxo]
+                                       [(db-key/utxo (:address utxo) (:hash txn) i)
+                                        utxo])
+                                     (:outputs txn)))
+                      (:transactions block)))
+   :delete (into #{}
+                 (mapcat (fn [txn]
+                           (map (fn [input]
+                                  (let [o (source-output db input)]
+                                    (db-key/utxo (:address o)
+                                                 (:source-hash input)
+                                                 (:source-index input))))
+                                (:inputs txn)))
+                         (:transactions block)))})
+
+(defn block-path-txn-insert-changeset [db block-hashes]
+  (let [all (->> block-hashes
+                 (map (partial get-block db))
+                 (map (partial block-txn-insert db))
+                 (reduce (partial merge-with) union))]
+    all))
 
 (defn fork-surpassing-changeset [db block]
   (println "TRYING FORK SURPASSSS" block)
@@ -298,11 +324,14 @@
          (map (fn [u] (u db block)))
          (reduce (partial merge-with union))))
 
+(defn add-block-no-utxos [db block]
+  (apply-changeset db (changeset-block-only-inserts db block)))
+
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   ;; Process -- First, add the block
   ;; (accept all blocks if they get to this point)
   ;; THEN, try to sort out what is needed wrt txn pool
-  (apply-changeset db (changeset-block-only-inserts db block))
+  (add-block-no-txns db block)
   (let [addl-changes (block-insert-scenario db block)]
     (apply-changeset db (merge-changesets db block addl-changes)))
   (clear-txn-pool db block))

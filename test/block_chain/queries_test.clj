@@ -209,10 +209,10 @@
     (is (contains? insert-keys "block:fork-1"))
     (is (contains? insert-keys "child-blocks:block-1"))
     (is (contains? insert-keys "chain-length:fork-1"))
-    (is (not (contains? insert-keys "transaction:fork-txn-1")))
-    (is (not (contains? insert-keys (str "utxo:" (sha256 "addr-a") ":fork-txn-1:0"))))
+    (is (contains? insert-keys "transaction:fork-txn-1"))
     ;; Since this is a non-surpassing fork we don't insert the txns
     ;; and utxos yet:
+    (is (not (contains? insert-keys (str "utxo:" (sha256 "addr-a") ":fork-txn-1:0"))))
     (is (empty? (:put txn-inserts)))
     (is (empty? (:delete txn-inserts)))))
 
@@ -248,40 +248,6 @@
   (is (= ["block-2"] (path-to @empty-db "block-1" "block-2")))
   (is (= [] (path-to @empty-db "block-1" "pizza"))))
 
-;; Block insert cases:
-;; 1 - child of highest block -- simple advancement
-;;     - Add block
-;;     - Add block's TXNs
-;; 2 - orphan -- parent is unknown
-;;     - ?? Not sure
-;; 3 - Fork, not (yet) higher
-;;     - Add block
-;; 4 - Fork, surpassing
-;;     - Add block
-;;     - Add block's TXNs
-;;     - Add TXNs for all blocks back to common ancestor
-;;     - Remove all UTXOs from losing side of fork
-;; TODO: Batch these all in leveldb
-
-
-;; (def simple-block
-;;   {:header {:parent-hash "0" :hash "block-1"}
-;;    :transactions [{:hash "txn-1" :inputs [] :outputs [{:amount 25
-;;                                                        :address "addr-a"}]}]})
-;; (def next-block
-;;   {:header {:parent-hash "block-1"
-;;             :hash "block-2"}
-;;    :transactions [{:hash "txn-2"
-;;                    :inputs [{:source-hash "txn-1" :source-index 0}]
-;;                    :outputs [{:amount 25 :address "addr-b"}]}]})
-;; (def fork-block-1
-;;   {:header {:parent-hash "block-1" :hash "fork-1"}
-;;    :transactions [{:hash "fork-txn-1" :inputs []
-;;                    :outputs [{:amount 25 :address "addr-a"}]}]})
-;; (def fork-block-2
-;;   {:header {:parent-hash "fork-1" :hash "fork-2"}
-;;    :transactions [{:hash "fork-txn-2" :inputs [] :outputs [{:amount 25
-;;                                                             :address "addr-a"}]}]})
 (def block-3
   {:header {:parent-hash "block-2"
             :hash "block-3"}
@@ -319,6 +285,57 @@
                          {:amount 25 :address "addr-b"}]))))
   )
 
+(deftest test-building-txn-set-on-a-path
+  (let [fork-1 {:header {:parent-hash "block-1" :hash "fork-1"}
+                :transactions [{:hash "fork-txn-1" :inputs []
+                                :outputs [{:amount 25 :address "addr-a"}]}]}
+        fork-2 {:header {:parent-hash "fork-1" :hash "fork-2"}
+                :transactions [{:hash "fork-txn-2" :inputs [{:source-hash "fork-txn-1"
+                                                             :source-index 0}]
+                                :outputs [{:amount 25 :address "addr-b"}]}]}]
+    (add-block! empty-db simple-block)
+    (add-block-no-utxos @empty-db fork-1)
+    (add-block-no-utxos @empty-db fork-2)
+    ;; should insert all FINAL utxos without inserting any intermediates
+    ;; also needs to delete any utxos that were created outside of the path
+    ;; but spent within it
+    (let [cs (block-path-txn-insert-changeset @empty-db ["fork-1"])]
+      (println cs)
+      (is (contains? (:put cs)
+                     [(db-key/utxo "addr-a" "fork-txn-1" 0)
+                      {:amount 25 :address "addr-a"}])))
+    (let [cs (block-path-txn-insert-changeset @empty-db ["fork-1" "fork-2"])]
+      ;; Net 1 UTXO insert since intermediate utxo gets spent by following block
+      (is (= {:put #{[(db-key/utxo "addr-b" "fork-txn-2" 0)
+                      {:amount 25 :address "addr-b"}]}
+              :delete #{}})
+          cs))))
+
+(deftest test-building-txn-set-when-spending-utxo-from-main-chain
+  (let [main-1 {:header {:parent-hash "0" :hash "block-1"}
+                :transactions [{:hash "txn-1" :inputs [] :outputs [{:amount 25
+                                                                    :address "addr-a"}]}]}
+        fork-1 {:header {:parent-hash "block-1" :hash "fork-1"}
+                :transactions [{:hash "fork-txn-1" :inputs [{:source-hash }]
+                                :outputs [{:amount 25 :address "addr-a"}]}]}]
+    (add-block! empty-db simple-block)
+    (add-block-no-utxos @empty-db fork-1)
+    (add-block-no-utxos @empty-db fork-2)
+    ;; should insert all FINAL utxos without inserting any intermediates
+    ;; also needs to delete any utxos that were created outside of the path
+    ;; but spent within it
+    (let [cs (block-path-txn-insert-changeset @empty-db ["fork-1"])]
+      (println cs)
+      (is (contains? (:put cs)
+                     [(db-key/utxo "addr-a" "fork-txn-1" 0)
+                      {:amount 25 :address "addr-a"}])))
+    (let [cs (block-path-txn-insert-changeset @empty-db ["fork-1" "fork-2"])]
+      ;; Net 1 UTXO insert since intermediate utxo gets spent by following block
+      (is (= {:put #{[(db-key/utxo "addr-b" "fork-txn-2" 0)
+                      {:amount 25 :address "addr-b"}]}
+              :delete #{}})
+          cs))))
+
 (deftest utxo-rewinding-for-fork-resolution
   ;; (add-block! empty-db simple-block)
   ;; (is (= 25 (utxo-balance @empty-db "addr-a")))
@@ -337,3 +354,19 @@
   )
 
 (run-tests)
+
+
+;; Block insert cases:
+;; 1 - child of highest block -- simple advancement
+;;     - Add block
+;;     - Add block's TXNs
+;; 2 - orphan -- parent is unknown
+;;     - ?? Not sure
+;; 3 - Fork, not (yet) higher
+;;     - Add block
+;; 4 - Fork, surpassing
+;;     - Add block
+;;     - Add block's TXNs
+;;     - Add TXNs for all blocks back to common ancestor
+;;     - Remove all UTXOs from losing side of fork
+;; TODO: Batch these all in leveldb
