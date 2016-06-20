@@ -59,6 +59,44 @@
   (set (ldb/get (:block-db db)
                 (db-key/child-blocks hash))))
 
+(defn common-ancestor [db left-hash right-hash]
+  (println "CA Search Start:" left-hash right-hash)
+  (assert (= java.lang.String (type left-hash)))
+  (assert (= java.lang.String (type right-hash)))
+  (loop [left (get-block db left-hash)
+         right (get-block db right-hash)
+         left-search #{(bhash left)}
+         right-search #{(bhash right)}
+         i 0]
+    (println "get common ancestor")
+    (println "l:" (bhash left) "r:" (bhash right))
+    (println "lsearch:" left-search "rsearch:" right-search )
+    (cond
+      (first (intersection left-search right-search)) (first (intersection left-search right-search))
+      (and (nil? left) (nil? right)) "DUNNO"
+      (> i 50) "Didnt find ancestor after many loops"
+      :else (recur (get-parent db left)
+                   (get-parent db right)
+                   (if (nil? left)
+                     left-search
+                     (conj left-search (phash left)))
+                   (if (nil? right)
+                     right-search
+                     (conj right-search (phash right)))
+                   (inc i))
+
+      )))
+
+(defn path-to [db to from]
+  (loop [path []
+         current (get-block db from)]
+    (println "get path to")
+    (cond
+      (= to (bhash current)) path
+      (or (nil? to) (nil? current)) []
+      :else (recur (conj path (bhash current))
+                   (get-parent db current)))))
+
 (defn add-transaction-output [db utxo txn-id index]
   (ldb/put (:block-db db) (db-key/utxo (:address utxo) txn-id index) utxo))
 
@@ -143,7 +181,8 @@
 (defn changeset-block-only-inserts [db {{block-hash :hash parent-hash :parent-hash} :header :as block}]
   {:put #{[(db-key/block block-hash) block]
           [(db-key/child-blocks parent-hash) (conj (children db parent-hash) block-hash)]
-          [(db-key/chain-length block-hash) (inc (chain-length db parent-hash))]}})
+          [(db-key/chain-length block-hash) (inc (chain-length db parent-hash))]}
+   :delete #{}})
 
 (defn changeset-revert-utxos [db block]
   ;; use process for adding utxos but just take the keys for deletion
@@ -167,11 +206,14 @@
       (update :delete union (map first (:put (changeset-transaction-inserts db block))))
       (update :put union (changeset-revert-spending-inputs db block))))
 
-(defn linear-advance? [db block] (= (highest-hash db) (phash block)))
+(defn linear-advance? [db block] (or (nil? (highest-hash db))
+                                     (= (highest-hash db) (phash block))))
+
 (defn fork-non-surpassing? [db block]
   (and (not (= (highest-hash db) (phash block)))
        (<= (inc (chain-length db (phash block)))
           (chain-length db))))
+
 (defn fork-surpassing? [db block]
   (and (not (= (highest-hash db) (phash block)))
        (> (inc (chain-length db (phash block)))
@@ -179,21 +221,60 @@
 
 (defn orphan? [db block] (nil? (get-parent db block)))
 
-(def block-insert-updates
-  {:linear-advance [changeset-block-only-inserts
-                    changeset-highest-hash
-                    changeset-transaction-inserts
-                    changeset-add-utxos
-                    changeset-remove-spent-outputs]
-   :fork-surpassing [changeset-block-only-inserts
-                     changeset-highest-hash
-                     changeset-transaction-inserts
-                     changeset-add-utxos
-                     changeset-remove-spent-outputs]
-   :orphan [changeset-block-only-inserts]
-   :fork-non-surpassing [changeset-block-only-inserts]})
+(defn apply-changeset [db cs]
+  (doseq [[k v] (:put cs)]
+    (ldb/put (:block-db db) k v))
+  (doseq [k (:delete cs)]
+    (ldb/delete (:block-db db) k)))
+
+(defn block-txn-revert [db block]
+  ;; Bring back any txn sources that had been marked spent by this txn
+  {:put (into #{}
+              (mapcat (fn [txn]
+                        (map (fn [input]
+                               (let [o (source-output db input)]
+                                 [(db-key/utxo (:address o)
+                                               (:source-hash input)
+                                               (:source-index input))
+                                  o]))
+                             (:inputs txn)))
+                      (:transactions block)))
+   ;; Remove all the utxos produced by this txn
+   :delete (into #{}
+                 (mapcat (fn [txn]
+                           (map-indexed (fn [i utxo]
+                                          (db-key/utxo (:address utxo) (:hash txn) i))
+                                        (:outputs txn)))
+                         (:transactions block)))}
+  )
+
+(defn block-path-txn-revert-changeset [db block-hashes]
+  (let [all (->> block-hashes
+                 (map (partial get-block db))
+                 (map (partial block-txn-revert db))
+                 (reduce (partial merge-with union)))]
+    (update all :put (fn [put-set]
+                       (println put-set)
+                       (println (:delete all))
+                       (into #{}
+                             (filter (fn [[k v]] (not (contains? (:delete all) k)))
+                                     put-set))))))
 
 (defn fork-surpassing-changeset [db block]
+  (println "TRYING FORK SURPASSSS" block)
+  (println "bhassh: " (bhash block))
+  (println "highest hash: " (highest-hash db))
+  (let [ca (common-ancestor db (bhash block) (highest-hash db))
+        removal-path (path-to db ca (highest-hash db))
+        rebuild-path (path-to db ca (bhash block))]
+    (println "ca" ca)
+    (println "paths " removal-path rebuild-path)
+    #_(doseq [block-hash removal-path]
+      (apply-changeset db (changeset-revert-block-transactions db (get-block block-hash))))
+    #_(doseq [block-hash (reverse rebuild-path)]
+      (apply-changeset db (changeset-revert-block-transactions db (get-block block-hash))))
+    {:put #{} :delete #{}}
+    )
   ;; find common ancestor
   ;; 1 - revert the transactions on path from highest block to common ancestor
   ;;     (reverse order, from highest block to lowest)
@@ -203,65 +284,31 @@
 
 (defn block-insert-scenario [db block]
   (cond
-    (linear-advance? db block) :linear-advance
-    (fork-non-surpassing? db block) :fork-non-surpassing
-    (fork-surpassing? db block) :fork-surpassing
-    (orphan? db block) :orphan
+    (linear-advance? db block) [changeset-highest-hash
+                                changeset-transaction-inserts
+                                changeset-add-utxos
+                                changeset-remove-spent-outputs]
+    (fork-non-surpassing? db block) [] ;;[fork-surpassing-changeset]
+    (fork-surpassing? db block) []
+    (orphan? db block) []
     :else (throw (Exception. "Unknown block insert case"))))
 
-(defn changeset-add-block [db {{block-hash :hash parent-hash :parent-hash} :header :as block}]
-  (let [required-updates (block-insert-updates (block-insert-scenario db block))]
-    (->> required-updates
+(defn merge-changesets [db block changesets]
+    (->> changesets
          (map (fn [u] (u db block)))
-         (reduce (partial merge-with union)))))
+         (reduce (partial merge-with union))))
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
-  (let [cs (changeset-add-block db block)]
-    (doseq [[k v] (:put cs)]
-      (ldb/put (:block-db db) k v))
-    (doseq [k (:delete cs)]
-      (ldb/delete (:block-db db) k)))
+  ;; Process -- First, add the block
+  ;; (accept all blocks if they get to this point)
+  ;; THEN, try to sort out what is needed wrt txn pool
+  (apply-changeset db (changeset-block-only-inserts db block))
+  (let [addl-changes (block-insert-scenario db block)]
+    (apply-changeset db (merge-changesets db block addl-changes)))
   (clear-txn-pool db block))
 
-(defn fork-path
-  "Take a db context and 2 block hashes, one for the head of the new
-   fork and one for the head of the existing trunk. Produce a sequence
-   of block hashes representing the path from the main chain to the new
-   fork head. Includes the fork head as the last element in the path but
-   excludes the common ancestor from the main chain."
-  [db fork-hash trunk-hash]
-  (loop [fork-block (get-block db fork-hash)
-         trunk-block (get-block db trunk-hash)
-         path (list fork-hash)
-         trunk-hashes #{trunk-hash}]
-    (cond
-      (contains? trunk-hashes (bhash fork-block)) (drop 1 path)
-      (or (nil? fork-block) (nil? trunk-block)) (println "FAILED")
-      :else (recur (get-parent db fork-block)
-                   (get-parent db trunk-block)
-                   (conj path (phash fork-block))
-                   (conj trunk-hashes (phash trunk-block))))))
-
-(defn common-ancestor [db left-hash right-hash]
-  (loop [left (get-block db left-hash)
-         right (get-block db right-hash)
-         left-search #{(phash left)}
-         right-search #{(phash right)}]
-    (if-let [shared (first (intersection left-search right-search))]
-      shared
-      (recur (get-parent db left)
-             (get-parent db right)
-             (conj left-search (phash left))
-             (conj right-search (phash right))))))
-
-(defn path-to [db to from]
-  (loop [path []
-         current (get-block db from)]
-    (cond
-      (= to (bhash current)) path
-      (nil? current) []
-      :else (recur (conj path (bhash current))
-                   (get-parent db current)))))
+(defn add-block! [db-ref block]
+  (swap! db-ref add-block block))
 
 (defn all-txns
   "Linear iteration through all Transactions in the DB using a leveldb
@@ -271,9 +318,6 @@
   (map last (ldb/iterator (:block-db db)
                           (apply str "transaction:" (take 40 (repeat "0")))
                           (apply str "transaction:" (take 40 (repeat "z"))))))
-
-(defn add-block! [db-ref block]
-  (swap! db-ref add-block block))
 
 (defn add-peer [db peer]
   (try
