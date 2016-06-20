@@ -308,33 +308,42 @@
       ;; Net 1 UTXO insert since intermediate utxo gets spent by following block
       (is (= {:put #{[(db-key/utxo "addr-b" "fork-txn-2" 0)
                       {:amount 25 :address "addr-b"}]}
-              :delete #{}})
-          cs))))
+              :delete #{(db-key/utxo "addr-a" "fork-txn-1" 0)}}
+             cs)))))
 
 (deftest test-building-txn-set-when-spending-utxo-from-main-chain
   (let [main-1 {:header {:parent-hash "0" :hash "block-1"}
                 :transactions [{:hash "txn-1" :inputs [] :outputs [{:amount 25
                                                                     :address "addr-a"}]}]}
         fork-1 {:header {:parent-hash "block-1" :hash "fork-1"}
-                :transactions [{:hash "fork-txn-1" :inputs [{:source-hash }]
+                :transactions [{:hash "fork-txn-1" :inputs [{:source-hash "txn-1" :source-index 0}]
                                 :outputs [{:amount 25 :address "addr-a"}]}]}]
     (add-block! empty-db simple-block)
     (add-block-no-utxos @empty-db fork-1)
-    (add-block-no-utxos @empty-db fork-2)
-    ;; should insert all FINAL utxos without inserting any intermediates
-    ;; also needs to delete any utxos that were created outside of the path
+    ;; should insert all FINAL utxos and delete any utxos that were created outside of the path
     ;; but spent within it
     (let [cs (block-path-txn-insert-changeset @empty-db ["fork-1"])]
-      (println cs)
-      (is (contains? (:put cs)
-                     [(db-key/utxo "addr-a" "fork-txn-1" 0)
-                      {:amount 25 :address "addr-a"}])))
-    (let [cs (block-path-txn-insert-changeset @empty-db ["fork-1" "fork-2"])]
+      (is (= {:put #{[(db-key/utxo "addr-a" "fork-txn-1" 0)
+                      {:amount 25 :address "addr-a"}]}
+              :delete #{(db-key/utxo "addr-a" "txn-1" 0)}}
+             cs)))))
+
+(deftest test-building-surpassing-fork-utxo-changeset
+  (add-block! empty-db simple-block)
+  (add-block! empty-db next-block)
+  (add-block-no-utxos @empty-db fork-block-1)
+  (add-block-no-utxos @empty-db fork-block-2)
+  (let [cs (fork-surpassing-utxo-changeset @empty-db fork-block-2)]
       ;; Net 1 UTXO insert since intermediate utxo gets spent by following block
-      (is (= {:put #{[(db-key/utxo "addr-b" "fork-txn-2" 0)
-                      {:amount 25 :address "addr-b"}]}
-              :delete #{}})
-          cs))))
+    (is (= {:put #{[(db-key/utxo "addr-a" "fork-txn-1" 0)
+                    {:amount 25 :address "addr-a"}]
+                   [(db-key/utxo "addr-a" "fork-txn-2" 0)
+                    {:amount 25 :address "addr-a"}]
+                   [(db-key/utxo "addr-a" "txn-1" 0)
+                    {:amount 25 :address "addr-a"}]}
+            :delete #{(db-key/utxo "addr-b" "txn-2" 0)}}
+           cs)))
+  )
 
 (deftest utxo-rewinding-for-fork-resolution
   ;; (add-block! empty-db simple-block)

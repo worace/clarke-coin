@@ -286,20 +286,15 @@
                  (reduce (partial merge-with) union))]
     all))
 
-(defn fork-surpassing-changeset [db block]
-  (println "TRYING FORK SURPASSSS" block)
-  (println "bhassh: " (bhash block))
-  (println "highest hash: " (highest-hash db))
+(defn fork-surpassing-utxo-changeset [db block]
   (let [ca (common-ancestor db (bhash block) (highest-hash db))
         removal-path (path-to db ca (highest-hash db))
-        rebuild-path (path-to db ca (bhash block))]
+        rebuild-path (reverse (path-to db ca (bhash block)))]
     (println "ca" ca)
     (println "paths " removal-path rebuild-path)
-    #_(doseq [block-hash removal-path]
-      (apply-changeset db (changeset-revert-block-transactions db (get-block block-hash))))
-    #_(doseq [block-hash (reverse rebuild-path)]
-      (apply-changeset db (changeset-revert-block-transactions db (get-block block-hash))))
-    {:put #{} :delete #{}}
+    (merge-with union
+                (block-path-txn-revert-changeset db removal-path)
+                (block-path-txn-insert-changeset db rebuild-path))
     )
   ;; find common ancestor
   ;; 1 - revert the transactions on path from highest block to common ancestor
@@ -331,7 +326,7 @@
   ;; Process -- First, add the block
   ;; (accept all blocks if they get to this point)
   ;; THEN, try to sort out what is needed wrt txn pool
-  (add-block-no-txns db block)
+  (add-block-no-utxos db block)
   (let [addl-changes (block-insert-scenario db block)]
     (apply-changeset db (merge-changesets db block addl-changes)))
   (clear-txn-pool db block))
