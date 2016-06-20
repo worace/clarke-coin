@@ -217,10 +217,6 @@
   (add-block! empty-db fork-block-1)
   (is (fork-surpassing? @empty-db fork-block-2)))
 
-;;         fork-1 -> fork-2
-;;         /
-;; block-1 -> block-2
-
 (deftest test-common-ancestor
   (add-block! empty-db simple-block)
   (add-block! empty-db next-block)
@@ -291,7 +287,6 @@
     ;; also needs to delete any utxos that were created outside of the path
     ;; but spent within it
     (let [cs (block-path-txn-insert-changeset @empty-db ["fork-1"])]
-      (println cs)
       (is (contains? (:put cs)
                      [(db-key/utxo "addr-a" "fork-txn-1" 0)
                       {:amount 25 :address "addr-a"}])))
@@ -318,20 +313,6 @@
                       {:amount 25 :address "addr-a"}]}
               :delete #{(db-key/utxo "addr-a" "txn-1" 0)}}
              cs)))))
-
-(def simple-block
-  {:header {:parent-hash "0" :hash "block-1"}
-   :transactions [{:hash "txn-1" :inputs [] :outputs [{:amount 25 :address "addr-a"}]}]})
-(def next-block
-  {:header {:parent-hash "block-1" :hash "block-2"}
-   :transactions [{:hash "txn-2" :inputs [{:source-hash "txn-1" :source-index 0}]
-                   :outputs [{:amount 25 :address "addr-b"}]}]})
-(def fork-block-1
-  {:header {:parent-hash "block-1" :hash "fork-1"}
-   :transactions [{:hash "fork-txn-1" :inputs [] :outputs [{:amount 25 :address "addr-a"}]}]})
-(def fork-block-2
-  {:header {:parent-hash "fork-1" :hash "fork-2"}
-   :transactions [{:hash "fork-txn-2" :inputs [] :outputs [{:amount 25 :address "addr-a"}]}]})
 
 (deftest test-building-utxo-insert-changeset-for-path-includes-all-new-utxos
   (add-block! empty-db simple-block)
@@ -374,23 +355,4 @@
 
   (add-block! empty-db fork-block-2)
   (is (= 75 (utxo-balance @empty-db "addr-a")))
-  (is (= 0 (utxo-balance @empty-db "addr-b")))
-  )
-
-(run-tests)
-
-
-;; Block insert cases:
-;; 1 - child of highest block -- simple advancement
-;;     - Add block
-;;     - Add block's TXNs
-;; 2 - orphan -- parent is unknown
-;;     - ?? Not sure
-;; 3 - Fork, not (yet) higher
-;;     - Add block
-;; 4 - Fork, surpassing
-;;     - Add block
-;;     - Add block's TXNs
-;;     - Add TXNs for all blocks back to common ancestor
-;;     - Remove all UTXOs from losing side of fork
-;; TODO: Batch these all in leveldb
+  (is (= 0 (utxo-balance @empty-db "addr-b"))))

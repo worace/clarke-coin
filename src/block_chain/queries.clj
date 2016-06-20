@@ -285,20 +285,19 @@
                                        (not (contains? (:delete all) k)))
                                      put-set))))))
 
-(defn fork-surpassing-utxo-changeset [db block]
+(defn fork-surpassing-utxo-changeset
+  "Resolve a blockchain fork with regard to updating the UTXO pool so that balances
+   and outputs/inputs appear correct from the perspective of the newly-chosen fork.
+   To do this we find a common ancestor between the previous trunk and the new trunk.
+   Then we build a changeset to roll-back all of the transactions on the previous trunk
+   and apply all of the transactions on the new trunk."
+  [db block]
   (let [ca (common-ancestor db (bhash block) (highest-hash db))
         removal-path (path-to db ca (highest-hash db))
         rebuild-path (reverse (path-to db ca (bhash block)))]
     (merge-with union
                 (block-path-txn-revert-changeset db removal-path)
-                (block-path-txn-insert-changeset db rebuild-path))
-    )
-  ;; find common ancestor
-  ;; 1 - revert the transactions on path from highest block to common ancestor
-  ;;     (reverse order, from highest block to lowest)
-  ;; 2 - block-insert blocks on path from common ancestor to new highest block
-  ;;     (normal order starting from next child up to highest block)
-  )
+                (block-path-txn-insert-changeset db rebuild-path))))
 
 (defn block-insert-scenario [db block]
   (cond
@@ -321,9 +320,6 @@
   (apply-changeset db (changeset-block-only-inserts db block)))
 
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
-  ;; Process -- First, add the block
-  ;; (accept all blocks if they get to this point)
-  ;; THEN, try to sort out what is needed wrt txn pool
   (add-block-no-utxos db block)
   (let [addl-changes (block-insert-scenario db block)]
     (apply-changeset db (merge-changesets db block addl-changes)))
@@ -346,8 +342,8 @@
     (update-in db [:peers] conj (s/validate Peer peer))
     (catch RuntimeException e
       (do (log/info "Error validating peer:" e)
-          db)))
-  )
+          db))))
+
 (defn add-peer! [db-ref peer] (swap! db-ref add-peer peer))
 (defn remove-peer [db peer] (clojure.set/difference (:peers db) #{peer}))
 (defn remove-peer! [db-ref peer] (swap! db-ref remove-peer peer))
