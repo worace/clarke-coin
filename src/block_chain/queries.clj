@@ -101,11 +101,6 @@
              (reduce +)))
       0)))
 
-(defn remove-consumed-utxo [db {txn-hash :source-hash index :source-index :as input}]
-  (when-let [source (source-output db input)]
-    (ldb/delete (:block-db db)
-                (db-key/utxo (:address source) txn-hash index))))
-
 (defn coord-only-inputs [txns]
   (->> txns
        (mapcat :inputs)
@@ -232,46 +227,37 @@
                                         (:outputs txn)))
                          (:transactions block)))})
 
+(defn remove-intermediate-inserts
+  "If we get a changeset that both inserts and deletes a UTXO we assume the
+   delete wins. This works for our cases since transactions can only spend inputs that
+   came before them. This function takes a changeset of :put and :delete operations and removes
+   any :put operations that also appear in the deletion set."
+  [changeset]
+  (update changeset :put
+          (fn [put-set]
+            (into #{}
+                  (filter (fn [[k v]] (not (contains? (:delete changeset) k)))
+                          put-set)))))
+
 (defn block-path-txn-revert-changeset [db block-hashes]
-  (let [all (->> block-hashes
-                 (map (partial get-block db))
-                 (map (partial block-txn-revert db))
-                 (reduce (partial merge-with union)))]
-    (update all :put (fn [put-set]
-                       (into #{}
-                             (filter (fn [[k v]] (not (contains? (:delete all) k)))
-                                     put-set))))))
+  (->> block-hashes
+       (map (partial get-block db))
+       (map (partial block-txn-revert db))
+       (reduce (partial merge-with union))
+       (remove-intermediate-inserts)))
 
 (defn block-txn-insert [db block]
   ;; now we are going forward, so apply new utxos
   ;; and delete spent sources
-  {:put (into #{}
-              (mapcat (fn [txn]
-                        (map-indexed (fn [i utxo]
-                                       [(db-key/utxo (:address utxo) (:hash txn) i)
-                                        utxo])
-                                     (:outputs txn)))
-                      (:transactions block)))
-   :delete (into #{}
-                 (mapcat (fn [txn]
-                           (map (fn [input]
-                                  (let [o (source-output db input)]
-                                    (db-key/utxo (:address o)
-                                                 (:source-hash input)
-                                                 (:source-index input))))
-                                (:inputs txn)))
-                         (:transactions block)))})
+  (merge (changeset-add-utxos db block)
+         (changeset-remove-spent-outputs db block)))
 
 (defn block-path-txn-insert-changeset [db block-hashes]
-  (let [all (->> block-hashes
-                 (map (partial get-block db))
-                 (map (partial block-txn-insert db))
-                 (reduce (partial merge-with union)))]
-    (update all :put (fn [put-set]
-                       (into #{}
-                             (filter (fn [[k v]]
-                                       (not (contains? (:delete all) k)))
-                                     put-set))))))
+  (->> block-hashes
+       (map (partial get-block db))
+       (map (partial block-txn-insert db))
+       (reduce (partial merge-with union))
+       (remove-intermediate-inserts)))
 
 (defn fork-surpassing-utxo-changeset
   "Resolve a blockchain fork with regard to updating the UTXO pool so that balances
