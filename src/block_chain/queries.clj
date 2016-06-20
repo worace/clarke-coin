@@ -79,9 +79,7 @@
                    (if (nil? right)
                      right-search
                      (conj right-search (phash right)))
-                   (inc i))
-
-      )))
+                   (inc i)))))
 
 (defn path-to [db to from]
   (loop [path []
@@ -91,9 +89,6 @@
       (or (nil? to) (nil? current)) []
       :else (recur (conj path (bhash current))
                    (get-parent db current)))))
-
-(defn add-transaction-output [db utxo txn-id index]
-  (ldb/put (:block-db db) (db-key/utxo (:address utxo) txn-id index) utxo))
 
 (defn utxo-balance [db address]
   (let [key-start (db-key/utxos-range-start address)]
@@ -110,13 +105,6 @@
   (when-let [source (source-output db input)]
     (ldb/delete (:block-db db)
                 (db-key/utxo (:address source) txn-hash index))))
-
-(defn add-transaction [db {hash :hash :as txn}]
-  (ldb/put (:block-db db) (db-key/txn hash) txn)
-  (doseq [i (:inputs txn)]
-    (remove-consumed-utxo db i))
-  (dotimes [index (count (:outputs txn))]
-    (add-transaction-output db (get-in txn [:outputs index]) hash index)))
 
 (defn coord-only-inputs [txns]
   (->> txns
