@@ -180,12 +180,6 @@
                       #{})))
        (reduce union)))
 
-(defn changeset-revert-block-transactions [db block]
-  (-> {:put #{} :delete #{}}
-      (update :delete union (changeset-revert-utxos db block))
-      (update :delete union (map first (:put (changeset-transaction-inserts db block))))
-      (update :put union (changeset-revert-spending-inputs db block))))
-
 (defn linear-advance? [db block] (or (nil? (highest-hash db))
                                      (= (highest-hash db) (phash block))))
 
@@ -207,26 +201,6 @@
   (doseq [k (:delete cs)]
     (ldb/delete (:block-db db) k)))
 
-(defn block-txn-revert [db block]
-  ;; Bring back any txn sources that had been marked spent by this txn
-  {:put (into #{}
-              (mapcat (fn [txn]
-                        (map (fn [input]
-                               (let [o (source-output db input)]
-                                 [(db-key/utxo (:address o)
-                                               (:source-hash input)
-                                               (:source-index input))
-                                  o]))
-                             (:inputs txn)))
-                      (:transactions block)))
-   ;; Remove all the utxos produced by this txn
-   :delete (into #{}
-                 (mapcat (fn [txn]
-                           (map-indexed (fn [i utxo]
-                                          (db-key/utxo (:address utxo) (:hash txn) i))
-                                        (:outputs txn)))
-                         (:transactions block)))})
-
 (defn remove-intermediate-inserts
   "If we get a changeset that both inserts and deletes a UTXO we assume the
    delete wins. This works for our cases since transactions can only spend inputs that
@@ -238,6 +212,11 @@
             (into #{}
                   (filter (fn [[k v]] (not (contains? (:delete changeset) k)))
                           put-set)))))
+
+(defn block-txn-revert [db block]
+  ;; Bring back any txn sources that had been marked spent by this txn
+  {:put (changeset-revert-spending-inputs db block)
+   :delete (changeset-revert-utxos db block)})
 
 (defn block-path-txn-revert-changeset [db block-hashes]
   (->> block-hashes

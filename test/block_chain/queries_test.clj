@@ -179,17 +179,6 @@
     (is (contains? (:delete cs)
                    (str "utxo:" (sha256 "addr-a") ":txn-1:0")))))
 
-(deftest test-db-changeset-for-rewinding-block
-  (add-block! empty-db simple-block)
-  (let [cs (changeset-revert-block-transactions @empty-db next-block)]
-    (is (contains? (:put cs)
-                   [(str "utxo:" (sha256 "addr-a") ":txn-1:0")
-                    {:amount 25 :address "addr-a"}]))
-    (is (contains? (:delete cs)
-                   (str "utxo:" (sha256 "addr-b") ":txn-2:0")))
-    (is (contains? (:delete cs)
-                   (str "transaction:txn-2")))))
-
 (deftest test-db-changeset-for-non-surpassing-fork
   (add-block! empty-db simple-block)
   (add-block! empty-db next-block)
