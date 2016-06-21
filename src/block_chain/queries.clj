@@ -169,21 +169,6 @@
                       #{})))
        (reduce union)))
 
-(defn linear-advance? [db block] (or (nil? (highest-hash db))
-                                     (= (highest-hash db) (phash block))))
-
-(defn fork-non-surpassing? [db block]
-  (and (not (= (highest-hash db) (phash block)))
-       (<= (inc (chain-length db (phash block)))
-          (chain-length db))))
-
-(defn fork-surpassing? [db block]
-  (and (not (= (highest-hash db) (phash block)))
-       (> (inc (chain-length db (phash block)))
-          (chain-length db))))
-
-(defn orphan? [db block] (nil? (get-parent db block)))
-
 (defn apply-changeset [db cs]
   (doseq [[k v] (:put cs)]
     (ldb/put (:block-db db) k v))
@@ -240,6 +225,21 @@
     (merge-with union
                 (block-path-txn-revert-changeset db removal-path)
                 (block-path-txn-insert-changeset db rebuild-path))))
+
+(defn linear-advance? [db block] (or (nil? (highest-hash db))
+                                     (= (highest-hash db) (phash block))))
+
+(defn fork-non-surpassing? [db block]
+  (and (not (= (highest-hash db) (phash block)))
+       (<= (inc (chain-length db (phash block)))
+          (chain-length db))))
+
+(defn fork-surpassing? [db block]
+  (and (not (= (highest-hash db) (phash block)))
+       (> (inc (chain-length db (phash block)))
+          (chain-length db))))
+
+(defn orphan? [db block] (nil? (get-parent db block)))
 
 (defn block-insert-scenario [db block]
   (cond
