@@ -132,7 +132,7 @@
 (defn unsigned-payment
   ([from-address to-address amount db] (unsigned-payment from-address to-address amount db 0))
   ([from-address to-address amount db fee]
-   (let [output-pool (difference (into #{} (q/unspent-outputs from-address db))
+   (let [output-pool (difference (into #{} (q/unspent-outputs db from-address))
                                  (q/outputs-spent-by-txn-pool db))
          sources (select-sources (+ amount fee) output-pool)
          txn (raw-txn amount to-address sources)]

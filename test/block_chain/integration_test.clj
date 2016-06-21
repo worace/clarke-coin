@@ -57,7 +57,7 @@
 (deftest test-checking-balances
   (dotimes [n 3] (miner/mine-and-commit-db! db))
   (is (= 3 (q/chain-length @db)))
-  (is (= 3 (count (q/unspent-outputs address-a @db))))
+  (is (= 3 (count (q/unspent-outputs @db address-a))))
   (is (= 75 (q/balance @db address-a))))
 
 (deftest test-selecting-sources-from-output-pool
@@ -73,7 +73,7 @@
 (deftest test-generating-payment-fails-without-sufficient-funds
   (miner/mine-and-commit-db! db)
   (is (= 1 (count (q/longest-chain @db))))
-  (is (= 1 (count (q/unspent-outputs address-a @db))))
+  (is (= 1 (count (q/unspent-outputs @db address-a))))
   (is (= 25 (q/balance @db address-a)))
   (is (thrown? AssertionError
                (txn/payment key-a

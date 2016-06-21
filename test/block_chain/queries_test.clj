@@ -132,7 +132,7 @@
     (is (not (nil? (ldb/get conn utxo-key))))
     (is (= (first (:outputs txn))
            (ldb/get conn utxo-key)))
-    (is (= 25 (utxo-balance @empty-db address)))))
+    (is (= 25 (balance @empty-db address)))))
 
 (def simple-block
   {:header {:parent-hash "0" :hash "block-1"}
@@ -150,14 +150,14 @@
 
 (deftest removing-spent-utxos
   (add-block! empty-db simple-block)
-  (is (= 25 (utxo-balance @empty-db "addr-a")))
+  (is (= 25 (balance @empty-db "addr-a")))
   (add-block! empty-db next-block)
   (is (= {:amount 25 :address "addr-a"} (source-output @empty-db {:source-hash "txn-1" :source-index 0})))
-  (is (= 0 (utxo-balance @empty-db "addr-a")))
-  (is (= 25 (utxo-balance @empty-db "addr-b"))))
+  (is (= 0 (balance @empty-db "addr-a")))
+  (is (= 25 (balance @empty-db "addr-b"))))
 
-(deftest utxo-balance-for-nonexistent-key
-  (is (= 0 (utxo-balance @empty-db "pizza"))))
+(deftest balance-for-nonexistent-key
+  (is (= 0 (balance @empty-db "pizza"))))
 
 (deftest test-building-db-changesets
   (let [b simple-block
@@ -332,16 +332,16 @@
 
 (deftest utxo-rewinding-for-fork-resolution
   (add-block! empty-db simple-block)
-  (is (= 25 (utxo-balance @empty-db "addr-a")))
+  (is (= 25 (balance @empty-db "addr-a")))
 
   (add-block! empty-db next-block)
-  (is (= 0 (utxo-balance @empty-db "addr-a")))
-  (is (= 25 (utxo-balance @empty-db "addr-b")))
+  (is (= 0 (balance @empty-db "addr-a")))
+  (is (= 25 (balance @empty-db "addr-b")))
 
   (add-block! empty-db fork-block-1)
-  (is (= 0 (utxo-balance @empty-db "addr-a")))
-  (is (= 25 (utxo-balance @empty-db "addr-b")))
+  (is (= 0 (balance @empty-db "addr-a")))
+  (is (= 25 (balance @empty-db "addr-b")))
 
   (add-block! empty-db fork-block-2)
-  (is (= 75 (utxo-balance @empty-db "addr-a")))
-  (is (= 0 (utxo-balance @empty-db "addr-b"))))
+  (is (= 75 (balance @empty-db "addr-a")))
+  (is (= 0 (balance @empty-db "addr-b"))))

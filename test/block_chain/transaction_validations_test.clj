@@ -58,8 +58,8 @@
   ;; 2x Coinbase, 1x Transfer, 1x Change
   (is (= 3 (count (q/utxos @db))))
   (is (= 4 (count (mapcat :outputs (mapcat :transactions (q/longest-chain @db))))))
-  (is (= 2 (count (q/unspent-outputs addr-a @db))))
-  (is (= 1 (count (q/unspent-outputs addr-b @db))))
+  (is (= 2 (count (q/unspent-outputs @db addr-a))))
+  (is (= 1 (count (q/unspent-outputs @db addr-b))))
   (is (= 10 (q/balance @db addr-b)))
   (is (= 40 (q/balance @db addr-a)))
   (let [p (txn/payment key-a addr-b 15 @db)]

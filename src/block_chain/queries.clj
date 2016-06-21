@@ -90,17 +90,6 @@
       :else (recur (conj path (bhash current))
                    (get-parent db current)))))
 
-(defn utxo-balance [db address]
-  (let [key-start (db-key/utxos-range-start address)]
-    (if-let [iter (ldb/iterator (:block-db db) key-start)]
-      (with-open [iter iter]
-        (->> iter
-             (take-while (fn [[k v]] (starts-with? k key-start)))
-             (map last)
-             (map :amount)
-             (reduce +)))
-      0)))
-
 (defn coord-only-inputs [txns]
   (->> txns
        (mapcat :inputs)
@@ -332,12 +321,19 @@
 
 (defn assigned-to-key? [key txo] (= key (:address txo)))
 
-(defn unspent-outputs [key db]
-  (->> (utxos db)
-       (filter (partial assigned-to-key? key))))
+(defn unspent-outputs [db address]
+  (let [key-start (db-key/utxos-range-start address)]
+    (if-let [iter (ldb/iterator (:block-db db) key-start)]
+      (with-open [iter iter]
+        (->> iter
+             (take-while (fn [[k v]] (starts-with? k key-start)))
+             (map last)))
+      [])))
 
 (defn balance [db address]
-  (utxo-balance db address))
+  (->> (unspent-outputs db address)
+       (map :amount)
+       (reduce +)))
 
 (defn wallet-addr [db] (get-in db [:default-key :address]))
 
