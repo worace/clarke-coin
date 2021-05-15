@@ -10,7 +10,8 @@
 (defn fake-next-block [{{hash :hash} :header :as block}]
   (-> block
       (assoc-in [:header :parent-hash] hash)
-      (update-in [:header :hash] sha256)))
+      (update-in [:header :hash] sha256)
+      (update-in [:transactions 0 :hash] sha256)))
 
 (defn fake-chain
   ([] (fake-chain db/genesis-block))
@@ -23,6 +24,7 @@
 (def sample-chain (take 5 (fake-chain)))
 (def empty-db (atom nil))
 (def sample-db (atom nil))
+(def genesis-addr (get-in db/genesis-block [:transactions 0 :outputs 0 :address]))
 
 (defn setup [tests]
   (with-open [empty-conn (th/temp-db-conn)
@@ -345,3 +347,26 @@
   (add-block! empty-db fork-block-2)
   (is (= 75 (balance @empty-db "addr-a")))
   (is (= 0 (balance @empty-db "addr-b"))))
+
+#_(deftest safely-reads-and-writes-in-parallel
+  (add-block! empty-db db/genesis-block)
+  (let [next-block (fake-next-block db/genesis-block)
+        addr (get-in db/genesis-block [:transactions 0 :outputs 0 :address])
+        writers (->> (take 100 (repeat next-block))
+                     (map (fn [b] (future (add-block! empty-db b)))))
+        readers (take 100 (repeat (future (balance @empty-db addr))))]
+    ;; Multiple reads and writes at same time
+    (map deref readers)
+    (map deref writers)
+    (is (= 1 (chain-length @empty-db)))
+    (is (= 25 (balance @empty-db addr))))
+
+
+  )
+
+
+(deftest reading-during-sequential-writes
+  (let [c (take 100 (fake-chain))]
+    (doseq [block c] (add-block! empty-db block))
+    (Thread/sleep 2000)
+    (is (= 2500 (balance @empty-db genesis-addr)))))

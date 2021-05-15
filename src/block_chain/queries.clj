@@ -173,7 +173,8 @@
   (doseq [[k v] (:put cs)]
     (ldb/put (:block-db db) k v))
   (doseq [k (:delete cs)]
-    (ldb/delete (:block-db db) k)))
+    (ldb/delete (:block-db db) k))
+  (ldb/sync (:block-db db)))
 
 (defn remove-intermediate-inserts
   "If we get a changeset that both inserts and deletes a UTXO we assume the
@@ -264,7 +265,8 @@
 (defn add-block [db {{hash :hash parent-hash :parent-hash} :header :as block}]
   (add-block-no-utxos db block)
   (let [addl-changes (block-insert-scenario db block)]
-    (apply-changeset db (merge-changesets db block addl-changes)))
+    (apply-changeset db (merge-changesets db block addl-changes))
+    )
   (clear-txn-pool db block))
 
 (defn add-block! [db-ref block]
@@ -322,13 +324,19 @@
 (defn assigned-to-key? [key txo] (= key (:address txo)))
 
 (defn unspent-outputs [db address]
+  (println "GET UNSPENT OUTPUTS")
   (let [key-start (db-key/utxos-range-start address)]
-    (if-let [iter (ldb/iterator (:block-db db) key-start)]
-      (with-open [iter iter]
-        (->> iter
-             (take-while (fn [[k v]] (starts-with? k key-start)))
-             (map last)))
-      [])))
+    (println "GOT START KEY")
+    (with-open [db (ldb/snapshot (:block-db db))]
+      (println "snapshot")
+      (if-let [iter (ldb/iterator db key-start)]
+        (with-open [iter iter]
+          (let [res (->> iter
+                          (take-while (fn [[k v]] (println "taking key from iter..." k) (starts-with? k key-start)))
+                          (map last))]
+            (println "Got blocks...")
+            res))
+        []))))
 
 (defn balance [db address]
   (->> (unspent-outputs db address)
